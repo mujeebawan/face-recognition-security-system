@@ -3,15 +3,18 @@ Face recognition and enrollment API endpoints.
 """
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Form
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import cv2
 import numpy as np
 import logging
 from datetime import datetime
 from typing import List, Optional
+import time
 
 from app.core.recognizer import FaceRecognizer
 from app.core.camera import CameraHandler
+from app.core.augmentation import FaceAugmentation
 from app.core.database import get_db
 from app.models.database import Person, FaceEmbedding, RecognitionLog
 from app.config import settings
@@ -350,3 +353,395 @@ async def delete_person(person_id: int, db: Session = Depends(get_db)):
         "success": True,
         "message": f"Person {person.name} deleted successfully"
     }
+
+
+@router.post("/enroll/multiple")
+async def enroll_person_multiple_images(
+    name: str = Form(...),
+    cnic: str = Form(...),
+    files: List[UploadFile] = File(...),
+    use_augmentation: bool = Form(True),
+    db: Session = Depends(get_db)
+):
+    """
+    Enroll a person with multiple face images for better accuracy.
+
+    Args:
+        name: Person's name
+        cnic: National ID number (unique)
+        files: List of face image files (2-10 images recommended)
+        use_augmentation: Apply augmentation to each image
+        db: Database session
+
+    Returns:
+        Enrollment result with total embeddings stored
+    """
+    try:
+        # Check if CNIC already exists
+        existing = db.query(Person).filter(Person.cnic == cnic).first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Person with CNIC {cnic} already enrolled")
+
+        if len(files) < 1:
+            raise HTTPException(status_code=400, detail="At least one image required")
+
+        if len(files) > 10:
+            raise HTTPException(status_code=400, detail="Maximum 10 images allowed")
+
+        recognizer = get_recognizer()
+        augmentor = FaceAugmentation()
+
+        # Create person record
+        person = Person(
+            name=name,
+            cnic=cnic,
+            reference_image_path=f"data/images/{cnic}_multiple"
+        )
+        db.add(person)
+        db.flush()
+
+        all_embeddings = []
+        saved_images = []
+
+        # Process each uploaded image
+        for idx, file in enumerate(files):
+            contents = await file.read()
+            nparr = np.frombuffer(contents, np.uint8)
+            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+            if image is None:
+                logger.warning(f"Invalid image file: {file.filename}")
+                continue
+
+            # Extract embedding from original
+            result = recognizer.extract_embedding(image)
+
+            if result is None:
+                logger.warning(f"No face detected in {file.filename}")
+                continue
+
+            # Store original embedding
+            embedding_data = FaceRecognizer.serialize_embedding(result.embedding)
+            face_embedding = FaceEmbedding(
+                person_id=person.id,
+                embedding=embedding_data,
+                source=f'original_{idx+1}',
+                confidence=result.confidence
+            )
+            db.add(face_embedding)
+            all_embeddings.append(result.embedding)
+
+            # Save original image
+            import os
+            os.makedirs("data/images", exist_ok=True)
+            img_path = f"data/images/{cnic}_img{idx+1}.jpg"
+            cv2.imwrite(img_path, image)
+            saved_images.append(img_path)
+
+            # Apply augmentation if requested
+            if use_augmentation and len(files) < 5:  # Only augment if few images
+                variations = augmentor.generate_variations(image, num_variations=5)
+
+                for var_idx, var_img in enumerate(variations[1:], 1):  # Skip first (original)
+                    var_result = recognizer.extract_embedding(var_img)
+
+                    if var_result is not None:
+                        var_embedding_data = FaceRecognizer.serialize_embedding(var_result.embedding)
+                        var_face_embedding = FaceEmbedding(
+                            person_id=person.id,
+                            embedding=var_embedding_data,
+                            source=f'augmented_{idx+1}_{var_idx}',
+                            confidence=var_result.confidence
+                        )
+                        db.add(var_face_embedding)
+                        all_embeddings.append(var_result.embedding)
+
+        if len(all_embeddings) == 0:
+            db.rollback()
+            raise HTTPException(status_code=400, detail="No valid faces detected in any image")
+
+        db.commit()
+
+        logger.info(f"Enrolled {name} with {len(all_embeddings)} embeddings from {len(files)} images")
+
+        return {
+            "success": True,
+            "message": f"Person {name} enrolled successfully with multiple images",
+            "person_id": person.id,
+            "cnic": cnic,
+            "images_processed": len(files),
+            "total_embeddings": len(all_embeddings),
+            "augmentation_used": use_augmentation
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error enrolling person with multiple images: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/enroll/camera")
+async def enroll_from_camera(
+    name: str = Form(...),
+    cnic: str = Form(...),
+    num_captures: int = Form(5),
+    use_augmentation: bool = Form(True),
+    db: Session = Depends(get_db)
+):
+    """
+    Enroll a person by capturing multiple images from camera.
+
+    Args:
+        name: Person's name
+        cnic: National ID number (unique)
+        num_captures: Number of frames to capture (3-10)
+        use_augmentation: Apply augmentation to captured images
+        db: Database session
+
+    Returns:
+        Enrollment result
+    """
+    try:
+        # Check if CNIC already exists
+        existing = db.query(Person).filter(Person.cnic == cnic).first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Person with CNIC {cnic} already enrolled")
+
+        if num_captures < 3 or num_captures > 10:
+            raise HTTPException(status_code=400, detail="num_captures must be between 3 and 10")
+
+        recognizer = get_recognizer()
+        augmentor = FaceAugmentation()
+        camera = CameraHandler(use_main_stream=False)
+
+        if not camera.connect():
+            raise HTTPException(status_code=503, detail="Failed to connect to camera")
+
+        # Create person record
+        person = Person(
+            name=name,
+            cnic=cnic,
+            reference_image_path=f"data/images/{cnic}_camera"
+        )
+        db.add(person)
+        db.flush()
+
+        all_embeddings = []
+        captured_frames = []
+
+        # Capture multiple frames
+        logger.info(f"Capturing {num_captures} frames for enrollment...")
+
+        for i in range(num_captures * 3):  # Capture more, keep best
+            ret, frame = camera.read_frame()
+
+            if ret and frame is not None:
+                result = recognizer.extract_embedding(frame)
+
+                if result is not None and result.confidence > 0.7:  # Good quality frame
+                    captured_frames.append((frame, result))
+
+                    if len(captured_frames) >= num_captures:
+                        break
+
+        camera.disconnect()
+
+        if len(captured_frames) == 0:
+            db.rollback()
+            raise HTTPException(status_code=400, detail="No faces detected in camera")
+
+        # Process captured frames
+        import os
+        os.makedirs("data/images", exist_ok=True)
+
+        for idx, (frame, result) in enumerate(captured_frames):
+            # Store original embedding
+            embedding_data = FaceRecognizer.serialize_embedding(result.embedding)
+            face_embedding = FaceEmbedding(
+                person_id=person.id,
+                embedding=embedding_data,
+                source=f'camera_{idx+1}',
+                confidence=result.confidence
+            )
+            db.add(face_embedding)
+            all_embeddings.append(result.embedding)
+
+            # Save captured frame
+            img_path = f"data/images/{cnic}_camera{idx+1}.jpg"
+            cv2.imwrite(img_path, frame)
+
+            # Apply augmentation
+            if use_augmentation and len(captured_frames) < 5:
+                variations = augmentor.generate_variations(frame, num_variations=3)
+
+                for var_idx, var_img in enumerate(variations[1:], 1):
+                    var_result = recognizer.extract_embedding(var_img)
+
+                    if var_result is not None:
+                        var_embedding_data = FaceRecognizer.serialize_embedding(var_result.embedding)
+                        var_face_embedding = FaceEmbedding(
+                            person_id=person.id,
+                            embedding=var_embedding_data,
+                            source=f'camera_aug_{idx+1}_{var_idx}',
+                            confidence=var_result.confidence
+                        )
+                        db.add(var_face_embedding)
+                        all_embeddings.append(var_result.embedding)
+
+        db.commit()
+
+        logger.info(f"Enrolled {name} from camera with {len(all_embeddings)} embeddings")
+
+        return {
+            "success": True,
+            "message": f"Person {name} enrolled from camera successfully",
+            "person_id": person.id,
+            "cnic": cnic,
+            "frames_captured": len(captured_frames),
+            "total_embeddings": len(all_embeddings),
+            "augmentation_used": use_augmentation
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error enrolling from camera: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def generate_video_stream(db: Session):
+    """
+    Generate MJPEG video stream with real-time face recognition.
+
+    Yields:
+        JPEG frames with recognition overlay
+    """
+    recognizer = get_recognizer()
+    camera = CameraHandler(use_main_stream=False)
+
+    if not camera.connect():
+        logger.error("Failed to connect to camera for streaming")
+        return
+
+    # Load all enrolled persons and embeddings
+    all_embeddings = db.query(FaceEmbedding).all()
+
+    if len(all_embeddings) == 0:
+        logger.warning("No enrolled persons in database")
+
+    # Build embedding database
+    db_embeddings = []
+    person_ids = []
+
+    for emb in all_embeddings:
+        embedding_vec = FaceRecognizer.deserialize_embedding(emb.embedding)
+        db_embeddings.append(embedding_vec)
+        person_ids.append(emb.person_id)
+
+    logger.info(f"Streaming started with {len(db_embeddings)} embeddings from {len(set(person_ids))} persons")
+
+    frame_count = 0
+
+    try:
+        while True:
+            ret, frame = camera.read_frame()
+
+            if not ret or frame is None:
+                logger.warning("Failed to read frame from camera")
+                time.sleep(0.1)
+                continue
+
+            frame_count += 1
+
+            # Skip frames for performance (process every 2nd frame)
+            if frame_count % 2 != 0:
+                # Encode and yield original frame
+                _, buffer = cv2.imencode('.jpg', frame)
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+                continue
+
+            # Extract embedding from current frame
+            result = recognizer.extract_embedding(frame)
+
+            if result is not None and len(db_embeddings) > 0:
+                # Match against database
+                best_idx, similarity = recognizer.match_face(
+                    result.embedding,
+                    db_embeddings,
+                    threshold=settings.face_recognition_threshold
+                )
+
+                # Draw bounding box
+                bbox = result.bbox
+                x, y, w, h = bbox
+
+                if best_idx >= 0:
+                    # Known person
+                    person_id = person_ids[best_idx]
+                    person = db.query(Person).filter(Person.id == person_id).first()
+
+                    # Green box for known
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+                    # Label with name
+                    label = f"Known: {person.name}"
+                    conf_label = f"Conf: {similarity:.2f}"
+
+                    # Background for text
+                    cv2.rectangle(frame, (x, y - 40), (x + w, y), (0, 255, 0), -1)
+                    cv2.putText(frame, label, (x + 5, y - 25),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+                    cv2.putText(frame, conf_label, (x + 5, y - 5),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                else:
+                    # Unknown person
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+
+                    label = "Unknown Person"
+                    conf_label = f"Sim: {similarity:.2f}"
+
+                    # Red background for unknown
+                    cv2.rectangle(frame, (x, y - 40), (x + w, y), (0, 0, 255), -1)
+                    cv2.putText(frame, label, (x + 5, y - 25),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    cv2.putText(frame, conf_label, (x + 5, y - 5),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+            elif result is not None:
+                # Face detected but no database
+                bbox = result.bbox
+                x, y, w, h = bbox
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
+                cv2.putText(frame, "No enrolled persons", (x + 5, y - 10),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+
+            # Encode frame to JPEG
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+            # Yield frame in MJPEG format
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+
+    except GeneratorExit:
+        logger.info("Streaming stopped by client")
+    finally:
+        camera.disconnect()
+        logger.info("Camera disconnected")
+
+
+@router.get("/stream/live")
+async def live_stream(db: Session = Depends(get_db)):
+    """
+    Live video stream with real-time face recognition overlay.
+
+    Returns:
+        MJPEG video stream showing Known/Unknown labels
+    """
+    return StreamingResponse(
+        generate_video_stream(db),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )

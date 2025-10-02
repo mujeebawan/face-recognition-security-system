@@ -5,7 +5,10 @@ FastAPI server for face detection and recognition.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import logging
+import os
 from app.config import settings
 from app.api.routes import detection, recognition
 
@@ -32,6 +35,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files
+static_path = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_path):
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # Include routers
 app.include_router(detection.router)
@@ -64,8 +72,16 @@ async def root():
         "message": "Face Recognition Security System API",
         "version": "0.1.0",
         "status": "running",
-        "docs": "/docs"
+        "docs": "/docs",
+        "live_stream": "/live"
     }
+
+
+@app.get("/live")
+async def live_viewer():
+    """Serve live stream viewer HTML page"""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "live_stream.html")
+    return FileResponse(html_path)
 
 
 @app.get("/health")
