@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from app.config import settings
-from app.api.routes import detection
+from app.api.routes import detection, recognition
 
 # Configure logging
 logging.basicConfig(
@@ -35,6 +35,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(detection.router)
+app.include_router(recognition.router)
 
 
 @app.on_event("startup")
