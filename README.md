@@ -1,6 +1,6 @@
 # Face Recognition Security System
 
-AI-powered face recognition system for security applications using Hikvision IP camera on NVIDIA Jetson AGX Orin.
+face recognition system for security applications using Hikvision IP camera on NVIDIA Jetson AGX Orin.
 
 ## 🎯 Project Overview
 
