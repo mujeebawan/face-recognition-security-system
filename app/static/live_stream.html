@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition Live Stream</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .stream-container {
+            position: relative;
+            width: 100%;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 500px;
+        }
+
+        #videoStream {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .loading {
+            position: absolute;
+            color: white;
+            font-size: 1.2em;
+            text-align: center;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .controls {
+            padding: 20px 30px;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .button-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .button-secondary {
+            background: #e5e7eb;
+            color: #333;
+        }
+
+        .button-secondary:hover {
+            background: #d1d5db;
+        }
+
+        .info-panel {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .info-card {
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-label {
+            font-size: 0.9em;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .legend {
+            padding: 20px 30px;
+            background: #fafafa;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .legend h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .legend-items {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-box {
+            width: 40px;
+            height: 30px;
+            border: 2px solid;
+            border-radius: 4px;
+        }
+
+        .legend-box.known {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .legend-box.unknown {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 Face Recognition System</h1>
+            <p>Real-time Person Detection & Recognition</p>
+        </div>
+
+        <div class="stream-container">
+            <div class="loading" id="loadingText">Loading stream</div>
+            <img id="videoStream" style="display: none;" alt="Live video stream">
+        </div>
+
+        <div class="controls">
+            <div class="status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span class="status-text" id="statusText">Live</span>
+            </div>
+            <div>
+                <button class="button button-primary" onclick="reloadStream()">🔄 Reload Stream</button>
+                <button class="button button-secondary" onclick="window.location.href='/docs'">📋 API Docs</button>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-label">Stream URL</div>
+                    <div class="info-value" style="font-size: 0.9em;">/api/stream/live</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Detection Model</div>
+                    <div class="info-value" style="font-size: 1em;">InsightFace</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Camera Source</div>
+                    <div class="info-value" style="font-size: 1em;">Hikvision RTSP</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <h3>Detection Legend</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-box known"></div>
+                    <span><strong>Green Box:</strong> Known Person (Recognized)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box unknown"></div>
+                    <span><strong>Red Box:</strong> Unknown Person</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const streamImg = document.getElementById('videoStream');
+        const loadingText = document.getElementById('loadingText');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+
+        function startStream() {
+            const streamUrl = '/api/stream/live';
+
+            streamImg.onload = function() {
+                loadingText.style.display = 'none';
+                streamImg.style.display = 'block';
+                statusText.textContent = 'Live';
+                statusIndicator.style.background = '#4ade80';
+            };
+
+            streamImg.onerror = function() {
+                loadingText.textContent = 'Stream error. Click reload to retry.';
+                statusText.textContent = 'Error';
+                statusIndicator.style.background = '#ef4444';
+            };
+
+            streamImg.src = streamUrl;
+        }
+
+        function reloadStream() {
+            streamImg.style.display = 'none';
+            loadingText.style.display = 'block';
+            loadingText.textContent = 'Loading stream';
+
+            // Add cache buster to force reload
+            const streamUrl = '/api/stream/live?t=' + new Date().getTime();
+            streamImg.src = streamUrl;
+        }
+
+        // Start stream on page load
+        window.onload = startStream;
+
+        // Detect if stream stops
+        let lastUpdate = Date.now();
+        streamImg.addEventListener('load', () => {
+            lastUpdate = Date.now();
+        });
+
+        setInterval(() => {
+            const timeSinceUpdate = Date.now() - lastUpdate;
+            if (timeSinceUpdate > 5000) {
+                statusText.textContent = 'Disconnected';
+                statusIndicator.style.background = '#f59e0b';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
