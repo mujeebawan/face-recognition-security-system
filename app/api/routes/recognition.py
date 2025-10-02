@@ -13,6 +13,7 @@ from typing import List, Optional
 import time
 
 from app.core.recognizer import FaceRecognizer
+from app.core.detector import FaceDetector
 from app.core.camera import CameraHandler
 from app.core.augmentation import FaceAugmentation
 from app.core.database import get_db
@@ -615,10 +616,12 @@ async def enroll_from_camera(
 def generate_video_stream(db: Session):
     """
     Generate MJPEG video stream with real-time face recognition.
+    Uses MediaPipe for fast detection, InsightFace only for recognition.
 
     Yields:
         JPEG frames with recognition overlay
     """
+    detector = FaceDetector()
     recognizer = get_recognizer()
     camera = CameraHandler(use_main_stream=False)
 
@@ -644,6 +647,8 @@ def generate_video_stream(db: Session):
     logger.info(f"Streaming started with {len(db_embeddings)} embeddings from {len(set(person_ids))} persons")
 
     frame_count = 0
+    last_recognition = {}  # Cache last recognition per face
+    last_detection_bbox = None  # Cache last detection bbox
 
     try:
         while True:
@@ -656,71 +661,105 @@ def generate_video_stream(db: Session):
 
             frame_count += 1
 
-            # Skip frames for performance (process every 2nd frame)
+            # Skip frames to reduce processing load (process every 2nd frame)
             if frame_count % 2 != 0:
-                # Encode and yield original frame
-                _, buffer = cv2.imencode('.jpg', frame)
+                # Use cached detection for skipped frames
+                if last_detection_bbox is not None and last_recognition and 'best_idx' in last_recognition:
+                    x, y, w, h = last_detection_bbox
+                    best_idx = last_recognition['best_idx']
+                    similarity = last_recognition['similarity']
+
+                    if best_idx >= 0:
+                        person_id = last_recognition['person_id']
+                        person = db.query(Person).filter(Person.id == person_id).first()
+
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                        cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
+                        cv2.putText(frame, f"KNOWN: {person.name}", (x + 5, y - 28),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                        cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                    else:
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                        cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
+                        cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                # Encode and yield quickly
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
                 continue
 
-            # Extract embedding from current frame
-            result = recognizer.extract_embedding(frame)
+            # Use MediaPipe for fast face detection on processed frames
+            detections = detector.detect_faces(frame)
 
-            if result is not None and len(db_embeddings) > 0:
-                # Match against database
-                best_idx, similarity = recognizer.match_face(
-                    result.embedding,
-                    db_embeddings,
-                    threshold=settings.face_recognition_threshold
-                )
-
-                # Draw bounding box
-                bbox = result.bbox
+            if detections and len(detections) > 0:
+                # Face detected with MediaPipe
+                detection = detections[0]  # First face
+                bbox = detection.bbox
                 x, y, w, h = bbox
 
-                if best_idx >= 0:
-                    # Known person
-                    person_id = person_ids[best_idx]
-                    person = db.query(Person).filter(Person.id == person_id).first()
+                # Cache bbox for skipped frames
+                last_detection_bbox = (x, y, w, h)
 
-                    # Green box for known
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                # Only run recognition every 10th frame
+                if frame_count % 20 == 0 and len(db_embeddings) > 0:
+                    # Use InsightFace for recognition
+                    result = recognizer.extract_embedding(frame)
 
-                    # Label with name
-                    label = f"Known: {person.name}"
-                    conf_label = f"Conf: {similarity:.2f}"
+                    if result is not None:
+                        best_idx, similarity = recognizer.match_face(
+                            result.embedding,
+                            db_embeddings,
+                            threshold=settings.face_recognition_threshold
+                        )
 
-                    # Background for text
-                    cv2.rectangle(frame, (x, y - 40), (x + w, y), (0, 255, 0), -1)
-                    cv2.putText(frame, label, (x + 5, y - 25),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
-                    cv2.putText(frame, conf_label, (x + 5, y - 5),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                        # Cache result
+                        last_recognition = {
+                            'best_idx': best_idx,
+                            'similarity': similarity,
+                            'person_id': person_ids[best_idx] if best_idx >= 0 else None
+                        }
+
+                # Draw box with cached or current recognition
+                if last_recognition and 'best_idx' in last_recognition:
+                    best_idx = last_recognition['best_idx']
+                    similarity = last_recognition['similarity']
+
+                    if best_idx >= 0:
+                        # Known person
+                        person_id = last_recognition['person_id']
+                        person = db.query(Person).filter(Person.id == person_id).first()
+
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                        cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
+                        cv2.putText(frame, f"KNOWN: {person.name}", (x + 5, y - 28),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                        cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                    else:
+                        # Unknown person
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                        cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
+                        cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                 else:
-                    # Unknown person
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-
-                    label = "Unknown Person"
-                    conf_label = f"Sim: {similarity:.2f}"
-
-                    # Red background for unknown
-                    cv2.rectangle(frame, (x, y - 40), (x + w, y), (0, 0, 255), -1)
-                    cv2.putText(frame, label, (x + 5, y - 25),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                    cv2.putText(frame, conf_label, (x + 5, y - 5),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-            elif result is not None:
-                # Face detected but no database
-                bbox = result.bbox
-                x, y, w, h = bbox
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
-                cv2.putText(frame, "No enrolled persons", (x + 5, y - 10),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+                    # Just detected, no recognition yet
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
+                    cv2.putText(frame, "Detecting...", (x + 5, y - 10),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            else:
+                # No face detected - clear cache
+                last_recognition = {}
+                last_detection_bbox = None
 
             # Encode frame to JPEG
-            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
             # Yield frame in MJPEG format
             yield (b'--frame\r\n'
