@@ -8,9 +8,16 @@
 
 ## 🎯 Project Overview
 
-**Purpose**: Security face recognition system using Hikvision IP camera on NVIDIA Jetson AGX Orin
-**Primary Use Case**: Identify and alert on KNOWN persons (like employees, family members)
-**Current Configuration**: Alerts trigger when KNOWN persons are detected
+**Purpose**: Law Enforcement Agency (LEA) system for detecting wanted persons at airports, toll plazas, and public areas
+**Primary Use Case**: Detect wanted persons from NADRA database and alert authorities in real-time
+**Current Configuration**: Alerts trigger when WANTED PERSONS (enrolled in database) are detected
+
+**⚠️ CRITICAL TERMINOLOGY**:
+- **"Known Person"** in code = **WANTED PERSON** in LEA context
+- **"Unknown Person"** in code = **Regular citizen / Not in database**
+- **"Enrollment"** = **Adding to wanted persons watch list**
+
+**📋 Full LEA Use Case**: See `LEA_USE_CASE.md` for complete requirements and deployment scenarios
 
 ---
 
@@ -18,14 +25,18 @@
 
 ### Alert System Behavior (IMPORTANT!)
 
-**🔔 ALERTS ARE CONFIGURED FOR KNOWN PERSONS**
+**🔔 ALERTS ARE CONFIGURED FOR WANTED PERSONS (LEA MODE)**
 
-- ✅ **Alert on KNOWN persons**: `True` (Mujeeb, Safyan)
-- ❌ **Alert on UNKNOWN persons**: `False` (disabled)
-- ⏱️ **Cooldown**: 60 seconds between alerts
-- 📸 **Snapshot**: Enabled (saves image with each alert)
+- ✅ **Alert on KNOWN persons**: `True` → **WANTED PERSONS** (enrolled in database)
+- ❌ **Alert on UNKNOWN persons**: `False` → Regular citizens (not in database - ignored)
+- ⏱️ **Cooldown**: 60 seconds between alerts (prevents spam from moving persons)
+- 📸 **Snapshot**: Enabled (saves evidence photo with each alert)
 
-**Why?** The system is configured to alert when recognized persons (Mujeeb, Safyan) appear, not when unknown people appear.
+**LEA Context**:
+- System alerts when a **wanted person** (enrolled in database) is detected
+- **Does NOT alert** for random people walking by
+- **Currently enrolled**: Mujeeb, Safyan (test wanted persons)
+- **Production**: Would have 1000-10000 wanted persons from NADRA database
 
 **Location**: `app/core/alerts.py` line 39-40
 ```python

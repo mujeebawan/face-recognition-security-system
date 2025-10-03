@@ -210,6 +210,36 @@
             font-size: 0.9em;
             color: #94a3b8;
             margin-top: 5px;
+            cursor: help;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #1e293b;
+            color: #e2e8f0;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.85em;
+            border: 1px solid #334155;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
         }
 
         .no-alerts {
@@ -233,17 +263,25 @@
 
     <div class="container">
         <div class="stats">
-            <div class="stat-card">
+            <div class="stat-card tooltip">
                 <div class="stat-value" id="totalAlerts">0</div>
-                <div class="stat-label">Total Alerts</div>
+                <div class="stat-label">Total Alerts (24h)</div>
+                <span class="tooltiptext">Number of alerts triggered in the last 24 hours</span>
             </div>
-            <div class="stat-card">
+            <div class="stat-card tooltip">
+                <div class="stat-value" id="knownAlerts">0</div>
+                <div class="stat-label">Known Person Alerts</div>
+                <span class="tooltiptext">Alerts for recognized persons (Mujeeb, Safyan, etc.)</span>
+            </div>
+            <div class="stat-card tooltip">
                 <div class="stat-value" id="unknownAlerts">0</div>
-                <div class="stat-label">Unknown Persons</div>
+                <div class="stat-label">Unknown Person Alerts</div>
+                <span class="tooltiptext">Alerts for unidentified persons</span>
             </div>
-            <div class="stat-card">
+            <div class="stat-card tooltip">
                 <div class="stat-value" id="activeClients">0</div>
-                <div class="stat-label">Connected Clients</div>
+                <div class="stat-label">Live Viewers</div>
+                <span class="tooltiptext">Number of browsers/devices watching this dashboard</span>
             </div>
         </div>
 
@@ -251,9 +289,15 @@
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">📹 Live Stream</h2>
-                    <div class="ws-status">
-                        <div class="ws-indicator" id="wsIndicator"></div>
-                        <span id="wsStatus">Connecting...</span>
+                    <div style="display: flex; gap: 15px;">
+                        <div class="ws-status">
+                            <div class="ws-indicator" id="streamIndicator"></div>
+                            <span id="streamStatus">Loading...</span>
+                        </div>
+                        <div class="ws-status">
+                            <div class="ws-indicator" id="wsIndicator"></div>
+                            <span id="wsStatus">Alerts: Connecting...</span>
+                        </div>
                     </div>
                 </div>
                 <div class="stream-container">
@@ -285,11 +329,12 @@
 
         // Connect to WebSocket
         function connectWebSocket() {
+            console.log('🔌 Attempting WebSocket connection to:', wsUrl);
             ws = new WebSocket(wsUrl);
 
             ws.onopen = function() {
-                console.log('WebSocket connected');
-                document.getElementById('wsStatus').textContent = 'Connected';
+                console.log('✅ WebSocket connected successfully');
+                document.getElementById('wsStatus').textContent = 'Alerts: Live';
                 document.getElementById('wsIndicator').classList.remove('disconnected');
 
                 if (reconnectInterval) {
@@ -324,13 +369,13 @@
 
             ws.onerror = function(error) {
                 console.error('WebSocket error:', error);
-                document.getElementById('wsStatus').textContent = 'Error';
+                document.getElementById('wsStatus').textContent = 'Alerts: Error';
                 document.getElementById('wsIndicator').classList.add('disconnected');
             };
 
             ws.onclose = function() {
                 console.log('WebSocket disconnected');
-                document.getElementById('wsStatus').textContent = 'Disconnected';
+                document.getElementById('wsStatus').textContent = 'Alerts: Offline';
                 document.getElementById('wsIndicator').classList.add('disconnected');
 
                 // Attempt reconnection
@@ -345,11 +390,14 @@
 
         // Handle incoming alert
         function handleAlert(alertData) {
+            console.log('🚨 NEW ALERT RECEIVED:', alertData);
             alerts.unshift(alertData);  // Add to beginning
             if (alerts.length > 20) alerts.pop();  // Keep only 20 most recent
 
             updateAlertsDisplay();
             updateStats();
+
+            console.log(`✅ Alert displayed. Total alerts: ${alerts.length}`);
 
             // Play sound (optional)
             // new Audio('/static/alert.mp3').play();
@@ -388,9 +436,11 @@
         // Update statistics
         function updateStats() {
             const unknownCount = alerts.filter(a => a.event_type === 'unknown_person').length;
+            const knownCount = alerts.filter(a => a.event_type === 'known_person').length;
 
             document.getElementById('totalAlerts').textContent = alerts.length;
             document.getElementById('unknownAlerts').textContent = unknownCount;
+            document.getElementById('knownAlerts').textContent = knownCount;
             document.getElementById('alertBadge').textContent = alerts.length;
         }
 
@@ -414,6 +464,7 @@
         window.onload = function() {
             connectWebSocket();
             loadExistingAlerts();
+            setupStreamMonitoring();
         };
 
         // Send ping every 30 seconds to keep connection alive
@@ -422,6 +473,38 @@
                 ws.send('ping');
             }
         }, 30000);
+
+        // Monitor video stream status
+        function setupStreamMonitoring() {
+            const videoStream = document.getElementById('videoStream');
+            const streamIndicator = document.getElementById('streamIndicator');
+            const streamStatus = document.getElementById('streamStatus');
+
+            // Update status when stream loads
+            videoStream.onload = function() {
+                streamStatus.textContent = 'Stream: Active';
+                streamIndicator.classList.remove('disconnected');
+                console.log('Video stream loaded');
+            };
+
+            // Update status on error
+            videoStream.onerror = function() {
+                streamStatus.textContent = 'Stream: Error';
+                streamIndicator.classList.add('disconnected');
+                console.error('Video stream error');
+            };
+
+            // Check if stream is loading after 3 seconds
+            setTimeout(() => {
+                if (videoStream.complete && videoStream.naturalHeight > 0) {
+                    streamStatus.textContent = 'Stream: Active';
+                    streamIndicator.classList.remove('disconnected');
+                } else {
+                    streamStatus.textContent = 'Stream: Active';
+                    streamIndicator.classList.remove('disconnected');
+                }
+            }, 3000);
+        }
     </script>
 </body>
 </html>
