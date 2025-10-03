@@ -240,6 +240,7 @@ class AlertManager:
         """
         try:
             from app.core.websocket_manager import manager
+            import threading
 
             # Prepare alert data for broadcast
             alert_data = {
@@ -254,24 +255,34 @@ class AlertManager:
                 'acknowledged': alert.acknowledged
             }
 
+            logger.info(f"📡 Preparing to broadcast alert {alert.id} (Type: {alert.event_type})")
+            logger.info(f"📡 Active WebSocket connections: {len(manager.active_connections)}")
+
             # Run async broadcast in event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            def run_broadcast():
+                try:
+                    # Get or create event loop for this thread
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_closed():
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                    except RuntimeError:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
 
-            if loop.is_running():
-                # Schedule coroutine if loop is already running
-                asyncio.create_task(manager.broadcast_alert(alert_data))
-            else:
-                # Run in new loop if no loop is running
-                loop.run_until_complete(manager.broadcast_alert(alert_data))
+                    # Run broadcast
+                    loop.run_until_complete(manager.broadcast_alert(alert_data))
+                    logger.info(f"✅ Alert {alert.id} broadcast via WebSocket successfully")
+                except Exception as e:
+                    logger.error(f"❌ Error in broadcast thread: {e}", exc_info=True)
 
-            logger.info(f"Alert {alert.id} broadcast via WebSocket")
+            # Run in separate thread to avoid blocking
+            broadcast_thread = threading.Thread(target=run_broadcast, daemon=True)
+            broadcast_thread.start()
 
         except Exception as e:
-            logger.error(f"Failed to broadcast alert via WebSocket: {e}")
+            logger.error(f"❌ Failed to broadcast alert via WebSocket: {e}", exc_info=True)
 
     def get_active_alerts(self, db: Session, limit: int = 50) -> List[Alert]:
         """
