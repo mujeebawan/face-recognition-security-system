@@ -112,55 +112,144 @@ Camera credentials are stored in `.env` file (not committed to git).
 
 ## 📊 Development Phases
 
-See [PROJECT_PLAN.md](PROJECT_PLAN.md) for detailed development roadmap:
+See [PROJECT_PLAN.md](PROJECT_PLAN.md) and [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) for detailed development roadmap and progress:
 
-1. ✅ **Phase 1**: Environment Setup & Infrastructure
-2. ⏳ **Phase 2**: Face Detection Pipeline
-3. ⏳ **Phase 3**: Face Recognition Core
-4. ⏳ **Phase 4**: Single Image Enhancement (Diffusion Models)
-5. ⏳ **Phase 5**: Database Integration
-6. ⏳ **Phase 6**: Real-time Recognition System
-7. ⏳ **Phase 7**: Optimization for Jetson AGX Orin
-8. ⏳ **Phase 8**: Security & Production Features
-9. ⏳ **Phase 9**: UI/Frontend (Optional)
+1. ✅ **Phase 1**: Environment Setup & Infrastructure - **COMPLETE**
+   - FastAPI application with CORS middleware
+   - SQLite database with SQLAlchemy ORM
+   - Hikvision IP camera RTSP integration
+   - Configuration management with Pydantic
+
+2. ✅ **Phase 2**: Face Detection Pipeline - **COMPLETE**
+   - MediaPipe face detection integration
+   - Real-time face detection from camera feed
+   - API endpoints for detection
+   - Bounding box and landmark visualization
+
+3. ✅ **Phase 3**: Face Recognition Core - **COMPLETE**
+   - InsightFace (ArcFace) integration
+   - 512-D face embedding extraction
+   - Person enrollment and recognition APIs
+   - Database storage for embeddings
+   - Recognition audit logging
+
+4. ✅ **Phase 4A**: Multi-Image Enrollment & Live Streaming - **COMPLETE**
+   - Traditional image augmentation (rotation, brightness, contrast)
+   - Multi-image enrollment endpoint (1-10 images)
+   - Camera-based enrollment endpoint
+   - Live MJPEG video stream with real-time recognition
+   - Web UI for live stream viewing
+   - Multiple face detection and recognition
+
+5. ⚠️ **Phase 5**: GPU Acceleration & Optimization - **PARTIALLY COMPLETE**
+   - ✅ CPU optimizations (MediaPipe + frame skipping)
+   - ✅ Two-stage processing pipeline (fast detection + slow recognition)
+   - ✅ Performance improved to ~10-15 FPS
+   - ❌ GPU acceleration blocked (GLIBC incompatibility with onnxruntime-gpu)
+   - Current: CPU-only processing with optimized pipeline
+
+6. ⏳ **Phase 4B**: Advanced Augmentation - **PENDING**
+   - Diffusion model integration (Stable Diffusion + ControlNet)
+   - Synthetic face generation for pose variation
+   - GAN-based augmentation
+
+7. ⏳ **Phase 6**: Real-time Recognition Enhancement - **PARTIALLY COMPLETE**
+   - ✅ Live video stream with recognition
+   - ⏳ Multi-client streaming support
+   - ⏳ Alert system for unknown persons
+   - ⏳ Recognition confidence tuning interface
+
+8. ⏳ **Phase 7**: Production Optimization - **PENDING**
+   - TensorRT model conversion (when GPU available)
+   - Advanced caching strategies
+   - Database query optimization
+   - PostgreSQL migration
+
+9. ⏳ **Phase 8**: Security & Production Features - **PENDING**
+   - JWT-based authentication
+   - API rate limiting
+   - Data encryption for embeddings
+   - Backup and recovery system
+
+10. ⏳ **Phase 9**: UI/Frontend - **BASIC COMPLETE**
+    - ✅ Basic live stream viewer
+    - ⏳ Full-featured admin dashboard
+    - ⏳ Person management interface
+    - ⏳ Recognition history viewer
 
 ## 🔌 API Endpoints
 
-### Health Check
+### System Endpoints
 ```bash
-GET /health
+GET  /                       # API information
+GET  /health                 # Health check
+GET  /docs                   # Swagger UI documentation
+GET  /live                   # Live stream web viewer
 ```
 
 ### Face Detection
 ```bash
-POST /api/detect-faces
+POST /api/detect-faces       # Detect faces in uploaded image
+GET  /api/camera/snapshot    # Capture frame with optional detection overlay
+GET  /api/camera/detect      # Quick face detection from camera
 ```
 
 ### Face Enrollment
 ```bash
+# Single image enrollment
 POST /api/enroll
 Body: {
   "name": "John Doe",
   "cnic": "12345-1234567-1",
   "image": "base64_encoded_image"
 }
+
+# Multi-image enrollment (1-10 images)
+POST /api/enroll/multiple
+Form Data:
+  - name: string
+  - cnic: string
+  - files: List[UploadFile]
+  - use_augmentation: boolean (default: true)
+
+# Camera-based enrollment (captures multiple frames)
+POST /api/enroll/camera
+Body: {
+  "name": "John Doe",
+  "cnic": "12345-1234567-1",
+  "num_captures": 5,           # 3-10 frames
+  "use_augmentation": true
+}
 ```
 
 ### Face Recognition
 ```bash
+# Recognize from uploaded image
 POST /api/recognize
 Body: {
   "image": "base64_encoded_image"
 }
+
+# Recognize from camera
+GET /api/recognize/camera
+```
+
+### Live Video Stream
+```bash
+# MJPEG video stream with real-time recognition
+GET /api/stream/live
+# Returns: multipart/x-mixed-replace MJPEG stream
+# Features:
+#   - Real-time face detection and recognition
+#   - Green boxes for known persons
+#   - Red boxes for unknown persons
+#   - Confidence scores displayed
 ```
 
 ### Person Management
 ```bash
-GET    /api/persons          # List all persons
-GET    /api/persons/{id}     # Get person by ID
-POST   /api/persons          # Create person
-PUT    /api/persons/{id}     # Update person
-DELETE /api/persons/{id}     # Delete person
+GET    /api/persons          # List all enrolled persons
+DELETE /api/persons/{id}     # Delete person (cascade deletes embeddings)
 ```
 
 ## 🔐 Security Considerations
@@ -181,12 +270,26 @@ pytest
 pytest --cov=app tests/
 ```
 
-## 📈 Performance Targets
+## 📈 Performance Metrics
 
+### Current Performance (CPU-Optimized)
+- **Live Stream FPS**: ~10-15 FPS
+- **Face Detection**: ~5-10ms per frame (MediaPipe)
+- **Face Recognition**: ~300-400ms per frame (InsightFace, CPU)
+- **Recognition Frequency**: Every 20th frame
+- **Frame Processing**: Every 2nd frame (50% skip rate)
+- **Multi-Face Support**: Yes (IoU-based matching)
+
+### Target Performance (GPU-Accelerated)
 - **Face Detection**: >20 FPS
 - **Recognition Latency**: <100ms
 - **GPU Utilization**: >80%
-- **Accuracy**: >95% with single image augmentation
+- **Accuracy**: >95% with multi-image augmentation
+
+### Known Limitations
+- GPU acceleration blocked by GLIBC incompatibility (JetPack 5.1.2)
+- Single camera stream (concurrent access limited)
+- CPU-only processing currently in use
 
 ## 🤝 Contributing
 
