@@ -72,9 +72,12 @@ class CameraHandler:
             self.is_connected = False
             logger.info("Camera disconnected")
 
-    def read_frame(self) -> Tuple[bool, Optional[np.ndarray]]:
+    def read_frame(self, crop_osd: bool = True) -> Tuple[bool, Optional[np.ndarray]]:
         """
         Read a single frame from the camera.
+
+        Args:
+            crop_osd: If True, crop top region to remove camera OSD text overlay
 
         Returns:
             Tuple of (success, frame)
@@ -87,6 +90,12 @@ class CameraHandler:
             ret, frame = self.capture.read()
             if ret:
                 self.frame_count += 1
+
+                # Crop OSD overlay from top
+                if crop_osd and frame is not None:
+                    # Crop 65 pixels from top to remove camera OSD text
+                    frame = frame[65:, :]
+
                 return True, frame
             else:
                 logger.warning("Failed to read frame from camera")

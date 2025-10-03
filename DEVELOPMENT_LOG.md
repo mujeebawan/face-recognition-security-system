@@ -1838,7 +1838,172 @@ self.app = FaceAnalysis(
 
 ---
 
+## Session 2: Bug Fixes and Multi-Face Recognition
+**Date**: October 3, 2025
+**Duration**: ~45 minutes
+**Status**: ✅ Complete
+
+### 6.1 Camera OSD Cropping Fix
+
+#### Issue 6.1: Chinese Text Overlay
+- **Problem**: Hikvision camera displays Chinese text overlay at top of frame
+- **Previous Solution**: Black rectangle overlay (0,0) to (250,50)
+- **Issue with Previous Solution**: Black box looks unprofessional, blocks frame content
+- **User Request**: Crop the frame instead of covering with black box
+
+#### What We Did:
+**Modified**: `app/core/camera.py`
+- Changed from `cv2.rectangle()` overlay to actual frame cropping
+- Cropped 65 pixels from top: `frame = frame[65:, :]`
+- This completely removes the OSD text region from the image
+
+**Code Changes** (`camera.py:95-97`):
+```python
+# Before:
+cv2.rectangle(frame, (0, 0), (250, 50), (0, 0, 0), -1)
+
+# After:
+frame = frame[65:, :]  # Crop 65 pixels from top
+```
+
+**Iterations**:
+1. Initial crop: 60 pixels
+2. Adjusted to 63 pixels (user feedback: "needs 3 more")
+3. Final: 65 pixels (user confirmed correct)
+
+**Result**: ✅ Clean frames without Chinese text, no black overlay
+
+---
+
+### 6.2 Multiple Face Recognition Bug
+
+#### Issue 6.2: Face Name Swapping
+- **Problem**: When detecting multiple faces (e.g., Mujeeb + Safyan), names get mixed up
+- **Single face**: Works correctly
+- **Multiple faces**: Names swap randomly between faces
+- **Root Cause**: MediaPipe and InsightFace return faces in different orders
+
+#### Analysis:
+The streaming code used two detection systems:
+1. **MediaPipe**: Fast face detection (draws bounding boxes)
+2. **InsightFace**: Slower but accurate recognition (extracts embeddings)
+
+**The Bug**:
+- Code was using face **index** to match detections to embeddings
+- MediaPipe might detect faces as: [Face_A, Face_B]
+- InsightFace might return faces as: [Face_B, Face_A]
+- Result: Face_A gets Face_B's name and vice versa
+
+#### What We Did:
+
+**Modified**: `app/api/routes/recognition.py`
+
+**1. Implemented IoU Matching** (lines 718-736):
+- Added `bbox_iou()` function to calculate Intersection over Union
+- Match MediaPipe detections to InsightFace embeddings by bounding box overlap
+- Minimum IoU threshold: 0.3
+
+**2. Position-Based Caching** (lines 768-773):
+- Changed from index-based keys to position-based keys
+- Cache key: `f"{x//50}_{y//50}"` (grid-based position)
+- Stores bbox in cached result for proximity matching
+- Tolerates face movement up to 100 pixels
+
+**3. Updated Recognition Loop** (lines 738-802):
+- Extract all embeddings using `extract_multiple_embeddings()`
+- Match each MediaPipe detection to InsightFace result by IoU
+- Cache recognition per face position, not index
+- Log events using position-based keys
+
+**4. Updated Drawing Logic** (lines 809-855):
+- Find cached recognition by position key
+- Fall back to proximity search if exact position changed
+- Draw correct label for each face based on spatial location
+
+**5. Updated Skipped Frame Rendering** (lines 676-724):
+- Use same position-based matching for cached frames
+- Ensures consistent labels even on non-recognition frames
+
+**Code Changes Summary**:
+```python
+# Before (WRONG - uses index):
+result = recognizer.extract_embedding(frame)  # Only gets first face!
+last_recognitions[face_idx] = {...}  # Index-based cache
+
+# After (CORRECT - matches by position):
+face_results = recognizer.extract_multiple_embeddings(frame)  # All faces
+for detection in detections:
+    # Match by bounding box IoU
+    best_match = find_by_bbox_overlap(detection, face_results)
+    face_key = f"{x//50}_{y//50}"  # Position-based key
+    last_recognitions[face_key] = {...}  # Position cache
+```
+
+**Result**: ✅ Each face now gets correct name, even with multiple people
+
+---
+
+### 6.3 Testing & Verification
+
+**Test Scenarios**:
+1. ✅ Single face (Mujeeb) - Correctly identified
+2. ✅ Single face (Safyan) - Correctly identified
+3. ✅ Multiple faces (Mujeeb + Safyan) - Both correctly identified
+4. ✅ Face movement - Labels follow correct person
+5. ✅ Skipped frames - Cached labels remain correct
+
+**Enrolled Persons**:
+- Mujeeb (CNIC in database)
+- Safyan (CNIC in database)
+
+---
+
+### 6.4 Files Modified
+
+| File | Changes | Lines Modified |
+|------|---------|----------------|
+| `app/core/camera.py` | Changed black overlay to crop | 95-97 |
+| `app/api/routes/recognition.py` | Multiple face recognition fix | 676-855 |
+
+---
+
+### 6.5 Remaining Issues
+
+**None identified in this session** - All requested features working correctly.
+
+---
+
+### 6.6 Session Summary
+
+**Accomplishments**:
+1. ✅ Camera OSD properly cropped (professional appearance)
+2. ✅ Multiple face recognition fixed (correct name per face)
+3. ✅ Position-based tracking (robust to detection order changes)
+4. ✅ Tested with 2 enrolled persons successfully
+
+**Technical Improvements**:
+- Better frame preprocessing (clean cropping)
+- Robust multi-face handling (IoU-based matching)
+- Spatial tracking (position-based caching)
+
+**Code Quality**:
+- More maintainable (clear IoU matching logic)
+- More reliable (doesn't depend on detection order)
+- Better user experience (correct labels always)
+
+**Time Spent**:
+- Camera cropping: ~5 minutes
+- Multi-face bug analysis: ~10 minutes
+- IoU matching implementation: ~20 minutes
+- Testing and verification: ~10 minutes
+- Total: ~45 minutes
+
+---
+
 **Log maintained by**: Mujeeb
-**Last updated**: October 2, 2025 - 6:15 PM
+**Last updated**: October 3, 2025
 **Current Phase**: Phase 5 ⚠️ Partially Complete (GPU Blocked) | Phase 4A ✅ Complete
-**Next Steps**: Test CPU optimizations, measure FPS, consider GPU alternatives
+**Next Steps**:
+1. Test system with more enrolled persons (10+)
+2. Performance benchmarking
+3. Consider next phase features

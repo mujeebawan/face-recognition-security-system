@@ -635,20 +635,32 @@ def generate_video_stream(db: Session):
     if len(all_embeddings) == 0:
         logger.warning("No enrolled persons in database")
 
-    # Build embedding database
+    # Build embedding database and cache person info
     db_embeddings = []
     person_ids = []
+    person_cache = {}  # Cache person info to avoid DB queries on every frame
 
     for emb in all_embeddings:
         embedding_vec = FaceRecognizer.deserialize_embedding(emb.embedding)
         db_embeddings.append(embedding_vec)
         person_ids.append(emb.person_id)
 
+        # Cache person info
+        if emb.person_id not in person_cache:
+            person = db.query(Person).filter(Person.id == emb.person_id).first()
+            if person:
+                person_cache[emb.person_id] = {
+                    'id': person.id,
+                    'name': person.name,
+                    'cnic': person.cnic
+                }
+
     logger.info(f"Streaming started with {len(db_embeddings)} embeddings from {len(set(person_ids))} persons")
 
     frame_count = 0
-    last_recognition = {}  # Cache last recognition per face
-    last_detection_bbox = None  # Cache last detection bbox
+    last_recognitions = {}  # Cache last recognition per face (dict keyed by face index)
+    last_detections = []  # Cache last detection bboxes
+    last_logged = {}  # Track when each person was last logged (person_id: timestamp)
 
     try:
         while True:
@@ -663,29 +675,47 @@ def generate_video_stream(db: Session):
 
             # Skip frames to reduce processing load (process every 2nd frame)
             if frame_count % 2 != 0:
-                # Use cached detection for skipped frames
-                if last_detection_bbox is not None and last_recognition and 'best_idx' in last_recognition:
-                    x, y, w, h = last_detection_bbox
-                    best_idx = last_recognition['best_idx']
-                    similarity = last_recognition['similarity']
+                # Use cached detections for skipped frames
+                for bbox in last_detections:
+                    x, y, w, h = bbox
 
-                    if best_idx >= 0:
-                        person_id = last_recognition['person_id']
-                        person = db.query(Person).filter(Person.id == person_id).first()
+                    # Find matching cached recognition by position
+                    face_key = f"{x//50}_{y//50}"
+                    recog = None
 
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-                        cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
-                        cv2.putText(frame, f"KNOWN: {person.name}", (x + 5, y - 28),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-                        cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                    if face_key in last_recognitions:
+                        recog = last_recognitions[face_key]
                     else:
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
-                        cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
-                        cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                        cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        # Try nearby positions
+                        for cached_key, cached_recog in last_recognitions.items():
+                            cached_bbox = cached_recog.get('bbox')
+                            if cached_bbox:
+                                cached_x, cached_y, cached_w, cached_h = cached_bbox
+                                if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
+                                    recog = cached_recog
+                                    break
+
+                    if recog:
+                        best_idx = recog['best_idx']
+                        similarity = recog['similarity']
+
+                        if best_idx >= 0:
+                            person_id = recog['person_id']
+                            person_info = person_cache.get(person_id, {'name': 'Unknown'})
+
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                            cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
+                            cv2.putText(frame, f"KNOWN: {person_info['name']}", (x + 5, y - 28),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                            cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                        else:
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                            cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
+                            cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                            cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
                 # Encode and yield quickly
                 _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
@@ -697,66 +727,154 @@ def generate_video_stream(db: Session):
             detections = detector.detect_faces(frame)
 
             if detections and len(detections) > 0:
-                # Face detected with MediaPipe
-                detection = detections[0]  # First face
-                bbox = detection.bbox
-                x, y, w, h = bbox
+                # Process all detected faces
+                current_detections = []
 
-                # Cache bbox for skipped frames
-                last_detection_bbox = (x, y, w, h)
+                # Helper function to calculate IoU (Intersection over Union) between two bboxes
+                def bbox_iou(bbox1, bbox2):
+                    x1, y1, w1, h1 = bbox1
+                    x2, y2, w2, h2 = bbox2
 
-                # Only run recognition every 10th frame
-                if frame_count % 20 == 0 and len(db_embeddings) > 0:
-                    # Use InsightFace for recognition
-                    result = recognizer.extract_embedding(frame)
+                    # Calculate intersection
+                    xi1 = max(x1, x2)
+                    yi1 = max(y1, y2)
+                    xi2 = min(x1 + w1, x2 + w2)
+                    yi2 = min(y1 + h1, y2 + h2)
 
-                    if result is not None:
-                        best_idx, similarity = recognizer.match_face(
-                            result.embedding,
-                            db_embeddings,
-                            threshold=settings.face_recognition_threshold
-                        )
+                    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
 
-                        # Cache result
-                        last_recognition = {
-                            'best_idx': best_idx,
-                            'similarity': similarity,
-                            'person_id': person_ids[best_idx] if best_idx >= 0 else None
-                        }
+                    # Calculate union
+                    bbox1_area = w1 * h1
+                    bbox2_area = w2 * h2
+                    union_area = bbox1_area + bbox2_area - inter_area
 
-                # Draw box with cached or current recognition
-                if last_recognition and 'best_idx' in last_recognition:
-                    best_idx = last_recognition['best_idx']
-                    similarity = last_recognition['similarity']
+                    return inter_area / union_area if union_area > 0 else 0
 
-                    if best_idx >= 0:
-                        # Known person
-                        person_id = last_recognition['person_id']
-                        person = db.query(Person).filter(Person.id == person_id).first()
+                # Run recognition every 15th frame for faster door access control (~1 second)
+                if frame_count % 15 == 0 and len(db_embeddings) > 0:
+                    # Extract embeddings for ALL detected faces at once using InsightFace
+                    face_results = recognizer.extract_multiple_embeddings(frame)
 
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-                        cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
-                        cv2.putText(frame, f"KNOWN: {person.name}", (x + 5, y - 28),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-                        cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                    # Match InsightFace results to MediaPipe detections by bounding box overlap
+                    for face_idx, detection in enumerate(detections):
+                        mp_bbox = detection.bbox
+                        mp_x, mp_y, mp_w, mp_h = mp_bbox
+
+                        # Find matching InsightFace result by bbox overlap
+                        best_match_result = None
+                        best_iou = 0.3  # Minimum IoU threshold
+
+                        for if_result in face_results:
+                            if_x, if_y, if_w, if_h = if_result.bbox
+                            iou = bbox_iou((mp_x, mp_y, mp_w, mp_h), (if_x, if_y, if_w, if_h))
+
+                            if iou > best_iou:
+                                best_iou = iou
+                                best_match_result = if_result
+
+                        if best_match_result is not None:
+                            best_idx, similarity = recognizer.match_face(
+                                best_match_result.embedding,
+                                db_embeddings,
+                                threshold=settings.face_recognition_threshold
+                            )
+
+                            # Cache result for this face using position-based key
+                            face_key = f"{mp_x//50}_{mp_y//50}"  # Grid-based position key
+                            last_recognitions[face_key] = {
+                                'best_idx': best_idx,
+                                'similarity': similarity,
+                                'person_id': person_ids[best_idx] if best_idx >= 0 else None,
+                                'bbox': (mp_x, mp_y, mp_w, mp_h)
+                            }
+
+                            # Log event to database (with cooldown to prevent spam)
+                            current_time = time.time()
+                            log_key = f"{person_ids[best_idx] if best_idx >= 0 else 'unknown'}_{face_key}"
+
+                            # Only log if not logged in last 10 seconds
+                            if log_key not in last_logged or (current_time - last_logged[log_key]) > 10:
+                                try:
+                                    log_entry = RecognitionLog(
+                                        person_id=person_ids[best_idx] if best_idx >= 0 else None,
+                                        timestamp=datetime.utcnow(),
+                                        confidence=similarity,
+                                        matched=1 if best_idx >= 0 else 0,
+                                        camera_source=settings.camera_ip
+                                    )
+                                    db.add(log_entry)
+                                    db.commit()
+
+                                    last_logged[log_key] = current_time
+
+                                    # Print alert to console
+                                    if best_idx >= 0:
+                                        person_info = person_cache.get(person_ids[best_idx], {'name': 'Unknown'})
+                                        logger.warning(f"🔔 ALERT: KNOWN PERSON DETECTED - {person_info['name']} (CNIC: {person_info.get('cnic', 'N/A')}) - Confidence: {similarity:.2f}")
+                                    else:
+                                        logger.warning(f"⚠️  ALERT: UNKNOWN PERSON DETECTED - Confidence: {similarity:.2f}")
+                                except Exception as e:
+                                    logger.error(f"Failed to log recognition event: {e}")
+
+                for face_idx, detection in enumerate(detections):
+                    bbox = detection.bbox
+                    x, y, w, h = bbox
+                    current_detections.append((x, y, w, h))
+
+                    # Find matching cached recognition by position
+                    face_key = f"{x//50}_{y//50}"
+                    recog = None
+
+                    # Try exact match first
+                    if face_key in last_recognitions:
+                        recog = last_recognitions[face_key]
                     else:
-                        # Unknown person
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
-                        cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
-                        cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                        cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                else:
-                    # Just detected, no recognition yet
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
-                    cv2.putText(frame, "Detecting...", (x + 5, y - 10),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+                        # Try nearby positions (in case face moved slightly)
+                        for cached_key, cached_recog in last_recognitions.items():
+                            cached_bbox = cached_recog.get('bbox')
+                            if cached_bbox:
+                                cached_x, cached_y, cached_w, cached_h = cached_bbox
+                                # Check if bboxes overlap significantly
+                                if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
+                                    recog = cached_recog
+                                    break
+
+                    # Draw box with cached or current recognition
+                    if recog:
+                        best_idx = recog['best_idx']
+                        similarity = recog['similarity']
+
+                        if best_idx >= 0:
+                            # Known person
+                            person_id = recog['person_id']
+                            person_info = person_cache.get(person_id, {'name': 'Unknown'})
+
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                            cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
+                            cv2.putText(frame, f"KNOWN: {person_info['name']}", (x + 5, y - 28),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                            cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                        else:
+                            # Unknown person
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                            cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
+                            cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                            cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    else:
+                        # Just detected, no recognition yet
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
+                        cv2.putText(frame, "Detecting...", (x + 5, y - 10),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+
+                # Update cached detections
+                last_detections = current_detections
             else:
                 # No face detected - clear cache
-                last_recognition = {}
-                last_detection_bbox = None
+                last_recognitions = {}
+                last_detections = []
 
             # Encode frame to JPEG
             _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
@@ -784,3 +902,43 @@ async def live_stream(db: Session = Depends(get_db)):
         generate_video_stream(db),
         media_type="multipart/x-mixed-replace; boundary=frame"
     )
+
+
+@router.get("/access-logs")
+async def get_access_logs(limit: int = 50, db: Session = Depends(get_db)):
+    """
+    Get recent access logs (door entry events).
+    Shows last 50 recognition events by default.
+    """
+    try:
+        logs = db.query(RecognitionLog).order_by(RecognitionLog.timestamp.desc()).limit(limit).all()
+
+        results = []
+        for log in logs:
+            person_name = "Unknown"
+            person_cnic = None
+
+            if log.person_id:
+                person = db.query(Person).filter(Person.id == log.person_id).first()
+                if person:
+                    person_name = person.name
+                    person_cnic = person.cnic
+
+            results.append({
+                "id": log.id,
+                "timestamp": log.timestamp.isoformat(),
+                "person_name": person_name,
+                "person_cnic": person_cnic,
+                "matched": bool(log.matched),
+                "confidence": round(log.confidence, 3),
+                "camera_source": log.camera_source
+            })
+
+        return {
+            "total": len(results),
+            "logs": results
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching access logs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
