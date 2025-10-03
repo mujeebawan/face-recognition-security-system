@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 import logging
 import os
 from app.config import settings
-from app.api.routes import detection, recognition, alerts
+from app.api.routes import detection, recognition, alerts, websocket
 
 # Configure logging
 logging.basicConfig(
@@ -45,6 +45,7 @@ if os.path.exists(static_path):
 app.include_router(detection.router)
 app.include_router(recognition.router)
 app.include_router(alerts.router)
+app.include_router(websocket.router)
 
 
 @app.on_event("startup")
@@ -73,8 +74,12 @@ async def root():
         "message": "Face Recognition Security System API",
         "version": "0.1.0",
         "status": "running",
-        "docs": "/docs",
-        "live_stream": "/live"
+        "endpoints": {
+            "api_docs": "/docs",
+            "live_stream": "/live",
+            "dashboard": "/dashboard",
+            "websocket": "/ws/alerts"
+        }
     }
 
 
@@ -82,6 +87,13 @@ async def root():
 async def live_viewer():
     """Serve live stream viewer HTML page"""
     html_path = os.path.join(os.path.dirname(__file__), "static", "live_stream.html")
+    return FileResponse(html_path)
+
+
+@app.get("/dashboard")
+async def dashboard():
+    """Serve real-time dashboard with WebSocket alerts"""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "dashboard.html")
     return FileResponse(html_path)
 
 

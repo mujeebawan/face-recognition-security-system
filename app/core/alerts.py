@@ -6,6 +6,7 @@ Handles unknown person detection, alerts, and notifications.
 import logging
 import json
 import os
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from pathlib import Path
@@ -35,8 +36,8 @@ class AlertManager:
         # Default configuration
         config = {
             "enabled": True,
-            "alert_on_unknown": True,
-            "alert_on_known": False,
+            "alert_on_unknown": False,  # Changed to False - only alert on KNOWN persons
+            "alert_on_known": True,     # Changed to True - ALERT ON KNOWN PERSONS
             "min_confidence_unknown": 0.5,
             "cooldown_seconds": 60,
             "webhook_url": os.getenv("ALERT_WEBHOOK_URL"),
@@ -161,6 +162,9 @@ class AlertManager:
             # Send notifications
             self._send_notifications(alert)
 
+            # Broadcast via WebSocket
+            self._broadcast_alert_websocket(alert)
+
             return alert
 
         except Exception as e:
@@ -226,6 +230,48 @@ class AlertManager:
         # Placeholder for email functionality
         # Would integrate with SendGrid, AWS SES, or SMTP
         logger.info(f"Email notification for alert {alert.id} (not implemented)")
+
+    def _broadcast_alert_websocket(self, alert: Alert):
+        """
+        Broadcast alert via WebSocket to connected clients.
+
+        Args:
+            alert: Alert object
+        """
+        try:
+            from app.core.websocket_manager import manager
+
+            # Prepare alert data for broadcast
+            alert_data = {
+                'id': alert.id,
+                'timestamp': alert.timestamp.isoformat(),
+                'event_type': alert.event_type,
+                'person_id': alert.person_id,
+                'person_name': alert.person_name,
+                'confidence': alert.confidence,
+                'num_faces': alert.num_faces,
+                'snapshot_path': alert.snapshot_path,
+                'acknowledged': alert.acknowledged
+            }
+
+            # Run async broadcast in event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            if loop.is_running():
+                # Schedule coroutine if loop is already running
+                asyncio.create_task(manager.broadcast_alert(alert_data))
+            else:
+                # Run in new loop if no loop is running
+                loop.run_until_complete(manager.broadcast_alert(alert_data))
+
+            logger.info(f"Alert {alert.id} broadcast via WebSocket")
+
+        except Exception as e:
+            logger.error(f"Failed to broadcast alert via WebSocket: {e}")
 
     def get_active_alerts(self, db: Session, limit: int = 50) -> List[Alert]:
         """
