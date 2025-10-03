@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Dashboard - Real-time Alerts</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #334155;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .badge-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .stream-container {
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            min-height: 400px;
+        }
+
+        #videoStream {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .alerts-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            background: #334155;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .alert-item:hover {
+            background: #475569;
+        }
+
+        .alert-item.known {
+            border-left-color: #10b981;
+        }
+
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .alert-type {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+
+        .alert-time {
+            font-size: 0.85em;
+            color: #94a3b8;
+        }
+
+        .alert-details {
+            font-size: 0.95em;
+            color: #cbd5e1;
+        }
+
+        .ws-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #1e293b;
+            border-radius: 20px;
+        }
+
+        .ws-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .ws-indicator.disconnected {
+            background: #ef4444;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #334155;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+
+        .no-alerts {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔒 Security Dashboard</h1>
+        <p>Real-time Face Recognition & Alert Monitoring</p>
+    </div>
+
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalAlerts">0</div>
+                <div class="stat-label">Total Alerts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="unknownAlerts">0</div>
+                <div class="stat-label">Unknown Persons</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="activeClients">0</div>
+                <div class="stat-label">Connected Clients</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">📹 Live Stream</h2>
+                    <div class="ws-status">
+                        <div class="ws-indicator" id="wsIndicator"></div>
+                        <span id="wsStatus">Connecting...</span>
+                    </div>
+                </div>
+                <div class="stream-container">
+                    <img id="videoStream" src="/api/stream/live" alt="Live stream">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">🚨 Real-time Alerts</h2>
+                    <span class="badge badge-danger" id="alertBadge">0</span>
+                </div>
+                <div class="alerts-container" id="alertsContainer">
+                    <div class="no-alerts">Waiting for alerts...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket connection
+        let ws = null;
+        let alerts = [];
+        let reconnectInterval = null;
+
+        // Get WebSocket URL
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/alerts?client_id=dashboard`;
+
+        // Connect to WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                document.getElementById('wsStatus').textContent = 'Connected';
+                document.getElementById('wsIndicator').classList.remove('disconnected');
+
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                console.log('Received:', message);
+
+                switch(message.type) {
+                    case 'welcome':
+                        console.log('Welcome message:', message.data);
+                        document.getElementById('activeClients').textContent = message.data.active_clients;
+                        break;
+
+                    case 'alert':
+                        handleAlert(message.data);
+                        break;
+
+                    case 'recognition':
+                        console.log('Recognition event:', message.data);
+                        break;
+
+                    case 'ping':
+                        ws.send('pong');
+                        break;
+                }
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                document.getElementById('wsStatus').textContent = 'Error';
+                document.getElementById('wsIndicator').classList.add('disconnected');
+            };
+
+            ws.onclose = function() {
+                console.log('WebSocket disconnected');
+                document.getElementById('wsStatus').textContent = 'Disconnected';
+                document.getElementById('wsIndicator').classList.add('disconnected');
+
+                // Attempt reconnection
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(() => {
+                        console.log('Attempting to reconnect...');
+                        connectWebSocket();
+                    }, 3000);
+                }
+            };
+        }
+
+        // Handle incoming alert
+        function handleAlert(alertData) {
+            alerts.unshift(alertData);  // Add to beginning
+            if (alerts.length > 20) alerts.pop();  // Keep only 20 most recent
+
+            updateAlertsDisplay();
+            updateStats();
+
+            // Play sound (optional)
+            // new Audio('/static/alert.mp3').play();
+        }
+
+        // Update alerts display
+        function updateAlertsDisplay() {
+            const container = document.getElementById('alertsContainer');
+
+            if (alerts.length === 0) {
+                container.innerHTML = '<div class="no-alerts">Waiting for alerts...</div>';
+                return;
+            }
+
+            container.innerHTML = alerts.map(alert => {
+                const isKnown = alert.event_type === 'known_person';
+                const time = new Date(alert.timestamp).toLocaleTimeString();
+
+                return `
+                    <div class="alert-item ${isKnown ? 'known' : ''}">
+                        <div class="alert-header">
+                            <span class="alert-type ${isKnown ? 'text-green' : 'text-red'}">
+                                ${isKnown ? '✓ KNOWN' : '⚠ UNKNOWN'} PERSON
+                            </span>
+                            <span class="alert-time">${time}</span>
+                        </div>
+                        <div class="alert-details">
+                            ${isKnown ? `Name: ${alert.person_name}` : 'Unidentified person detected'}
+                            ${alert.confidence ? `<br>Confidence: ${(alert.confidence * 100).toFixed(1)}%` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update statistics
+        function updateStats() {
+            const unknownCount = alerts.filter(a => a.event_type === 'unknown_person').length;
+
+            document.getElementById('totalAlerts').textContent = alerts.length;
+            document.getElementById('unknownAlerts').textContent = unknownCount;
+            document.getElementById('alertBadge').textContent = alerts.length;
+        }
+
+        // Load existing alerts from API
+        async function loadExistingAlerts() {
+            try {
+                const response = await fetch('/api/alerts/recent?hours=24');
+                const data = await response.json();
+
+                if (data.success && data.alerts.length > 0) {
+                    alerts = data.alerts.slice(0, 20);  // Take first 20
+                    updateAlertsDisplay();
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Failed to load existing alerts:', error);
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            connectWebSocket();
+            loadExistingAlerts();
+        };
+
+        // Send ping every 30 seconds to keep connection alive
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send('ping');
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
