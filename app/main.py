@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 import logging
 import os
 from app.config import settings
-from app.api.routes import detection, recognition
+from app.api.routes import detection, recognition, alerts
 
 # Configure logging
 logging.basicConfig(
@@ -44,6 +44,7 @@ if os.path.exists(static_path):
 # Include routers
 app.include_router(detection.router)
 app.include_router(recognition.router)
+app.include_router(alerts.router)
 
 
 @app.on_event("startup")
