@@ -16,6 +16,7 @@ from app.core.recognizer import FaceRecognizer
 from app.core.detector import FaceDetector
 from app.core.camera import CameraHandler
 from app.core.augmentation import FaceAugmentation
+from app.core.alerts import AlertManager
 from app.core.database import get_db
 from app.models.database import Person, FaceEmbedding, RecognitionLog
 from app.config import settings
@@ -24,8 +25,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["recognition"])
 
-# Initialize face recognizer (singleton - will be initialized on first use)
+# Initialize face recognizer and alert manager (singletons)
 face_recognizer: Optional[FaceRecognizer] = None
+alert_manager: Optional[AlertManager] = None
 
 
 def get_recognizer() -> FaceRecognizer:
@@ -35,6 +37,15 @@ def get_recognizer() -> FaceRecognizer:
         logger.info("Initializing face recognizer...")
         face_recognizer = FaceRecognizer()
     return face_recognizer
+
+
+def get_alert_manager() -> AlertManager:
+    """Get or initialize alert manager"""
+    global alert_manager
+    if alert_manager is None:
+        logger.info("Initializing alert manager...")
+        alert_manager = AlertManager()
+    return alert_manager
 
 
 @router.post("/enroll")
@@ -617,12 +628,14 @@ def generate_video_stream(db: Session):
     """
     Generate MJPEG video stream with real-time face recognition.
     Uses MediaPipe for fast detection, InsightFace only for recognition.
+    Triggers alerts for unknown persons.
 
     Yields:
         JPEG frames with recognition overlay
     """
     detector = FaceDetector()
     recognizer = get_recognizer()
+    alert_mgr = get_alert_manager()
     camera = CameraHandler(use_main_stream=False)
 
     if not camera.connect():
@@ -807,12 +820,40 @@ def generate_video_stream(db: Session):
 
                                     last_logged[log_key] = current_time
 
-                                    # Print alert to console
-                                    if best_idx >= 0:
-                                        person_info = person_cache.get(person_ids[best_idx], {'name': 'Unknown'})
-                                        logger.warning(f"🔔 ALERT: KNOWN PERSON DETECTED - {person_info['name']} (CNIC: {person_info.get('cnic', 'N/A')}) - Confidence: {similarity:.2f}")
-                                    else:
-                                        logger.warning(f"⚠️  ALERT: UNKNOWN PERSON DETECTED - Confidence: {similarity:.2f}")
+                                    # Trigger alerts via AlertManager
+                                    try:
+                                        if best_idx >= 0:
+                                            # Known person detected
+                                            person_info = person_cache.get(person_ids[best_idx], {'name': 'Unknown'})
+                                            logger.warning(f"🔔 KNOWN PERSON: {person_info['name']} (Confidence: {similarity:.2f})")
+
+                                            # Create alert for known person (if configured)
+                                            alert_mgr.create_alert(
+                                                db=db,
+                                                event_type='known_person',
+                                                person_id=person_ids[best_idx],
+                                                person_name=person_info['name'],
+                                                confidence=similarity,
+                                                num_faces=len(detections),
+                                                frame=frame.copy()
+                                            )
+                                        else:
+                                            # Unknown person detected - ALERT!
+                                            logger.warning(f"⚠️  ALERT: UNKNOWN PERSON DETECTED - Confidence: {similarity:.2f}")
+
+                                            # Create alert for unknown person
+                                            alert_mgr.create_alert(
+                                                db=db,
+                                                event_type='unknown_person',
+                                                person_id=None,
+                                                person_name=None,
+                                                confidence=similarity,
+                                                num_faces=len(detections),
+                                                frame=frame.copy()
+                                            )
+                                    except Exception as alert_e:
+                                        logger.error(f"Failed to create alert: {alert_e}")
+
                                 except Exception as e:
                                     logger.error(f"Failed to log recognition event: {e}")
 

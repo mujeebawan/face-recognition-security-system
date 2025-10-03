@@ -3,7 +3,7 @@ Database models for face recognition system.
 SQLAlchemy ORM models for SQLite/PostgreSQL compatibility.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, LargeBinary, Float
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, LargeBinary, Float, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -66,3 +66,41 @@ class RecognitionLog(Base):
 
     def __repr__(self):
         return f"<RecognitionLog(id={self.id}, person_id={self.person_id}, matched={self.matched}, confidence={self.confidence:.2f})>"
+
+
+class Alert(Base):
+    """Alert model - stores security alerts for unknown/known persons"""
+
+    __tablename__ = "alerts"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    event_type = Column(String(50), nullable=False, index=True)  # 'unknown_person', 'known_person', 'multiple_unknown'
+    person_id = Column(Integer, ForeignKey("persons.id"), nullable=True, index=True)  # Null for unknown persons
+    person_name = Column(String(255), nullable=True)  # Cached name for quick display
+    confidence = Column(Float, nullable=True)  # Recognition confidence
+    num_faces = Column(Integer, default=1)  # Number of faces in frame
+    snapshot_path = Column(String(500), nullable=True)  # Path to snapshot image
+    acknowledged = Column(Boolean, default=False, nullable=False, index=True)
+    acknowledged_by = Column(String(100), nullable=True)  # Username who acknowledged
+    acknowledged_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)  # Additional notes
+
+    def __repr__(self):
+        return f"<Alert(id={self.id}, type='{self.event_type}', acknowledged={self.acknowledged})>"
+
+
+class SystemConfiguration(Base):
+    """System configuration - stores runtime configuration"""
+
+    __tablename__ = "system_configuration"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    config_key = Column(String(100), unique=True, nullable=False, index=True)
+    config_value = Column(Text, nullable=False)  # Stored as JSON string
+    data_type = Column(String(50), nullable=False)  # 'float', 'int', 'bool', 'string', 'json'
+    description = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<SystemConfiguration(key='{self.config_key}', value='{self.config_value}')>"
