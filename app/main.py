@@ -78,6 +78,7 @@ async def root():
             "api_docs": "/docs",
             "live_stream": "/live",
             "dashboard": "/dashboard",
+            "admin_panel": "/admin",
             "websocket": "/ws/alerts"
         }
     }
@@ -94,6 +95,13 @@ async def live_viewer():
 async def dashboard():
     """Serve real-time dashboard with WebSocket alerts"""
     html_path = os.path.join(os.path.dirname(__file__), "static", "dashboard.html")
+    return FileResponse(html_path)
+
+
+@app.get("/admin")
+async def admin_panel():
+    """Serve LEA admin panel for wanted persons management"""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "admin.html")
     return FileResponse(html_path)
 
 

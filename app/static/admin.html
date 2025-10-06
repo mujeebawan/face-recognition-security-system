@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LEA Admin - Wanted Persons Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            padding: 20px 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #f87171;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.95em;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #dc2626;
+        }
+
+        .form-help {
+            font-size: 0.85em;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+
+        .file-input-wrapper {
+            width: 100%;
+        }
+
+        .file-input-button {
+            background: #334155;
+            color: #e2e8f0;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            text-align: center;
+            transition: background 0.3s;
+            width: 100%;
+        }
+
+        .file-input-button:hover {
+            background: #475569;
+        }
+
+        .file-input-wrapper input[type=file] {
+            display: none;
+        }
+
+        .file-name {
+            margin-top: 10px;
+            padding: 8px;
+            background: #0f172a;
+            border-radius: 6px;
+            font-size: 0.9em;
+            color: #94a3b8;
+        }
+
+        .image-preview {
+            margin-top: 15px;
+            max-width: 300px;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            display: none;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(220, 38, 38, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .alert-error {
+            background: #ef4444;
+            color: white;
+        }
+
+        .alert-info {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #334155;
+            border-top: 4px solid #dc2626;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .nav-links {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .nav-links a {
+            color: #60a5fa;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 0.95em;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        .warning-box {
+            background: #78350f;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .warning-box strong {
+            color: #fbbf24;
+        }
+
+        /* Table styles */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        thead {
+            background: #0f172a;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #f87171;
+            border-bottom: 2px solid #334155;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #334155;
+            color: #e2e8f0;
+        }
+
+        tr:hover {
+            background: #334155;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .person-photo {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid #334155;
+        }
+
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .btn-danger:hover {
+            background: #991b1b;
+        }
+
+        .btn-danger:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #f87171;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            background: #475569;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95em;
+        }
+
+        .btn-secondary:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Admin Panel</h1>
+        <p>Manage Wanted Persons</p>
+    </div>
+
+    <div class="container">
+        <div class="warning-box">
+            <strong>⚠️ Important:</strong> Only authorized personnel should have access to this panel.
+        </div>
+
+        <div class="alert alert-success" id="successAlert"></div>
+        <div class="alert alert-error" id="errorAlert"></div>
+
+        <div class="card">
+            <h2 class="card-title">➕ Add Wanted Person</h2>
+
+            <form id="addPersonForm">
+                <div class="form-group">
+                    <label class="form-label" for="photo">Photo *</label>
+                    <div class="file-input-wrapper">
+                        <label class="file-input-button" for="photoInput">
+                            📁 Choose Photo
+                        </label>
+                        <input type="file" id="photoInput" accept="image/*" required>
+                    </div>
+                    <div class="file-name" id="fileName">No file selected</div>
+                    <img id="imagePreview" class="image-preview" alt="Preview">
+                    <p class="form-help">Upload clear frontal face photo (JPG, PNG)</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="cnic">ID Number (CNIC) *</label>
+                    <input
+                        type="text"
+                        id="cnic"
+                        class="form-input"
+                        placeholder="e.g., 12345-6789012-3"
+                        pattern="[0-9]{5}-[0-9]{7}-[0-9]{1}"
+                        required
+                    >
+                    <p class="form-help">Format: 12345-6789012-3</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="name">Full Name *</label>
+                    <input
+                        type="text"
+                        id="name"
+                        class="form-input"
+                        placeholder="e.g., Abdul Rasheed Khan"
+                        required
+                    >
+                    <p class="form-help">Enter full name</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="notes">Case Notes (Optional)</label>
+                    <textarea
+                        id="notes"
+                        class="form-input"
+                        rows="3"
+                        placeholder="e.g., Wanted for theft case #12345, high priority"
+                    ></textarea>
+                    <p class="form-help">Add any relevant case information</p>
+                </div>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px;">Processing... This may take 5-10 seconds</p>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    ➕ Add Wanted Person
+                </button>
+            </form>
+        </div>
+
+        <!-- Wanted Persons List -->
+        <div class="card">
+            <h2 class="card-title">👥 Wanted Persons List</h2>
+
+            <!-- Search Box -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label" for="searchCNIC">🔍 Search by ID Number (CNIC)</label>
+                <input
+                    type="text"
+                    id="searchCNIC"
+                    class="form-input"
+                    placeholder="e.g., 12345-6789012-3"
+                    onkeyup="searchPersons()"
+                >
+                <p class="form-help">Type ID number to search - matching person will appear at top</p>
+            </div>
+
+            <div id="personsTableContainer">
+                <div class="loading" id="tableLoading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px;">Loading...</p>
+                </div>
+
+                <div class="table-container" id="tableWrapper" style="display: none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Photo</th>
+                                <th>Name</th>
+                                <th>ID Number (CNIC)</th>
+                                <th>Added On</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="personsTableBody">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-state-icon">📭</div>
+                    <h3>No Wanted Persons</h3>
+                    <p>Add a wanted person using the form above to get started.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/dashboard">📊 View Dashboard</a>
+            <a href="/live">📹 Live Stream</a>
+            <a href="/docs">📖 API Documentation</a>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <div class="modal-header">⚠️ Confirm Removal</div>
+            <div class="modal-body" id="modalBody">
+                Are you sure you want to remove this person from the wanted list?
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-danger" id="confirmRemoveBtn">Remove</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // File input handling
+        const photoInput = document.getElementById('photoInput');
+        const fileName = document.getElementById('fileName');
+        const imagePreview = document.getElementById('imagePreview');
+
+        photoInput.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                fileName.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // CNIC formatting
+        const cnicInput = document.getElementById('cnic');
+        cnicInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/[^0-9]/g, '');
+
+            if (value.length > 5) {
+                value = value.slice(0, 5) + '-' + value.slice(5);
+            }
+            if (value.length > 13) {
+                value = value.slice(0, 13) + '-' + value.slice(13);
+            }
+            if (value.length > 15) {
+                value = value.slice(0, 15);
+            }
+
+            e.target.value = value;
+        });
+
+        // Form submission
+        const form = document.getElementById('addPersonForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const successAlert = document.getElementById('successAlert');
+        const errorAlert = document.getElementById('errorAlert');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // Hide previous alerts
+            successAlert.style.display = 'none';
+            errorAlert.style.display = 'none';
+
+            // Get form data
+            const photo = photoInput.files[0];
+            const cnic = document.getElementById('cnic').value;
+            const name = document.getElementById('name').value;
+            const notes = document.getElementById('notes').value;
+
+            if (!photo) {
+                showError('Please select a photo');
+                return;
+            }
+
+            // Show loading
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+
+            try {
+                // Create FormData
+                const formData = new FormData();
+                formData.append('file', photo);
+                formData.append('name', name);
+                formData.append('cnic', cnic);
+
+                // Call API
+                const response = await fetch('/api/enroll', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showSuccess(`✅ Successfully added "${name}" as wanted person!`);
+                    form.reset();
+                    fileName.textContent = 'No file selected';
+                    imagePreview.style.display = 'none';
+                } else {
+                    showError(data.detail || data.message || 'Failed to add person');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Network error: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+
+        function showSuccess(message) {
+            successAlert.textContent = message;
+            successAlert.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showError(message) {
+            errorAlert.textContent = '❌ Error: ' + message;
+            errorAlert.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ===== WANTED PERSONS TABLE =====
+
+        let personsData = [];
+        let personToRemove = null;
+
+        // Load wanted persons list
+        async function loadWantedPersons() {
+            const tableLoading = document.getElementById('tableLoading');
+            const tableWrapper = document.getElementById('tableWrapper');
+            const emptyState = document.getElementById('emptyState');
+
+            tableLoading.style.display = 'block';
+            tableWrapper.style.display = 'none';
+            emptyState.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/persons');
+                const data = await response.json();
+
+                if (response.ok) {
+                    personsData = data.persons || [];
+                    displayWantedPersons();
+                } else {
+                    console.error('Failed to load persons:', data);
+                    showError('Failed to load wanted persons list');
+                }
+            } catch (error) {
+                console.error('Error loading persons:', error);
+                showError('Network error loading persons');
+            } finally {
+                tableLoading.style.display = 'none';
+            }
+        }
+
+        // Search persons by CNIC
+        function searchPersons() {
+            const searchInput = document.getElementById('searchCNIC').value.toLowerCase().trim();
+
+            if (!searchInput) {
+                // No search - show all in original order
+                displayWantedPersons();
+                return;
+            }
+
+            // Filter and sort: exact matches first, then partial matches
+            const filtered = personsData.filter(person =>
+                person.cnic.toLowerCase().includes(searchInput)
+            );
+
+            const sorted = filtered.sort((a, b) => {
+                const aStarts = a.cnic.toLowerCase().startsWith(searchInput);
+                const bStarts = b.cnic.toLowerCase().startsWith(searchInput);
+
+                if (aStarts && !bStarts) return -1;
+                if (!aStarts && bStarts) return 1;
+                return 0;
+            });
+
+            displayWantedPersons(sorted);
+        }
+
+        // Display persons in table
+        function displayWantedPersons(dataToDisplay = null) {
+            const tableWrapper = document.getElementById('tableWrapper');
+            const emptyState = document.getElementById('emptyState');
+            const tableBody = document.getElementById('personsTableBody');
+
+            const data = dataToDisplay || personsData;
+
+            if (data.length === 0) {
+                tableWrapper.style.display = 'none';
+                emptyState.style.display = 'block';
+                emptyState.innerHTML = `
+                    <div class="empty-state-icon">🔍</div>
+                    <h3>No Results Found</h3>
+                    <p>No person found with that ID number.</p>
+                `;
+                return;
+            }
+
+            if (personsData.length === 0) {
+                tableWrapper.style.display = 'none';
+                emptyState.style.display = 'block';
+                emptyState.innerHTML = `
+                    <div class="empty-state-icon">📭</div>
+                    <h3>No Wanted Persons</h3>
+                    <p>Add a wanted person using the form above to get started.</p>
+                `;
+                return;
+            }
+
+            tableWrapper.style.display = 'block';
+            emptyState.style.display = 'none';
+
+            const searchInput = document.getElementById('searchCNIC').value.toLowerCase().trim();
+
+            tableBody.innerHTML = data.map((person, index) => {
+                const enrolledDate = new Date(person.enrolled_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                // For photo, we'll show a placeholder since we don't have image URLs yet
+                const photoHTML = person.reference_image_path
+                    ? `<img src="/static/placeholder.jpg" class="person-photo" alt="${person.name}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22%3E%3Crect fill=%22%23334155%22 width=%2260%22 height=%2260%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%23cbd5e1%22 text-anchor=%22middle%22 dy=%22.3em%22%3E${person.name.charAt(0)}%3C/text%3E%3C/svg%3E'">`
+                    : `<div style="width: 60px; height: 60px; background: #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #cbd5e1;">${person.name.charAt(0)}</div>`;
+
+                // Highlight matching CNIC
+                const isMatch = searchInput && person.cnic.toLowerCase().includes(searchInput);
+                const rowStyle = isMatch && index === 0 ? 'background: #1e40af;' : '';
+
+                return `
+                    <tr data-person-id="${person.id}" style="${rowStyle}">
+                        <td>${photoHTML}</td>
+                        <td><strong>${person.name}</strong></td>
+                        <td>${person.cnic}</td>
+                        <td>${enrolledDate}</td>
+                        <td>
+                            <button class="btn-danger" onclick="confirmRemovePerson(${person.id}, '${person.name}')">
+                                🗑️ Remove
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Confirm removal
+        function confirmRemovePerson(id, name) {
+            personToRemove = { id, name };
+            const modal = document.getElementById('confirmModal');
+            const modalBody = document.getElementById('modalBody');
+
+            modalBody.innerHTML = `
+                Are you sure you want to remove <strong>${name}</strong> from the wanted list?<br>
+                <small style="color: #94a3b8;">This action cannot be undone.</small>
+            `;
+
+            modal.classList.add('active');
+        }
+
+        // Close modal
+        function closeModal() {
+            const modal = document.getElementById('confirmModal');
+            modal.classList.remove('active');
+            personToRemove = null;
+        }
+
+        // Remove person
+        document.getElementById('confirmRemoveBtn').addEventListener('click', async function() {
+            if (!personToRemove) return;
+
+            const { id, name } = personToRemove;
+            const btn = this;
+
+            btn.disabled = true;
+            btn.textContent = 'Removing...';
+
+            try {
+                const response = await fetch(`/api/persons/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Remove from local data
+                    personsData = personsData.filter(p => p.id !== id);
+
+                    // Update table
+                    displayWantedPersons();
+
+                    // Close modal
+                    closeModal();
+
+                    // Show success
+                    showSuccess(`✅ Successfully removed "${name}" from wanted list!`);
+                } else {
+                    showError(data.detail || data.message || 'Failed to remove person');
+                }
+            } catch (error) {
+                console.error('Error removing person:', error);
+                showError('Network error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Remove';
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('confirmModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Load wanted persons on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            loadWantedPersons();
+        });
+
+        // Reload table after adding new person
+        const originalFormSubmit = form.onsubmit;
+        form.addEventListener('submit', async function(e) {
+            // Let original handler run first
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // After successful add, reload table
+            setTimeout(() => {
+                loadWantedPersons();
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

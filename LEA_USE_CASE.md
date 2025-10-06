@@ -173,23 +173,42 @@ Confidence: 87.3%
 ### Phase A: Admin Interface for Wanted Persons
 
 **Priority: HIGH**
+**Status**: 🚧 IN PROGRESS
 
-**Features Needed**:
-1. **Web-based admin panel** (`/admin` route)
-   - Login/authentication for LEA officers
-   - Add wanted person form:
-     - Upload NADRA photo
-     - Enter CNIC (auto-validation)
-     - Enter name
-     - Enter case details/notes
-   - View all wanted persons (searchable table)
-   - Remove wanted person (case cleared)
-   - Update wanted person details
+**Features Completed** ✅:
+1. **Add Wanted Person Form** (`/admin` route):
+   - ✅ Photo upload with preview
+   - ✅ CNIC input with auto-formatting (12345-6789012-3)
+   - ✅ Name input
+   - ✅ Case notes (optional)
+   - ✅ Success/error feedback
+   - ✅ Loading indicator during processing
+   - ✅ Uses existing `POST /api/enroll` endpoint
 
-2. **API Endpoints** (partially exists):
-   - ✅ `POST /api/enroll` - Add person (already exists)
-   - ✅ `GET /api/persons` - List all persons (already exists)
-   - ✅ `DELETE /api/persons/{id}` - Remove person (already exists)
+**Features Completed** ✅:
+2. **View & Remove Wanted Persons**:
+   - ✅ Table showing all wanted persons
+   - ✅ Remove button for each person
+   - ✅ Confirmation modal dialog
+   - ✅ Uses existing `DELETE /api/persons/{id}` endpoint
+   - ✅ Auto-refresh after changes
+
+3. **Search by CNIC**:
+   - ✅ Real-time search input
+   - ✅ Filter and sort results
+   - ✅ Highlight matching person at top
+   - ✅ Client-side filtering (fast)
+
+**Features Needed** ❌:
+4. **Update & Authentication**:
+   - ❌ Update person details (edit name, notes)
+   - ❌ Login/authentication
+   - ❌ User roles (admin, viewer)
+
+**API Endpoints Status**:
+   - ✅ `POST /api/enroll` - Add person (EXISTS, USED IN /admin)
+   - ✅ `GET /api/persons` - List all persons (EXISTS, not used in UI yet)
+   - ✅ `DELETE /api/persons/{id}` - Remove person (EXISTS, not used in UI yet)
    - ❌ `PUT /api/persons/{id}` - Update person (NEEDS BUILDING)
    - ❌ `GET /api/persons/{cnic}` - Search by CNIC (NEEDS BUILDING)
 
