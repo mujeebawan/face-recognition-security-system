@@ -23,6 +23,13 @@ from app.core.database import get_db
 from app.models.database import Person, FaceEmbedding, RecognitionLog
 from app.config import settings
 
+# Multi-agent imports
+from app.core.multi_agent.engine import ParallelInferenceEngine
+from app.core.multi_agent.models.arcface_model import ArcFaceModel
+from app.core.multi_agent.models.yolov8_detector import YOLOv8FaceDetector
+from app.core.multi_agent.models.adaface_model import AdaFaceModel
+import asyncio
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["recognition"])
@@ -30,6 +37,8 @@ router = APIRouter(prefix="/api", tags=["recognition"])
 # Initialize face recognizer and alert manager (singletons)
 face_recognizer: Optional[FaceRecognizer] = None
 alert_manager: Optional[AlertManager] = None
+multi_agent_engine: Optional[ParallelInferenceEngine] = None
+multi_agent_initialized = False
 
 
 def get_recognizer() -> FaceRecognizer:
@@ -48,6 +57,34 @@ def get_alert_manager() -> AlertManager:
         logger.info("Initializing alert manager...")
         alert_manager = AlertManager()
     return alert_manager
+
+
+async def get_multi_agent_engine() -> ParallelInferenceEngine:
+    """Get or initialize multi-agent parallel inference engine"""
+    global multi_agent_engine, multi_agent_initialized
+
+    if multi_agent_engine is None:
+        logger.info("Initializing Multi-Agent Parallel Inference Engine...")
+        multi_agent_engine = ParallelInferenceEngine()
+
+        # Register models
+        logger.info("Registering models...")
+        arcface = ArcFaceModel(stream_id=1)
+        multi_agent_engine.register_model(arcface)
+
+        yolo = YOLOv8FaceDetector(stream_id=0)
+        multi_agent_engine.register_model(yolo)
+
+        adaface = AdaFaceModel(stream_id=3)
+        multi_agent_engine.register_model(adaface)
+
+        # Initialize all models
+        if not multi_agent_initialized:
+            await multi_agent_engine.initialize_all_models()
+            multi_agent_initialized = True
+            logger.info("✓ Multi-Agent engine ready")
+
+    return multi_agent_engine
 
 
 @router.post("/enroll")
@@ -956,6 +993,97 @@ async def live_stream(db: Session = Depends(get_db)):
     """
     return StreamingResponse(
         generate_video_stream(db),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
+
+
+@router.get("/stream/multi-agent")
+async def multi_agent_stream(db: Session = Depends(get_db)):
+    """
+    Live video stream with MULTI-AGENT parallel face recognition.
+
+    Shows results from multiple models with trust scores and consensus.
+    """
+    async def generate_multi_agent_stream():
+        engine = await get_multi_agent_engine()
+        camera = CameraHandler()
+
+        try:
+            # Get database embeddings
+            all_embeddings = db.query(FaceEmbedding).all()
+            db_embeddings = []
+            db_persons = []
+
+            for emb in all_embeddings:
+                embedding_vec = FaceRecognizer.deserialize_embedding(emb.embedding)
+                person = db.query(Person).filter(Person.id == emb.person_id).first()
+                if person:
+                    db_embeddings.append(embedding_vec)
+                    db_persons.append({'id': person.id, 'name': person.name})
+
+            logger.info(f"Multi-agent stream started with {len(db_persons)} enrolled persons")
+
+            while True:
+                success, frame = camera.read()
+                if not success:
+                    break
+
+                # Run parallel inference
+                result = await engine.run_parallel_inference(
+                    frame,
+                    database_embeddings=db_embeddings if db_embeddings else None,
+                    database_persons=db_persons if db_persons else None
+                )
+
+                # Draw results on frame
+                annotated = frame.copy()
+
+                # Main result box (top-left)
+                cv2.rectangle(annotated, (10, 10), (400, 150), (0, 0, 0), -1)
+                cv2.rectangle(annotated, (10, 10), (400, 150), (0, 255, 0) if result.person_id else (0, 0, 255), 2)
+
+                # Person name
+                name = result.person_name or "Unknown"
+                cv2.putText(annotated, f"Person: {name}", (20, 40),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+                # Trust score
+                trust_color = (0, 255, 0) if result.trust_score > 70 else (0, 165, 255) if result.trust_score > 40 else (0, 0, 255)
+                cv2.putText(annotated, f"Trust: {result.trust_score:.1f}%", (20, 70),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, trust_color, 2)
+
+                # Consensus
+                cv2.putText(annotated, f"Consensus: {result.consensus_count}/{len(result.model_results)}", (20, 100),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+                # Inference time
+                cv2.putText(annotated, f"Time: {result.total_inference_time:.1f}ms", (20, 130),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+                # Per-model results (right side)
+                y_offset = 10
+                for i, mr in enumerate(result.model_results):
+                    color = (0, 255, 0) if mr.person_id == result.person_id else (128, 128, 128)
+                    status = "✓" if mr.person_id == result.person_id else "✗"
+                    text = f"{status} {mr.model_name}: {mr.inference_time:.1f}ms"
+                    cv2.putText(annotated, text, (420, y_offset + 30),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+                    y_offset += 25
+
+                # Encode frame
+                _, buffer = cv2.imencode('.jpg', annotated)
+                frame_bytes = buffer.tobytes()
+
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+        except Exception as e:
+            logger.error(f"Multi-agent stream error: {e}")
+        finally:
+            camera.release()
+
+    return StreamingResponse(
+        generate_multi_agent_stream(),
         media_type="multipart/x-mixed-replace; boundary=frame"
     )
 
