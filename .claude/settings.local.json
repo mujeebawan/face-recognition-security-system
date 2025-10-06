@@ -2,7 +2,24 @@
   "permissions": {
     "allow": [
       "Bash(git init:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(pkill:*)",
+      "Read(//etc/**)",
+      "Bash(pip show:*)",
+      "Bash(nvidia-smi:*)",
+      "Bash(jetson_release:*)",
+      "Bash(dpkg:*)",
+      "Bash(pip install:*)",
+      "Bash(grip:*)",
+      "Bash(ldd:*)",
+      "Read(//usr/local/**)",
+      "Bash(export:*)",
+      "Bash(export PATH=$CUDA_HOME/bin:$PATH)",
+      "Bash(fuser:*)",
+      "Bash(git add:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(uvicorn:*)"
     ],
     "deny": [],
     "ask": []

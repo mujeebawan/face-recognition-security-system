@@ -35,9 +35,21 @@ class FaceRecognizer:
         logger.info("Initializing InsightFace face recognition...")
 
         # Initialize FaceAnalysis with buffalo_l model
+        # Configure TensorRT with engine caching to avoid recompilation
+        import os
+        tensorrt_options = {
+            'trt_engine_cache_enable': True,
+            'trt_engine_cache_path': os.path.join(os.getcwd(), 'data/tensorrt_engines'),
+            'trt_fp16_enable': True,  # FP16 for faster inference
+        }
+
         self.app = FaceAnalysis(
             name='buffalo_l',
-            providers=['CPUExecutionProvider']  # Use CPU for Jetson compatibility
+            providers=[
+                ('TensorrtExecutionProvider', tensorrt_options),
+                'CUDAExecutionProvider',
+                'CPUExecutionProvider'
+            ]
         )
 
         # Prepare model (downloads if needed)
