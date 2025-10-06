@@ -11,6 +11,8 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 import time
+import threading
+from queue import Queue
 
 from app.core.recognizer import FaceRecognizer
 from app.core.detector import FaceDetector
@@ -630,6 +632,8 @@ def generate_video_stream(db: Session):
     Uses MediaPipe for fast detection, InsightFace only for recognition.
     Triggers alerts for unknown persons.
 
+    Recognition processing runs in a background thread to avoid blocking the stream.
+
     Yields:
         JPEG frames with recognition overlay
     """
@@ -675,6 +679,120 @@ def generate_video_stream(db: Session):
     last_detections = []  # Cache last detection bboxes
     last_logged = {}  # Track when each person was last logged (person_id: timestamp)
 
+    # Queue for sending frames to recognition thread
+    recognition_queue = Queue(maxsize=2)  # Small queue to avoid lag
+    recognition_results_lock = threading.Lock()
+
+    def recognition_worker():
+        """Background worker that processes recognition without blocking stream"""
+        while True:
+            try:
+                task = recognition_queue.get(timeout=1.0)
+                if task is None:  # Shutdown signal
+                    break
+
+                frame_for_recognition, detections_list, frame_num = task
+
+                # Extract embeddings for ALL detected faces
+                face_results = recognizer.extract_multiple_embeddings(frame_for_recognition)
+
+                # Process matches
+                for face_idx, detection in enumerate(detections_list):
+                    mp_bbox = detection.bbox
+                    mp_x, mp_y, mp_w, mp_h = mp_bbox
+
+                    # Find matching InsightFace result by bbox overlap
+                    best_match_result = None
+                    best_iou = 0.3
+
+                    for if_result in face_results:
+                        if_x, if_y, if_w, if_h = if_result.bbox
+                        # Calculate IoU
+                        xi1 = max(mp_x, if_x)
+                        yi1 = max(mp_y, if_y)
+                        xi2 = min(mp_x + mp_w, if_x + if_w)
+                        yi2 = min(mp_y + mp_h, if_y + if_h)
+                        inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+                        union_area = (mp_w * mp_h) + (if_w * if_h) - inter_area
+                        iou = inter_area / union_area if union_area > 0 else 0
+
+                        if iou > best_iou:
+                            best_iou = iou
+                            best_match_result = if_result
+
+                    if best_match_result is not None:
+                        best_idx, similarity = recognizer.match_face(
+                            best_match_result.embedding,
+                            db_embeddings,
+                            threshold=settings.face_recognition_threshold
+                        )
+
+                        # Update shared recognition cache (thread-safe)
+                        face_key = f"{mp_x//50}_{mp_y//50}"
+                        with recognition_results_lock:
+                            last_recognitions[face_key] = {
+                                'best_idx': best_idx,
+                                'similarity': similarity,
+                                'person_id': person_ids[best_idx] if best_idx >= 0 else None,
+                                'bbox': (mp_x, mp_y, mp_w, mp_h)
+                            }
+
+                        # Log and alert (non-blocking)
+                        current_time = time.time()
+                        log_key = f"{person_ids[best_idx] if best_idx >= 0 else 'unknown'}_{face_key}"
+
+                        if log_key not in last_logged or (current_time - last_logged[log_key]) > 10:
+                            try:
+                                log_entry = RecognitionLog(
+                                    person_id=person_ids[best_idx] if best_idx >= 0 else None,
+                                    timestamp=datetime.utcnow(),
+                                    confidence=similarity,
+                                    matched=1 if best_idx >= 0 else 0,
+                                    camera_source=settings.camera_ip
+                                )
+                                db.add(log_entry)
+                                db.commit()
+
+                                last_logged[log_key] = current_time
+
+                                # Trigger alerts
+                                try:
+                                    if best_idx >= 0:
+                                        person_info = person_cache.get(person_ids[best_idx], {'name': 'Unknown'})
+                                        logger.warning(f"🔔 KNOWN PERSON: {person_info['name']} (Confidence: {similarity:.2f})")
+                                        alert_mgr.create_alert(
+                                            db=db,
+                                            event_type='known_person',
+                                            person_id=person_ids[best_idx],
+                                            person_name=person_info['name'],
+                                            confidence=similarity,
+                                            num_faces=len(detections_list),
+                                            frame=frame_for_recognition.copy()
+                                        )
+                                    else:
+                                        logger.warning(f"⚠️  ALERT: UNKNOWN PERSON DETECTED - Confidence: {similarity:.2f}")
+                                        alert_mgr.create_alert(
+                                            db=db,
+                                            event_type='unknown_person',
+                                            person_id=None,
+                                            person_name=None,
+                                            confidence=similarity,
+                                            num_faces=len(detections_list),
+                                            frame=frame_for_recognition.copy()
+                                        )
+                                except Exception as alert_e:
+                                    logger.error(f"Failed to create alert: {alert_e}")
+                            except Exception as e:
+                                logger.error(f"Failed to log recognition event: {e}")
+
+            except Exception as e:
+                if "Empty" not in str(e):  # Ignore timeout exceptions
+                    logger.error(f"Recognition worker error: {e}")
+
+    # Start background recognition thread
+    recognition_thread = threading.Thread(target=recognition_worker, daemon=True)
+    recognition_thread.start()
+
     try:
         while True:
             ret, frame = camera.read_frame()
@@ -692,21 +810,22 @@ def generate_video_stream(db: Session):
                 for bbox in last_detections:
                     x, y, w, h = bbox
 
-                    # Find matching cached recognition by position
+                    # Find matching cached recognition by position (thread-safe)
                     face_key = f"{x//50}_{y//50}"
                     recog = None
 
-                    if face_key in last_recognitions:
-                        recog = last_recognitions[face_key]
-                    else:
-                        # Try nearby positions
-                        for cached_key, cached_recog in last_recognitions.items():
-                            cached_bbox = cached_recog.get('bbox')
-                            if cached_bbox:
-                                cached_x, cached_y, cached_w, cached_h = cached_bbox
-                                if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
-                                    recog = cached_recog
-                                    break
+                    with recognition_results_lock:
+                        if face_key in last_recognitions:
+                            recog = last_recognitions[face_key]
+                        else:
+                            # Try nearby positions
+                            for cached_key, cached_recog in last_recognitions.items():
+                                cached_bbox = cached_recog.get('bbox')
+                                if cached_bbox:
+                                    cached_x, cached_y, cached_w, cached_h = cached_bbox
+                                    if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
+                                        recog = cached_recog
+                                        break
 
                     if recog:
                         best_idx = recog['best_idx']
@@ -743,142 +862,38 @@ def generate_video_stream(db: Session):
                 # Process all detected faces
                 current_detections = []
 
-                # Helper function to calculate IoU (Intersection over Union) between two bboxes
-                def bbox_iou(bbox1, bbox2):
-                    x1, y1, w1, h1 = bbox1
-                    x2, y2, w2, h2 = bbox2
-
-                    # Calculate intersection
-                    xi1 = max(x1, x2)
-                    yi1 = max(y1, y2)
-                    xi2 = min(x1 + w1, x2 + w2)
-                    yi2 = min(y1 + h1, y2 + h2)
-
-                    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-
-                    # Calculate union
-                    bbox1_area = w1 * h1
-                    bbox2_area = w2 * h2
-                    union_area = bbox1_area + bbox2_area - inter_area
-
-                    return inter_area / union_area if union_area > 0 else 0
-
-                # Run recognition every 15th frame for faster door access control (~1 second)
+                # Run recognition every 15th frame - NON-BLOCKING using background thread
                 if frame_count % 15 == 0 and len(db_embeddings) > 0:
-                    # Extract embeddings for ALL detected faces at once using InsightFace
-                    face_results = recognizer.extract_multiple_embeddings(frame)
-
-                    # Match InsightFace results to MediaPipe detections by bounding box overlap
-                    for face_idx, detection in enumerate(detections):
-                        mp_bbox = detection.bbox
-                        mp_x, mp_y, mp_w, mp_h = mp_bbox
-
-                        # Find matching InsightFace result by bbox overlap
-                        best_match_result = None
-                        best_iou = 0.3  # Minimum IoU threshold
-
-                        for if_result in face_results:
-                            if_x, if_y, if_w, if_h = if_result.bbox
-                            iou = bbox_iou((mp_x, mp_y, mp_w, mp_h), (if_x, if_y, if_w, if_h))
-
-                            if iou > best_iou:
-                                best_iou = iou
-                                best_match_result = if_result
-
-                        if best_match_result is not None:
-                            best_idx, similarity = recognizer.match_face(
-                                best_match_result.embedding,
-                                db_embeddings,
-                                threshold=settings.face_recognition_threshold
-                            )
-
-                            # Cache result for this face using position-based key
-                            face_key = f"{mp_x//50}_{mp_y//50}"  # Grid-based position key
-                            last_recognitions[face_key] = {
-                                'best_idx': best_idx,
-                                'similarity': similarity,
-                                'person_id': person_ids[best_idx] if best_idx >= 0 else None,
-                                'bbox': (mp_x, mp_y, mp_w, mp_h)
-                            }
-
-                            # Log event to database (with cooldown to prevent spam)
-                            current_time = time.time()
-                            log_key = f"{person_ids[best_idx] if best_idx >= 0 else 'unknown'}_{face_key}"
-
-                            # Only log if not logged in last 10 seconds
-                            if log_key not in last_logged or (current_time - last_logged[log_key]) > 10:
-                                try:
-                                    log_entry = RecognitionLog(
-                                        person_id=person_ids[best_idx] if best_idx >= 0 else None,
-                                        timestamp=datetime.utcnow(),
-                                        confidence=similarity,
-                                        matched=1 if best_idx >= 0 else 0,
-                                        camera_source=settings.camera_ip
-                                    )
-                                    db.add(log_entry)
-                                    db.commit()
-
-                                    last_logged[log_key] = current_time
-
-                                    # Trigger alerts via AlertManager
-                                    try:
-                                        if best_idx >= 0:
-                                            # Known person detected
-                                            person_info = person_cache.get(person_ids[best_idx], {'name': 'Unknown'})
-                                            logger.warning(f"🔔 KNOWN PERSON: {person_info['name']} (Confidence: {similarity:.2f})")
-
-                                            # Create alert for known person (if configured)
-                                            alert_mgr.create_alert(
-                                                db=db,
-                                                event_type='known_person',
-                                                person_id=person_ids[best_idx],
-                                                person_name=person_info['name'],
-                                                confidence=similarity,
-                                                num_faces=len(detections),
-                                                frame=frame.copy()
-                                            )
-                                        else:
-                                            # Unknown person detected - ALERT!
-                                            logger.warning(f"⚠️  ALERT: UNKNOWN PERSON DETECTED - Confidence: {similarity:.2f}")
-
-                                            # Create alert for unknown person
-                                            alert_mgr.create_alert(
-                                                db=db,
-                                                event_type='unknown_person',
-                                                person_id=None,
-                                                person_name=None,
-                                                confidence=similarity,
-                                                num_faces=len(detections),
-                                                frame=frame.copy()
-                                            )
-                                    except Exception as alert_e:
-                                        logger.error(f"Failed to create alert: {alert_e}")
-
-                                except Exception as e:
-                                    logger.error(f"Failed to log recognition event: {e}")
+                    # Submit frame for recognition in background thread (non-blocking)
+                    try:
+                        # Don't block if queue is full - just skip this recognition cycle
+                        recognition_queue.put_nowait((frame.copy(), detections.copy(), frame_count))
+                    except:
+                        pass  # Queue full, skip this cycle
 
                 for face_idx, detection in enumerate(detections):
                     bbox = detection.bbox
                     x, y, w, h = bbox
                     current_detections.append((x, y, w, h))
 
-                    # Find matching cached recognition by position
+                    # Find matching cached recognition by position (thread-safe)
                     face_key = f"{x//50}_{y//50}"
                     recog = None
 
-                    # Try exact match first
-                    if face_key in last_recognitions:
-                        recog = last_recognitions[face_key]
-                    else:
-                        # Try nearby positions (in case face moved slightly)
-                        for cached_key, cached_recog in last_recognitions.items():
-                            cached_bbox = cached_recog.get('bbox')
-                            if cached_bbox:
-                                cached_x, cached_y, cached_w, cached_h = cached_bbox
-                                # Check if bboxes overlap significantly
-                                if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
-                                    recog = cached_recog
-                                    break
+                    with recognition_results_lock:
+                        # Try exact match first
+                        if face_key in last_recognitions:
+                            recog = last_recognitions[face_key]
+                        else:
+                            # Try nearby positions (in case face moved slightly)
+                            for cached_key, cached_recog in last_recognitions.items():
+                                cached_bbox = cached_recog.get('bbox')
+                                if cached_bbox:
+                                    cached_x, cached_y, cached_w, cached_h = cached_bbox
+                                    # Check if bboxes overlap significantly
+                                    if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
+                                        recog = cached_recog
+                                        break
 
                     # Draw box with cached or current recognition
                     if recog:
