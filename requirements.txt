@@ -61,6 +61,13 @@ black==24.1.1
 flake8==7.0.0
 mypy==1.8.0
 
+# Multi-Agent System Dependencies
+ultralytics==8.0.196  # YOLOv8 for detection
+facenet-pytorch==2.5.3  # FaceNet model
+timm==0.9.12  # Vision models
+transformers==4.36.2  # CLIP, DINOv2, etc.
+accelerate==0.25.0  # Hugging Face optimization
+
 # For Jetson AGX Orin specific optimizations (install separately if needed)
 # tensorrt
 # pycuda
