@@ -19,7 +19,13 @@
       "Bash(git add:*)",
       "Bash(curl:*)",
       "Bash(python3:*)",
-      "Bash(uvicorn:*)"
+      "Bash(uvicorn:*)",
+      "Bash(cat:*)",
+      "Bash(pip3 install:*)",
+      "Bash(wget:*)",
+      "Read(//home/mujeeb/Downloads/**)",
+      "Bash(git commit:*)",
+      "Bash(nvcc:*)"
     ],
     "deny": [],
     "ask": []
