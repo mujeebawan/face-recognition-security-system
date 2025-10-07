@@ -95,3 +95,5 @@ secrets.json
 # Backup files
 *.bak
 *.backup
+data_and_db_backup_*.tar.gz
+face_recognition_backup_*.tar.gz
