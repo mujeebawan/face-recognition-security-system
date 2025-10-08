@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     augmentation_count: int = 5
     use_diffusion: bool = False
 
+    # Alert System
+    alert_webhook_url: str = ""
+    alert_email_recipients: str = ""
+    alert_cooldown_seconds: int = 60
+    alert_on_unknown: bool = False
+    alert_on_known: bool = True
+    alert_save_snapshot: bool = True
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
