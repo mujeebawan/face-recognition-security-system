@@ -851,58 +851,11 @@ def generate_video_stream(db: Session):
 
             frame_count += 1
 
-            # Skip frames to reduce processing load (process every 2nd frame)
-            if frame_count % 2 != 0:
-                # Use cached detections for skipped frames
-                for bbox in last_detections:
-                    x, y, w, h = bbox
+            # Process EVERY frame for smooth detection (SCRFD is fast: 2-5ms)
+            # NO frame skipping for detection - important for moving persons!
+            # (Recognition still runs every 15th frame - that's ok for alerts)
 
-                    # Find matching cached recognition by position (thread-safe)
-                    face_key = f"{x//50}_{y//50}"
-                    recog = None
-
-                    with recognition_results_lock:
-                        if face_key in last_recognitions:
-                            recog = last_recognitions[face_key]
-                        else:
-                            # Try nearby positions
-                            for cached_key, cached_recog in last_recognitions.items():
-                                cached_bbox = cached_recog.get('bbox')
-                                if cached_bbox:
-                                    cached_x, cached_y, cached_w, cached_h = cached_bbox
-                                    if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
-                                        recog = cached_recog
-                                        break
-
-                    if recog:
-                        best_idx = recog['best_idx']
-                        similarity = recog['similarity']
-
-                        if best_idx >= 0:
-                            person_id = recog['person_id']
-                            person_info = person_cache.get(person_id, {'name': 'Unknown'})
-
-                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-                            cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
-                            cv2.putText(frame, f"KNOWN: {person_info['name']}", (x + 5, y - 28),
-                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-                            cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
-                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
-                        else:
-                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
-                            cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
-                            cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
-                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                            cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
-                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-                # Encode and yield quickly
-                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-                continue
-
-            # Use SCRFD (GPU) for fast face detection on processed frames
+            # Use SCRFD (GPU) for fast face detection on all frames
             detections = detector.detect_faces(frame)
 
             if detections and len(detections) > 0:

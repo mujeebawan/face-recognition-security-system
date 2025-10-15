@@ -1,6 +1,16 @@
-MIT License
+## Third-Party Licenses and Attributions
 
-Copyright (c) 2025 Muhammad Mujeeb Awan
+**IMPORTANT**: This project is built on top of many excellent open-source libraries and models.
+We acknowledge and respect all their licenses and contributions.
+
+---
+
+## Project Code License
+
+The custom application code (integration, API endpoints, configuration) in this repository
+is released under the MIT License:
+
+**Copyright (c) 2025 Muhammad Mujeeb Awan**
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,7 +32,7 @@ SOFTWARE.
 
 ---
 
-## Third-Party Licenses and Attributions
+## Third-Party Dependencies and Their Licenses
 
 This project uses the following open-source libraries and models:
 
