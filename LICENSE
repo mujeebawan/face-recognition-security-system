@@ -1,0 +1,158 @@
+MIT License
+
+Copyright (c) 2025 Muhammad Mujeeb Awan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Third-Party Licenses and Attributions
+
+This project uses the following open-source libraries and models:
+
+### Core Dependencies
+
+**InsightFace** (https://github.com/deepinsight/insightface)
+- License: MIT License
+- Copyright (c) 2018 Jiankang Deng and Jia Guo
+- Used for: SCRFD face detection (det_10g) and ArcFace recognition (buffalo_l)
+- Citation: Deng, J., Guo, J., Xue, N., & Zafeiriou, S. (2019). ArcFace: Additive Angular Margin Loss for Deep Face Recognition. CVPR 2019.
+
+**FastAPI** (https://github.com/tiangolo/fastapi)
+- License: MIT License
+- Copyright (c) 2018 Sebastián Ramírez
+- Used for: Web framework and API endpoints
+
+**OpenCV (opencv-python)** (https://github.com/opencv/opencv-python)
+- License: Apache License 2.0
+- Used for: Image processing, video capture, and RTSP stream handling
+
+**ONNX Runtime** (https://github.com/microsoft/onnxruntime)
+- License: MIT License
+- Copyright (c) Microsoft Corporation
+- Used for: Model inference with TensorRT acceleration
+
+**SQLAlchemy** (https://github.com/sqlalchemy/sqlalchemy)
+- License: MIT License
+- Copyright (c) 2005-2025 Michael Bayer and contributors
+- Used for: Database ORM and migrations
+
+**Pydantic** (https://github.com/pydantic/pydantic)
+- License: MIT License
+- Copyright (c) 2017-2025 Samuel Colvin and contributors
+- Used for: Data validation and settings management
+
+**NumPy** (https://github.com/numpy/numpy)
+- License: BSD 3-Clause License
+- Copyright (c) 2005-2025, NumPy Developers
+- Used for: Numerical computing and array operations
+
+**Pillow (PIL)** (https://github.com/python-pillow/Pillow)
+- License: HPND License
+- Copyright (c) 1997-2011 by Secret Labs AB
+- Copyright (c) 1995-2011 by Fredrik Lundh
+- Used for: Image manipulation and processing
+
+### AI Models
+
+**SCRFD (Sample and Computation Redistribution for Face Detection)**
+- Paper: "Sample and Computation Redistribution for Efficient Face Detection" (CVPR 2022)
+- Authors: Jia Guo, Jiankang Deng, Alexandros Lattas, Stefanos Zafeiriou
+- Model: det_10g from InsightFace buffalo_l pack
+- License: InsightFace MIT License
+- Accuracy: 97.6% on WIDER Face Hard benchmark
+
+**ArcFace (Additive Angular Margin Loss)**
+- Paper: "ArcFace: Additive Angular Margin Loss for Deep Face Recognition" (CVPR 2019)
+- Authors: Jiankang Deng, Jia Guo, Niannan Xue, Stefanos Zafeiriou
+- Model: buffalo_l (ResNet-100 backbone)
+- License: InsightFace MIT License
+- Accuracy: 96.8% on IJB-C TAR@FAR benchmark
+
+**Future Models (Planned)**:
+- AdaFace: "AdaFace: Quality Adaptive Margin for Face Recognition" (CVPR 2022)
+- CosFace: Available in InsightFace (MIT License)
+
+### Hardware Platform
+
+**NVIDIA Jetson AGX Orin**
+- TensorRT: NVIDIA TensorRT 8.5.2.2
+- CUDA: NVIDIA CUDA 12.6
+- JetPack SDK: 6.1 (R36.4.7)
+- License: NVIDIA Software License Agreement
+
+### Development Tools
+
+**Python** (https://www.python.org/)
+- License: Python Software Foundation License
+- Version: 3.10.12
+
+---
+
+## Contact Information
+
+**Developer**: Muhammad Mujeeb Awan
+**Email**: mawan.msee24seecs@seecs.edu.pk
+**Institution**: National University of Sciences and Technology (NUST), Pakistan
+**Program**: MS Electrical Engineering (2024)
+**GitHub**: https://github.com/mujeebawan/face-recognition-security-system
+
+---
+
+## Research Use
+
+If you use this software in your research, please cite:
+
+```
+@software{awan2025facerec,
+  author = {Awan, Muhammad Mujeeb},
+  title = {Multi-Agent Face Recognition System for Law Enforcement},
+  year = {2025},
+  publisher = {GitHub},
+  url = {https://github.com/mujeebawan/face-recognition-security-system}
+}
+```
+
+---
+
+## Disclaimer
+
+This software is designed for law enforcement and security applications. Users must comply with all applicable laws, regulations, and ethical guidelines regarding:
+
+- Privacy and data protection (GDPR, local data protection laws)
+- Biometric data collection and storage
+- Facial recognition technology usage restrictions
+- Law enforcement protocols and procedures
+
+The authors and contributors of this software are not responsible for any misuse, illegal use, or ethical violations by end users.
+
+---
+
+## Acknowledgments
+
+- National University of Sciences and Technology (NUST), Pakistan
+- InsightFace team for open-source face recognition models
+- NVIDIA for Jetson platform and TensorRT optimization
+- FastAPI community for excellent web framework
+- Open-source community for various libraries and tools
+
+---
+
+**Last Updated**: October 15, 2025
+**License Version**: 1.0
