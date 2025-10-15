@@ -34,8 +34,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["recognition"])
 
-# Initialize face recognizer and alert manager (singletons)
+# Initialize face recognizer, detector, and alert manager (singletons)
 face_recognizer: Optional[FaceRecognizer] = None
+face_detector: Optional[FaceDetector] = None
 alert_manager: Optional[AlertManager] = None
 multi_agent_engine: Optional[ParallelInferenceEngine] = None
 multi_agent_initialized = False
@@ -48,6 +49,15 @@ def get_recognizer() -> FaceRecognizer:
         logger.info("Initializing face recognizer...")
         face_recognizer = FaceRecognizer()
     return face_recognizer
+
+
+def get_detector() -> FaceDetector:
+    """Get or initialize face detector (singleton to avoid slow SCRFD reload)"""
+    global face_detector
+    if face_detector is None:
+        logger.info("Initializing SCRFD detector (one-time GPU initialization)...")
+        face_detector = FaceDetector()
+    return face_detector
 
 
 def get_alert_manager() -> AlertManager:
@@ -666,7 +676,7 @@ async def enroll_from_camera(
 def generate_video_stream(db: Session):
     """
     Generate MJPEG video stream with real-time face recognition.
-    Uses MediaPipe for fast detection, InsightFace only for recognition.
+    Uses SCRFD (GPU) for fast detection, InsightFace for recognition.
     Triggers alerts for unknown persons.
 
     Recognition processing runs in a background thread to avoid blocking the stream.
@@ -674,7 +684,7 @@ def generate_video_stream(db: Session):
     Yields:
         JPEG frames with recognition overlay
     """
-    detector = FaceDetector()
+    detector = get_detector()  # Singleton - avoid recreating SCRFD!
     recognizer = get_recognizer()
     alert_mgr = get_alert_manager()
     camera = CameraHandler(use_main_stream=False)
@@ -892,7 +902,7 @@ def generate_video_stream(db: Session):
                        b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
                 continue
 
-            # Use MediaPipe for fast face detection on processed frames
+            # Use SCRFD (GPU) for fast face detection on processed frames
             detections = detector.detect_faces(frame)
 
             if detections and len(detections) > 0:

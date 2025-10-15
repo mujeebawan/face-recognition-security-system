@@ -1,14 +1,14 @@
 """
-Face detection module using MediaPipe.
-Detects faces in images and video frames, returns bounding boxes and landmarks.
+Face detection module using SCRFD (InsightFace).
+GPU-accelerated face detector compatible with MediaPipe interface.
 """
 
 import cv2
 import numpy as np
-import mediapipe as mp
 import logging
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
+from insightface.app import FaceAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -22,27 +22,46 @@ class FaceDetection:
 
 
 class FaceDetector:
-    """Face detector using MediaPipe Face Detection"""
+    """Face detector using SCRFD from InsightFace (GPU-accelerated)"""
 
     def __init__(self, min_detection_confidence: float = 0.5):
         """
-        Initialize MediaPipe face detector.
+        Initialize SCRFD face detector.
 
         Args:
             min_detection_confidence: Minimum confidence threshold (0-1)
         """
         self.min_detection_confidence = min_detection_confidence
 
-        # Initialize MediaPipe Face Detection
-        self.mp_face_detection = mp.solutions.face_detection
-        self.mp_drawing = mp.solutions.drawing_utils
+        logger.info("Initializing SCRFD face detector (TensorRT)...")
 
-        self.detector = self.mp_face_detection.FaceDetection(
-            model_selection=1,  # 1 for full range (better for camera feeds)
-            min_detection_confidence=min_detection_confidence
+        # Initialize FaceAnalysis with SCRFD detector
+        # This uses the 'det_10g' model from buffalo_l pack (10G FLOPs SCRFD)
+        # Configure TensorRT with engine caching for optimal Jetson performance
+        import os
+        tensorrt_options = {
+            'trt_engine_cache_enable': True,
+            'trt_engine_cache_path': os.path.join(os.getcwd(), 'data/tensorrt_engines'),
+            'trt_fp16_enable': True,  # FP16 for faster inference on Jetson
+        }
+
+        self.app = FaceAnalysis(
+            name='buffalo_l',  # Uses SCRFD det_10g detector
+            providers=[
+                ('TensorrtExecutionProvider', tensorrt_options),
+                'CUDAExecutionProvider',
+                'CPUExecutionProvider'
+            ]
         )
 
-        logger.info(f"Face detector initialized (confidence threshold: {min_detection_confidence})")
+        # Prepare with GPU context and detection size
+        self.app.prepare(
+            ctx_id=0,  # GPU 0
+            det_size=(640, 640),
+            det_thresh=min_detection_confidence
+        )
+
+        logger.info(f"SCRFD detector initialized (GPU, threshold={min_detection_confidence})")
 
     def detect_faces(self, image: np.ndarray) -> List[FaceDetection]:
         """
@@ -58,51 +77,42 @@ class FaceDetector:
             logger.warning("Received None image for detection")
             return []
 
-        # Convert BGR to RGB (MediaPipe expects RGB)
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
         # Get image dimensions
         height, width = image.shape[:2]
 
-        # Detect faces
-        results = self.detector.process(image_rgb)
+        # Detect faces using SCRFD (expects BGR)
+        faces = self.app.get(image)
 
         detections = []
 
-        if results.detections:
-            for detection in results.detections:
-                # Get bounding box
-                bbox = detection.location_data.relative_bounding_box
+        if faces:
+            for face in faces:
+                # Get bounding box (format: [x1, y1, x2, y2])
+                bbox = face.bbox.astype(int)
+                x1, y1, x2, y2 = bbox
 
-                # Convert relative coordinates to absolute pixels
-                x = int(bbox.xmin * width)
-                y = int(bbox.ymin * height)
-                w = int(bbox.width * width)
-                h = int(bbox.height * height)
+                # Convert to (x, y, width, height) format
+                x = max(0, x1)
+                y = max(0, y1)
+                w = min(x2 - x1, width - x)
+                h = min(y2 - y1, height - y)
 
-                # Ensure coordinates are within image bounds
-                x = max(0, x)
-                y = max(0, y)
-                w = min(w, width - x)
-                h = min(h, height - y)
+                confidence = float(face.det_score)
 
-                confidence = detection.score[0]
-
-                # Extract key landmarks (eyes, nose, mouth, ears)
+                # Extract landmarks if available (5 keypoints: eyes, nose, mouth corners)
                 landmarks = []
-                if detection.location_data.relative_keypoints:
-                    for keypoint in detection.location_data.relative_keypoints:
-                        lm_x = int(keypoint.x * width)
-                        lm_y = int(keypoint.y * height)
-                        landmarks.append((lm_x, lm_y))
+                if hasattr(face, 'kps') and face.kps is not None:
+                    kps = face.kps.astype(int)
+                    for i in range(kps.shape[0]):
+                        landmarks.append((int(kps[i, 0]), int(kps[i, 1])))
 
-                face = FaceDetection(
+                face_det = FaceDetection(
                     bbox=(x, y, w, h),
                     confidence=confidence,
                     landmarks=landmarks if landmarks else None
                 )
 
-                detections.append(face)
+                detections.append(face_det)
 
             logger.debug(f"Detected {len(detections)} face(s)")
 
@@ -184,5 +194,5 @@ class FaceDetector:
 
     def __del__(self):
         """Cleanup detector on deletion"""
-        if hasattr(self, 'detector'):
-            self.detector.close()
+        # InsightFace handles cleanup automatically
+        pass
