@@ -42,8 +42,14 @@ class CameraHandler:
             # Create VideoCapture with RTSP URL
             self.capture = cv2.VideoCapture(self.stream_url, cv2.CAP_FFMPEG)
 
-            # Set buffer size to reduce latency
-            self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            # Optimize for low latency streaming
+            self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer
+            self.capture.set(cv2.CAP_PROP_FPS, 30)  # Request 30 FPS
+
+            # Disable any additional buffering
+            if hasattr(cv2, 'CAP_PROP_FOURCC'):
+                # Try to set optimal codec
+                self.capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
 
             # Try to read a frame to verify connection
             if self.capture.isOpened():
@@ -72,37 +78,63 @@ class CameraHandler:
             self.is_connected = False
             logger.info("Camera disconnected")
 
-    def read_frame(self, crop_osd: bool = True) -> Tuple[bool, Optional[np.ndarray]]:
+    def read_frame(self, crop_osd: bool = True, flush_buffer: bool = False, max_retries: int = 3) -> Tuple[bool, Optional[np.ndarray]]:
         """
-        Read a single frame from the camera.
+        Read a single frame from the camera with automatic reconnection on failure.
 
         Args:
             crop_osd: If True, crop top region to remove camera OSD text overlay
+            flush_buffer: If True, flush old frames to get the latest frame (reduces latency)
+            max_retries: Maximum number of reconnection attempts on frame read failure
 
         Returns:
             Tuple of (success, frame)
         """
         if not self.is_connected or self.capture is None:
-            logger.warning("Camera not connected")
-            return False, None
-
-        try:
-            ret, frame = self.capture.read()
-            if ret:
-                self.frame_count += 1
-
-                # Crop OSD overlay from top
-                if crop_osd and frame is not None:
-                    # Crop 65 pixels from top to remove camera OSD text
-                    frame = frame[65:, :]
-
-                return True, frame
-            else:
-                logger.warning("Failed to read frame from camera")
+            logger.warning("Camera not connected, attempting to connect...")
+            if not self.connect():
                 return False, None
-        except Exception as e:
-            logger.error(f"Error reading frame: {str(e)}")
-            return False, None
+
+        retry_count = 0
+        while retry_count < max_retries:
+            try:
+                # Flush old buffered frames to get the latest frame (reduces delay)
+                # Only flush if explicitly requested and not in streaming mode
+                if flush_buffer:
+                    # Grab one frame but only decode the next one
+                    self.capture.grab()
+
+                ret, frame = self.capture.read()
+                if ret and frame is not None:
+                    self.frame_count += 1
+
+                    # Crop OSD overlay from top
+                    if crop_osd:
+                        # Crop 65 pixels from top to remove camera OSD text
+                        frame = frame[65:, :]
+
+                    return True, frame
+                else:
+                    # Frame read failed - attempt reconnection
+                    logger.warning(f"Frame read failed (attempt {retry_count + 1}/{max_retries}), reconnecting...")
+                    self.disconnect()
+                    if self.connect():
+                        retry_count += 1
+                        continue
+                    else:
+                        return False, None
+
+            except Exception as e:
+                logger.error(f"Error reading frame: {str(e)}, reconnecting...")
+                self.disconnect()
+                if retry_count < max_retries - 1:
+                    if self.connect():
+                        retry_count += 1
+                        continue
+                return False, None
+
+        logger.error(f"Failed to read frame after {max_retries} reconnection attempts")
+        return False, None
 
     def get_frame_jpeg(self, quality: int = 85) -> Optional[bytes]:
         """
@@ -173,3 +205,109 @@ class CameraHandler:
     def __del__(self):
         """Cleanup on deletion"""
         self.disconnect()
+
+
+class FrameBroadcaster:
+    """
+    Singleton frame broadcaster for sharing a single RTSP stream across multiple viewers.
+    Runs a background thread that continuously reads frames and makes them available to multiple clients.
+    """
+    _instance = None
+    _lock = None
+
+    def __new__(cls, use_main_stream: bool = True):
+        """Ensure only one instance exists (singleton pattern)"""
+        if cls._instance is None:
+            import threading
+            cls._lock = threading.Lock()
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self, use_main_stream: bool = True):
+        """Initialize the broadcaster (only once)"""
+        if self._initialized:
+            return
+
+        import threading
+        import time
+
+        self.camera = CameraHandler(use_main_stream=use_main_stream)
+        self.latest_frame = None
+        self.frame_lock = threading.Lock()
+        self.running = False
+        self.capture_thread = None
+        self.last_frame_time = 0
+        self._initialized = True
+
+        logger.info("FrameBroadcaster initialized")
+
+    def start(self):
+        """Start the background frame capture thread"""
+        if self.running:
+            logger.warning("FrameBroadcaster already running")
+            return
+
+        import threading
+
+        # Connect to camera first
+        if not self.camera.connect():
+            logger.error("Failed to connect to camera in broadcaster")
+            return False
+
+        self.running = True
+        self.capture_thread = threading.Thread(target=self._capture_loop, daemon=True)
+        self.capture_thread.start()
+        logger.info("FrameBroadcaster started")
+        return True
+
+    def stop(self):
+        """Stop the background capture thread"""
+        self.running = False
+        if self.capture_thread is not None:
+            self.capture_thread.join(timeout=2)
+        self.camera.disconnect()
+        logger.info("FrameBroadcaster stopped")
+
+    def _capture_loop(self):
+        """Background thread that continuously captures frames"""
+        import time
+
+        while self.running:
+            try:
+                ret, frame = self.camera.read_frame(crop_osd=True, flush_buffer=False)
+                if ret and frame is not None:
+                    with self.frame_lock:
+                        self.latest_frame = frame.copy()
+                        self.last_frame_time = time.time()
+                else:
+                    # Frame read failed, wait a bit before retry
+                    time.sleep(0.1)
+            except Exception as e:
+                logger.error(f"Error in capture loop: {e}")
+                time.sleep(0.5)
+
+    def get_frame(self) -> Tuple[bool, Optional[np.ndarray]]:
+        """
+        Get the latest frame (safe for multiple viewers to call simultaneously).
+
+        Returns:
+            Tuple of (success, frame_copy)
+        """
+        import time
+
+        with self.frame_lock:
+            if self.latest_frame is not None:
+                # Check if frame is recent (within last 5 seconds)
+                if time.time() - self.last_frame_time < 5.0:
+                    return True, self.latest_frame.copy()
+                else:
+                    logger.warning("Latest frame is stale")
+                    return False, None
+            else:
+                return False, None
+
+    def is_alive(self) -> bool:
+        """Check if broadcaster is running and receiving frames"""
+        import time
+        return self.running and (time.time() - self.last_frame_time < 5.0)
