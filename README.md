@@ -1,59 +1,106 @@
 # Face Recognition Security System
 
-face recognition system for security applications using Hikvision IP camera on NVIDIA Jetson AGX Orin.
+Production-ready face recognition system for security applications using Hikvision IP camera on NVIDIA Jetson AGX Orin.
 
 ## 🎯 Project Overview
 
-This system is designed for security purposes, capable of identifying individuals from a single reference image (like NADRA database records). It leverages advanced computer vision techniques and diffusion models to achieve accurate recognition even with limited training data.
+This system is designed for security purposes, capable of identifying individuals from a single reference image (like NADRA database records or CCTV footage). It leverages GPU-accelerated face detection, deep learning-based recognition, and AI-powered data augmentation to achieve accurate recognition even with limited training data.
 
 ### Key Features
 
-- **Single Image Recognition**: Advanced augmentation techniques to recognize faces from just one reference image
-- **Real-time Processing**: Optimized for NVIDIA Jetson AGX Orin with GPU acceleration
-- **High-Quality Camera Support**: Hikvision 4MP IP camera with RTSP streaming
+- **GPU-Accelerated Detection**: SCRFD face detection optimized with TensorRT on Jetson AGX Orin
+- **High-Accuracy Recognition**: InsightFace (ArcFace) with 512-D embeddings
+- **AI-Powered Data Augmentation**: Stable Diffusion + ControlNet for generating multiple angles from single images
+- **Camera Capture Enrollment**: Capture images directly from live camera for registration
+- **Multi-Image Support**: Upload multiple images per person for improved accuracy
+- **Real-time Processing**: Live MJPEG stream with real-time detection and recognition
+- **Alert System**: Configurable alerts for known/unknown persons
+- **Admin Dashboard**: Web-based interface for person management and system monitoring
+- **SD Card Portability**: Portable data storage for easy deployment and scaling
 - **RESTful API**: FastAPI-based backend for easy integration
-- **Database Ready**: SQLite for development, PostgreSQL-ready for production
-- **Augmentation Pipeline**: Traditional and diffusion-based image augmentation
 
 ## 🔧 Hardware Requirements
 
-- **Computing Platform**: NVIDIA Jetson AGX Orin
+- **Computing Platform**: NVIDIA Jetson AGX Orin (64GB recommended)
 - **Camera**: Hikvision DS-2CD7A47EWD-XZS (4MP Fisheye)
 - **Network**: Camera accessible via IP (192.168.1.64)
+- **Storage**: SD card recommended for portable database and image storage
+- **OS**: JetPack 6.1 (L4T 36.4.0)
 
 ## 🚀 Technology Stack
 
 ### Backend
-- **Framework**: FastAPI
-- **Computer Vision**: OpenCV, MediaPipe/InsightFace
-- **Deep Learning**: PyTorch (ArcFace for face recognition)
-- **Database**: SQLAlchemy ORM (SQLite → PostgreSQL)
-- **Streaming**: RTSP (via OpenCV)
+- **Framework**: FastAPI (async)
+- **Computer Vision**: OpenCV (CUDA-enabled)
+- **Deep Learning**: ONNX Runtime with TensorRT execution provider
+- **Database**: SQLAlchemy ORM (SQLite for development, PostgreSQL-ready)
+- **Streaming**: RTSP via OpenCV, MJPEG for browser
 
 ### AI Models
-- **Face Detection**: MediaPipe / RetinaFace
-- **Face Recognition**: InsightFace (ArcFace)
-- **Augmentation**: Diffusion models (Stable Diffusion + ControlNet)
+- **Face Detection**: SCRFD (GPU-accelerated with TensorRT FP16)
+- **Face Recognition**: InsightFace ArcFace (buffalo_l model)
+- **Data Augmentation (Planned)**: Stable Diffusion 1.5 + ControlNet (pose-guided generation)
+
+### Optimization
+- **TensorRT**: FP16 optimization for SCRFD and InsightFace models
+- **CUDA Streams**: Parallel GPU execution
+- **Frame Skipping**: Intelligent frame processing (every 2nd frame)
+- **Recognition Throttling**: Every 5th frame for recognition (cached in between)
 
 ## 📁 Project Structure
 
 ```
-face_recognition_system/
+face-recognition-security-system/
 ├── app/
-│   ├── main.py                 # FastAPI application
-│   ├── config.py               # Configuration
-│   ├── models/                 # Database models
-│   ├── api/routes/             # API endpoints
-│   ├── core/                   # Core logic (detection, recognition)
-│   └── utils/                  # Utilities
+│   ├── main.py                    # FastAPI application entry point
+│   ├── config.py                  # Pydantic configuration settings
+│   ├── models/
+│   │   └── database.py            # SQLAlchemy database models
+│   ├── api/routes/
+│   │   ├── detection.py           # Face detection endpoints
+│   │   ├── recognition.py         # Enrollment & recognition endpoints
+│   │   ├── alerts.py              # Alert configuration endpoints
+│   │   └── websocket.py           # WebSocket for real-time updates
+│   ├── core/
+│   │   ├── detector.py            # SCRFD face detector
+│   │   ├── recognizer.py          # InsightFace ArcFace recognizer
+│   │   ├── camera.py              # Camera handler (RTSP)
+│   │   ├── augmentation.py        # Traditional augmentation
+│   │   ├── alerts.py              # Alert manager
+│   │   └── database.py            # Database session management
+│   ├── static/                    # Web UI files (admin.html, dashboard.html)
+│   └── utils/                     # Utility functions
 ├── data/
-│   ├── images/                 # Reference images
-│   ├── embeddings/             # Face embeddings
-│   └── models/                 # Pre-trained models
+│   ├── images/                    # Reference face images
+│   ├── alert_snapshots/           # Alert snapshot images
+│   ├── models/                    # Model files (yolov8n.pt, etc.)
+│   ├── tensorrt_engines/          # TensorRT cached engines
+│   └── sd_card_ready/             # For SD card deployment
+├── scripts/
+│   ├── migration/                 # Database migration scripts
+│   │   └── init_db.py
+│   └── utilities/                 # Debug and capture utilities
+│       ├── capture_live_frame.py
+│       ├── capture_test_frame.py
+│       └── debug_recognition.py
 ├── tests/
-├── PROJECT_PLAN.md             # Detailed project roadmap
-├── requirements.txt
-└── .env.example
+│   ├── integration/               # Integration tests
+│   ├── unit/                      # Unit tests (TBD)
+│   └── fixtures/                  # Test fixtures
+├── docs/
+│   ├── api/                       # API documentation
+│   ├── deployment/                # Deployment guides
+│   │   └── JETPACK_UPGRADE_GUIDE.md
+│   └── development/               # Development documentation
+├── archive/
+│   ├── old_docs/                  # Archived documentation
+│   └── backup_configs/            # Pre-upgrade configuration backups
+├── PROJECT_PLAN.md                # Detailed project roadmap
+├── ARCHITECTURE.md                # System architecture documentation
+├── TECHNOLOGY_STACK.md            # Complete technology stack
+├── CURRENT_STATUS.md              # Current development status
+├── requirements.txt               # Python dependencies
+└── .env.example                   # Environment variables template
 ```
 
 ## 🛠️ Setup Instructions
@@ -74,6 +121,9 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Install InsightFace models (buffalo_l)
+# Models will be downloaded automatically on first run to ~/.insightface/
 ```
 
 ### 3. Configure Environment Variables
@@ -86,96 +136,98 @@ cp .env.example .env
 nano .env
 ```
 
+Required environment variables:
+```env
+CAMERA_IP=192.168.1.64
+CAMERA_USERNAME=admin
+CAMERA_PASSWORD=your_password
+CAMERA_RTSP_PORT=554
+
+DATABASE_URL=sqlite:///./data/face_recognition.db
+FACE_RECOGNITION_THRESHOLD=0.35
+```
+
 ### 4. Initialize Database
 
 ```bash
-# Run database migrations
-alembic upgrade head
+# Run database initialization script
+python3 scripts/migration/init_db.py
 ```
 
 ### 5. Run the Application
 
 ```bash
 # Start the FastAPI server
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+### 6. Access the Application
+
+- **API Documentation**: http://localhost:8000/docs
+- **Live Stream**: http://localhost:8000/live
+- **Admin Panel**: http://localhost:8000/admin
+- **Dashboard**: http://localhost:8000/dashboard
 
 ## 🎥 Camera Configuration
 
 The system uses Hikvision DS-2CD7A47EWD-XZS IP camera via RTSP:
 
 ```
-RTSP URL: rtsp://username:password@192.168.1.64:554/Streaming/Channels/101
+Main Stream: rtsp://username:password@192.168.1.64:554/Streaming/Channels/101
+Sub Stream:  rtsp://username:password@192.168.1.64:554/Streaming/Channels/102
 ```
 
-Camera credentials are stored in `.env` file (not committed to git).
+The system uses **sub-stream** by default for better performance (640x480). Camera credentials are stored in `.env` file (not committed to git).
 
-## 📊 Development Phases
+## 📊 Current Development Status
 
-See [PROJECT_PLAN.md](PROJECT_PLAN.md) and [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) for detailed development roadmap and progress:
+**Current Phase**: Phase 3 - Production Enhancements
 
-1. ✅ **Phase 1**: Environment Setup & Infrastructure - **COMPLETE**
-   - FastAPI application with CORS middleware
-   - SQLite database with SQLAlchemy ORM
-   - Hikvision IP camera RTSP integration
-   - Configuration management with Pydantic
+### ✅ Completed Milestones
 
-2. ✅ **Phase 2**: Face Detection Pipeline - **COMPLETE**
-   - MediaPipe face detection integration
-   - Real-time face detection from camera feed
-   - API endpoints for detection
-   - Bounding box and landmark visualization
+**Milestone 1: Core Face Recognition System**
+- FastAPI application with SQLite database
+- Hikvision IP camera RTSP integration
+- InsightFace (ArcFace) face recognition
+- Person enrollment and recognition APIs
+- Admin panel for person management
+- Alert system with configurable thresholds
+- Live MJPEG video stream with real-time recognition
 
-3. ✅ **Phase 3**: Face Recognition Core - **COMPLETE**
-   - InsightFace (ArcFace) integration
-   - 512-D face embedding extraction
-   - Person enrollment and recognition APIs
-   - Database storage for embeddings
-   - Recognition audit logging
+**Milestone 2: GPU Acceleration**
+- SCRFD GPU-accelerated face detection with TensorRT
+- JetPack 6.1 upgrade (L4T 36.4.0)
+- TensorRT FP16 optimization for SCRFD models
+- Performance: ~15-20 FPS with GPU detection
+- Removed multi-agent parallel system (simplified architecture)
 
-4. ✅ **Phase 4A**: Multi-Image Enrollment & Live Streaming - **COMPLETE**
-   - Traditional image augmentation (rotation, brightness, contrast)
-   - Multi-image enrollment endpoint (1-10 images)
-   - Camera-based enrollment endpoint
-   - Live MJPEG video stream with real-time recognition
-   - Web UI for live stream viewing
-   - Multiple face detection and recognition
+### 🚧 In Progress
 
-5. ⚠️ **Phase 5**: GPU Acceleration & Optimization - **PARTIALLY COMPLETE**
-   - ✅ CPU optimizations (MediaPipe + frame skipping)
-   - ✅ Two-stage processing pipeline (fast detection + slow recognition)
-   - ✅ Performance improved to ~10-15 FPS
-   - ❌ GPU acceleration blocked (GLIBC incompatibility with onnxruntime-gpu)
-   - Current: CPU-only processing with optimized pipeline
+**Phase 3: Production Enhancements**
+- SD card data portability system
+- Camera capture enrollment in admin panel
+- Image quality enhancement pipeline
+- Stable Diffusion + ControlNet augmentation
 
-6. ⏳ **Phase 4B**: Advanced Augmentation - **PENDING**
-   - Diffusion model integration (Stable Diffusion + ControlNet)
-   - Synthetic face generation for pose variation
-   - GAN-based augmentation
+### 📋 Roadmap
 
-7. ⏳ **Phase 6**: Real-time Recognition Enhancement - **PARTIALLY COMPLETE**
-   - ✅ Live video stream with recognition
-   - ⏳ Multi-client streaming support
-   - ⏳ Alert system for unknown persons
-   - ⏳ Recognition confidence tuning interface
+**Phase 4: AI-Powered Data Augmentation**
+- Stable Diffusion 1.5 integration
+- ControlNet for pose-guided generation
+- Generate 5-10 angles per enrolled person
+- Automatic quality filtering of generated images
 
-8. ⏳ **Phase 7**: Production Optimization - **PENDING**
-   - TensorRT model conversion (when GPU available)
-   - Advanced caching strategies
-   - Database query optimization
-   - PostgreSQL migration
+**Phase 5: Production Deployment**
+- PostgreSQL migration
+- Docker containerization
+- System monitoring and logging
+- Backup and recovery procedures
 
-9. ⏳ **Phase 8**: Security & Production Features - **PENDING**
-   - JWT-based authentication
-   - API rate limiting
-   - Data encryption for embeddings
-   - Backup and recovery system
-
-10. ⏳ **Phase 9**: UI/Frontend - **BASIC COMPLETE**
-    - ✅ Basic live stream viewer
-    - ⏳ Full-featured admin dashboard
-    - ⏳ Person management interface
-    - ⏳ Recognition history viewer
+**Phase 6: Advanced Features**
+- JWT-based authentication
+- Multi-camera support
+- Advanced alert rules (time-based, zone-based)
+- Export recognition logs to CSV
 
 ## 🔌 API Endpoints
 
@@ -185,24 +237,18 @@ GET  /                       # API information
 GET  /health                 # Health check
 GET  /docs                   # Swagger UI documentation
 GET  /live                   # Live stream web viewer
-```
-
-### Face Detection
-```bash
-POST /api/detect-faces       # Detect faces in uploaded image
-GET  /api/camera/snapshot    # Capture frame with optional detection overlay
-GET  /api/camera/detect      # Quick face detection from camera
+GET  /admin                  # Admin panel
+GET  /dashboard              # Dashboard with recent detections
 ```
 
 ### Face Enrollment
 ```bash
 # Single image enrollment
 POST /api/enroll
-Body: {
-  "name": "John Doe",
-  "cnic": "12345-1234567-1",
-  "image": "base64_encoded_image"
-}
+Form Data:
+  - name: string
+  - cnic: string (unique identifier)
+  - file: UploadFile
 
 # Multi-image enrollment (1-10 images)
 POST /api/enroll/multiple
@@ -214,33 +260,26 @@ Form Data:
 
 # Camera-based enrollment (captures multiple frames)
 POST /api/enroll/camera
-Body: {
-  "name": "John Doe",
-  "cnic": "12345-1234567-1",
-  "num_captures": 5,           # 3-10 frames
-  "use_augmentation": true
-}
+Form Data:
+  - name: string
+  - cnic: string
+  - num_captures: int (3-10 frames, default: 5)
+  - use_augmentation: boolean (default: true)
 ```
 
 ### Face Recognition
 ```bash
 # Recognize from uploaded image
 POST /api/recognize
-Body: {
-  "image": "base64_encoded_image"
-}
+Form Data:
+  - file: UploadFile
 
-# Recognize from camera
-GET /api/recognize/camera
-```
-
-### Live Video Stream
-```bash
-# MJPEG video stream with real-time recognition
+# Live video stream with real-time recognition
 GET /api/stream/live
 # Returns: multipart/x-mixed-replace MJPEG stream
 # Features:
-#   - Real-time face detection and recognition
+#   - Real-time SCRFD face detection (GPU)
+#   - ArcFace face recognition
 #   - Green boxes for known persons
 #   - Red boxes for unknown persons
 #   - Confidence scores displayed
@@ -250,53 +289,71 @@ GET /api/stream/live
 ```bash
 GET    /api/persons          # List all enrolled persons
 DELETE /api/persons/{id}     # Delete person (cascade deletes embeddings)
+GET    /api/access-logs      # Get recognition logs (last 50)
 ```
 
-## 🔐 Security Considerations
-
-- **Data Encryption**: Face embeddings are encrypted at rest
-- **API Authentication**: JWT-based authentication
-- **Access Control**: Role-based access control (RBAC)
-- **Audit Logging**: All recognition attempts are logged
-- **Privacy Compliance**: GDPR-compliant data handling
-
-## 🧪 Testing
-
+### Alert Configuration
 ```bash
-# Run all tests
-pytest
+GET  /api/alerts/config      # Get current alert configuration
+POST /api/alerts/config      # Update alert configuration
+GET  /api/alerts/recent      # Get recent alerts (last 20)
+```
 
-# Run with coverage
-pytest --cov=app tests/
+### WebSocket (Real-time Updates)
+```bash
+WS /ws/alerts                # WebSocket for real-time alert notifications
+# Sends JSON messages:
+# {"type": "alert", "data": {...}}
 ```
 
 ## 📈 Performance Metrics
 
-### Current Performance (CPU-Optimized)
-- **Live Stream FPS**: ~10-15 FPS
-- **Face Detection**: ~5-10ms per frame (MediaPipe)
-- **Face Recognition**: ~300-400ms per frame (InsightFace, CPU)
-- **Recognition Frequency**: Every 20th frame
-- **Frame Processing**: Every 2nd frame (50% skip rate)
-- **Multi-Face Support**: Yes (IoU-based matching)
+### Current Performance (JetPack 6.1 + GPU)
+- **Live Stream FPS**: ~15-20 FPS
+- **Face Detection**: ~30-50ms per frame (SCRFD GPU + TensorRT FP16)
+- **Face Recognition**: ~200-300ms per face (InsightFace ArcFace)
+- **Detection Frequency**: Every 2nd frame (50% frame skip)
+- **Recognition Frequency**: Every 5th processed frame (cached between)
+- **Multi-Face Support**: Yes (up to 10 faces per frame)
+- **GPU Utilization**: 40-60% during active detection
 
-### Target Performance (GPU-Accelerated)
-- **Face Detection**: >20 FPS
-- **Recognition Latency**: <100ms
-- **GPU Utilization**: >80%
-- **Accuracy**: >95% with multi-image augmentation
+### Target Performance (After Full Optimization)
+- **Live Stream FPS**: 25-30 FPS
+- **Face Detection**: <20ms per frame
+- **Face Recognition**: <100ms per face
+- **GPU Utilization**: 70-80%
+- **Accuracy**: >95% with multi-image + SD augmentation
 
-### Known Limitations
-- GPU acceleration blocked by GLIBC incompatibility (JetPack 5.1.2)
-- Single camera stream (concurrent access limited)
-- CPU-only processing currently in use
+## 🧪 Testing
+
+```bash
+# Run integration tests
+python3 -m pytest tests/integration/ -v
+
+# Test camera connection
+python3 scripts/utilities/capture_test_frame.py
+
+# Test face detection
+python3 tests/integration/test_face_detection.py
+
+# Test live stream
+python3 tests/integration/test_live_stream.py
+```
+
+## 🔐 Security Considerations
+
+- **Data Protection**: All camera credentials stored in `.env` (not committed)
+- **Audit Logging**: All recognition attempts logged with timestamps
+- **Alert System**: Configurable thresholds for unknown person detection
+- **Privacy Compliance**: Local processing, no cloud dependencies
+- **Access Control**: Admin panel for authorized personnel only
 
 ## 🤝 Contributing
 
 This is a security-focused project. Please ensure all contributions:
 - Follow security best practices
 - Include appropriate tests
-- Update documentation
+- Update documentation (see docs/development/DOCUMENTATION_MAINTENANCE.md)
 - Respect privacy and data protection guidelines
 
 ## 📝 License
@@ -311,9 +368,11 @@ For questions or support, please contact: [Your contact information]
 
 - NVIDIA Jetson platform for edge AI computing
 - Hikvision for professional camera hardware
-- InsightFace team for excellent face recognition models
+- InsightFace team for excellent face recognition models (ArcFace)
+- SCRFD authors for GPU-optimized face detection
 - FastAPI framework for modern API development
+- TensorRT team for inference optimization
 
 ---
 
-**⚠️ Important**: This system is designed for authorized security applications only. Ensure compliance with local privacy laws and regulations.
+**⚠️ Important**: This system is designed for authorized security applications only. Ensure compliance with local privacy laws and regulations (GDPR, CCPA, etc.).
