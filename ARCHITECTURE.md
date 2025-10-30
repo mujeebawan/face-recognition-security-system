@@ -96,39 +96,32 @@ Face Recognition Security System using SCRFD (GPU detection) + ArcFace (recognit
 ### 5. Alert System (`app/core/alerts.py`)
 - Configurable thresholds for known/unknown persons
 - Snapshot capture on alerts
-- WebSocket real-time notifications
+- WebSocket real-time notifications via `websocket_manager.py`
 - Throttling to prevent alert spam (10-second cooldown)
 
-### 6. Database Schema (`app/models/database.py`)
+### 6. Traditional Augmentation (`app/core/augmentation.py`)
+- FaceAugmentation class for basic CV transformations
+- Rotation, brightness, contrast, flip, blur, noise
+- Generates 10+ variations per image
+- Used until Phase 5 SD augmentation is implemented
+
+### 7. Database Schema (`app/models/database.py`)
 ```sql
 Person:
-  - id (PK)
-  - name
-  - cnic (unique identifier)
-  - reference_image_path
-  - created_at
+  - id (PK), uuid (unique), name, cnic (unique)
+  - reference_image_path, created_at, updated_at
 
 FaceEmbedding:
-  - id (PK)
-  - person_id (FK)
-  - embedding (BLOB - 512-D vector)
-  - source (original/augmented_*/camera_*)
-  - confidence
-  - created_at
+  - id (PK), person_id (FK), embedding (BLOB - 512-D)
+  - source (original/augmented/diffusion), confidence, created_at
 
 RecognitionLog:
-  - id (PK)
-  - person_id (FK, nullable)
-  - timestamp
-  - confidence
-  - matched (0/1)
-  - camera_source
+  - id (PK), person_id (FK, nullable), timestamp
+  - confidence, matched (0/1), image_path, camera_source
 
-AlertSnapshot:
-  - id (PK)
-  - alert_id (FK)
-  - image_path
-  - created_at
+Alert:
+  - id (PK), timestamp, event_type, person_id (FK, nullable)
+  - person_name, confidence, num_faces, snapshot_path, acknowledged
 ```
 
 ---
@@ -168,7 +161,7 @@ AlertSnapshot:
 
 ## Future Enhancements (Planned)
 
-### Phase 3-4: AI-Powered Data Augmentation
+### Phase 5: AI-Powered Data Augmentation (Stable Diffusion)
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │         Stable Diffusion + ControlNet Pipeline               │
@@ -187,7 +180,7 @@ AlertSnapshot:
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Phase 5: SD Card Portability
+### Phase 6+: SD Card Portability
 - Automatic migration script
 - Portable database on SD card
 - Easy deployment across multiple devices
