@@ -1034,6 +1034,7 @@ async def preview_stream():
     """
     def generate_preview_stream():
         """Generate raw camera frames without any processing"""
+        import time
         camera = get_camera()
 
         try:
@@ -1043,6 +1044,7 @@ async def preview_stream():
 
                 if not success or frame is None:
                     logger.warning("Failed to read frame from camera")
+                    time.sleep(0.1)
                     continue
 
                 # Encode frame as JPEG (no processing, just encode)
@@ -1052,6 +1054,9 @@ async def preview_stream():
                 # Yield frame in MJPEG format
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+                # Small delay to prevent overwhelming browser (50ms = ~20 FPS)
+                time.sleep(0.05)
 
         except Exception as e:
             logger.error(f"Preview stream error: {e}")
