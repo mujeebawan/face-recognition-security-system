@@ -1023,6 +1023,45 @@ async def live_stream(db: Session = Depends(get_db)):
     )
 
 
+@router.get("/stream/preview")
+async def preview_stream():
+    """
+    Fast preview stream - raw camera frames with NO processing.
+    Used for camera capture modal in admin panel.
+
+    Returns:
+        MJPEG video stream (raw frames, ~15-20 FPS)
+    """
+    def generate_preview_stream():
+        """Generate raw camera frames without any processing"""
+        camera = get_camera()
+
+        try:
+            while True:
+                # Read raw frame from camera (no OSD cropping for preview)
+                success, frame = camera.read_frame(crop_osd=False, flush_buffer=False)
+
+                if not success or frame is None:
+                    logger.warning("Failed to read frame from camera")
+                    continue
+
+                # Encode frame as JPEG (no processing, just encode)
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                frame_bytes = buffer.tobytes()
+
+                # Yield frame in MJPEG format
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+        except Exception as e:
+            logger.error(f"Preview stream error: {e}")
+
+    return StreamingResponse(
+        generate_preview_stream(),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
+
+
 @router.get("/access-logs")
 async def get_access_logs(limit: int = 50, db: Session = Depends(get_db)):
     """
