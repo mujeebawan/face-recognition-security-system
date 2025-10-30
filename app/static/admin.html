@@ -528,11 +528,15 @@
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">📷 Capture from Live Camera</div>
             <div class="modal-body">
-                <!-- Live Stream -->
+                <!-- Live Stream (Fast Sub-Stream Preview) -->
                 <div style="text-align: center; position: relative;">
-                    <img id="liveStream" src="/api/stream/live" style="max-width: 100%; border-radius: 8px; border: 2px solid #334155; margin-bottom: 15px;" alt="Live Camera Feed">
+                    <img id="liveStream" style="max-width: 100%; border-radius: 8px; border: 2px solid #334155; margin-bottom: 15px; display: none;" alt="Live Camera Feed">
+                    <div id="streamLoading" style="padding: 100px 20px; background: #0f172a; border-radius: 8px;">
+                        <div class="spinner" style="margin: 0 auto;"></div>
+                        <p style="margin-top: 15px; color: #94a3b8;">Loading camera preview...</p>
+                    </div>
                     <p style="color: #94a3b8; font-size: 0.9em; margin-top: 10px;">
-                        📹 Live camera feed - Position the person in the frame
+                        📹 Live camera preview (sub-stream, no processing) - Position the person in the frame
                     </p>
                 </div>
 
@@ -940,9 +944,13 @@
         // Camera capture functionality
         let capturedImages = [];
         let currentAngle = 'frontal';
+        let previewInterval = null;
 
-        function openCameraModal() {
+        async function openCameraModal() {
             const modal = document.getElementById('cameraModal');
+            const liveStream = document.getElementById('liveStream');
+            const streamLoading = document.getElementById('streamLoading');
+
             modal.style.display = 'flex';
 
             // Reset state
@@ -953,12 +961,63 @@
             document.getElementById('finishBtn').style.display = 'none';
             document.getElementById('capturedImagesGrid').innerHTML = '';
             document.getElementById('imageCount').textContent = '0';
+
+            // Show loading
+            liveStream.style.display = 'none';
+            streamLoading.style.display = 'block';
+
+            // Start fast preview polling (sub-stream, no detection)
+            await updatePreview();
+            previewInterval = setInterval(updatePreview, 200); // 5 FPS polling for smooth preview
+        }
+
+        async function updatePreview() {
+            try {
+                const liveStream = document.getElementById('liveStream');
+                const streamLoading = document.getElementById('streamLoading');
+
+                // Fetch raw frame from sub-stream (fast, no processing)
+                const response = await fetch('/api/camera/snapshot?draw_detections=false');
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+
+                // Update preview image
+                const oldUrl = liveStream.src;
+                liveStream.src = url;
+                liveStream.style.display = 'block';
+                streamLoading.style.display = 'none';
+
+                // Clean up old URL
+                if (oldUrl && oldUrl.startsWith('blob:')) {
+                    URL.revokeObjectURL(oldUrl);
+                }
+            } catch (error) {
+                console.error('Error updating preview:', error);
+            }
         }
 
         function closeCameraModal() {
             const modal = document.getElementById('cameraModal');
             modal.style.display = 'none';
+
+            // Stop preview polling
+            if (previewInterval) {
+                clearInterval(previewInterval);
+                previewInterval = null;
+            }
+
+            // Clean up captured images
+            capturedImages.forEach(img => URL.revokeObjectURL(img.url));
             capturedImages = [];
+
+            // Reset preview
+            const liveStream = document.getElementById('liveStream');
+            if (liveStream.src && liveStream.src.startsWith('blob:')) {
+                URL.revokeObjectURL(liveStream.src);
+            }
+            liveStream.src = '';
+            liveStream.style.display = 'none';
+            document.getElementById('streamLoading').style.display = 'block';
         }
 
         function setAngleHint(angle) {
@@ -983,8 +1042,8 @@
 
         async function captureFromCamera() {
             try {
-                // Fetch current frame from the live stream
-                const response = await fetch('/api/camera/snapshot');
+                // Fetch current frame from sub-stream (fast, no processing)
+                const response = await fetch('/api/camera/snapshot?draw_detections=false');
                 const blob = await response.blob();
 
                 // Create object URL for preview
