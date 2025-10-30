@@ -3,6 +3,8 @@
 **Enterprise-Grade Real-Time Face Recognition Platform**
 High-performance GPU-accelerated security system for real-time identification and monitoring using NVIDIA Jetson AGX Orin and professional IP cameras.
 
+> **🚀 Quick Start**: Want to run the system right away? See [QUICK_START.md](QUICK_START.md) for simple start/stop commands.
+
 ---
 
 ## 🎯 Overview
