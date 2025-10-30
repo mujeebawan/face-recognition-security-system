@@ -106,14 +106,13 @@ async def get_camera_snapshot(draw_detections: bool = True):
         JPEG image
     """
     try:
-        camera = CameraHandler(use_main_stream=False)  # Use sub-stream for faster response
+        # Import get_camera from recognition routes to use singleton
+        from app.api.routes.recognition import get_camera
 
-        if not camera.connect():
-            raise HTTPException(status_code=503, detail="Failed to connect to camera")
+        camera = get_camera()  # Use singleton camera handler
 
-        # Read frame
-        ret, frame = camera.read_frame()
-        camera.disconnect()
+        # Read frame from the already-connected camera
+        ret, frame = camera.read_frame(crop_osd=False, flush_buffer=False)
 
         if not ret or frame is None:
             raise HTTPException(status_code=503, detail="Failed to capture frame from camera")
@@ -125,7 +124,7 @@ async def get_camera_snapshot(draw_detections: bool = True):
                 frame = face_detector.draw_detections(frame, detections, draw_landmarks=True)
 
         # Encode to JPEG
-        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
         io_buf = io.BytesIO(buffer)
 
         return StreamingResponse(io_buf, media_type="image/jpeg")
