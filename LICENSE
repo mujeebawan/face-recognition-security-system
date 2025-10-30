@@ -1,168 +1,319 @@
-## Third-Party Licenses and Attributions
+# LICENSE
 
-**IMPORTANT**: This project is built on top of many excellent open-source libraries and models.
-We acknowledge and respect all their licenses and contributions.
+## Proprietary Software License
 
----
-
-## Project Code License
-
-The custom application code (integration, API endpoints, configuration) in this repository
-is released under the MIT License:
-
-**Copyright (c) 2025 Muhammad Mujeeb Awan**
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+**Face Recognition Security System**
+**Copyright © 2025 Muhammad Mujeeb Awan. All Rights Reserved.**
 
 ---
 
-## Third-Party Dependencies and Their Licenses
+## IMPORTANT NOTICE
 
-This project uses the following open-source libraries and models:
+This software is **proprietary and confidential**. It is NOT open source software. All rights are reserved by the copyright holder. Unauthorized copying, modification, distribution, or use of this software is strictly prohibited and may result in severe civil and criminal penalties.
 
-### Core Dependencies
+## 1. License Grant
 
-**InsightFace** (https://github.com/deepinsight/insightface)
-- License: MIT License
-- Copyright (c) 2018 Jiankang Deng and Jia Guo
-- Used for: SCRFD face detection (det_10g) and ArcFace recognition (buffalo_l)
-- Citation: Deng, J., Guo, J., Xue, N., & Zafeiriou, S. (2019). ArcFace: Additive Angular Margin Loss for Deep Face Recognition. CVPR 2019.
+This software is licensed, not sold. The copyright holder grants authorized users a limited, non-exclusive, non-transferable, revocable license to use this software solely for its intended purpose under the following conditions:
 
-**FastAPI** (https://github.com/tiangolo/fastapi)
-- License: MIT License
-- Copyright (c) 2018 Sebastián Ramírez
-- Used for: Web framework and API endpoints
+### 1.1 Authorized Use
+- This software may only be used by explicitly authorized persons or organizations
+- Authorization must be granted in writing by Muhammad Mujeeb Awan
+- Use is restricted to legitimate security, law enforcement, and research purposes
+- Commercial use requires separate commercial licensing agreement
 
-**OpenCV (opencv-python)** (https://github.com/opencv/opencv-python)
-- License: Apache License 2.0
-- Used for: Image processing, video capture, and RTSP stream handling
+### 1.2 Restrictions
+You may NOT:
+- Copy, reproduce, or distribute this software or any portion thereof
+- Modify, adapt, translate, reverse engineer, decompile, or disassemble this software
+- Remove or alter any copyright, trademark, or other proprietary notices
+- Use this software for any unlawful purpose or in violation of any regulations
+- Transfer, sublicense, rent, lease, or lend this software to any third party
+- Use this software in any way that violates privacy laws or regulations
 
-**ONNX Runtime** (https://github.com/microsoft/onnxruntime)
-- License: MIT License
-- Copyright (c) Microsoft Corporation
-- Used for: Model inference with TensorRT acceleration
+## 2. Intellectual Property Rights
 
-**SQLAlchemy** (https://github.com/sqlalchemy/sqlalchemy)
-- License: MIT License
-- Copyright (c) 2005-2025 Michael Bayer and contributors
-- Used for: Database ORM and migrations
+All intellectual property rights in and to this software, including but not limited to:
+- Source code and compiled binaries
+- Documentation and technical specifications
+- User interfaces and design elements
+- Custom algorithms and implementations
+- Database schemas and structures
 
-**Pydantic** (https://github.com/pydantic/pydantic)
-- License: MIT License
-- Copyright (c) 2017-2025 Samuel Colvin and contributors
-- Used for: Data validation and settings management
+remain the exclusive property of Muhammad Mujeeb Awan. This license does not grant any ownership rights.
 
-**NumPy** (https://github.com/numpy/numpy)
-- License: BSD 3-Clause License
-- Copyright (c) 2005-2025, NumPy Developers
-- Used for: Numerical computing and array operations
+## 3. Third-Party Components
 
-**Pillow (PIL)** (https://github.com/python-pillow/Pillow)
-- License: HPND License
-- Copyright (c) 1997-2011 by Secret Labs AB
-- Copyright (c) 1995-2011 by Fredrik Lundh
-- Used for: Image manipulation and processing
+This software incorporates various third-party open-source components and AI models. The copyright holder acknowledges and respects all their licenses. **These third-party components remain under their respective original licenses, which are separate from this proprietary license.**
 
-### AI Models
+### 3.1 Core Framework Dependencies
 
-**SCRFD (Sample and Computation Redistribution for Face Detection)**
-- Paper: "Sample and Computation Redistribution for Efficient Face Detection" (CVPR 2022)
-- Authors: Jia Guo, Jiankang Deng, Alexandros Lattas, Stefanos Zafeiriou
-- Model: det_10g from InsightFace buffalo_l pack
-- License: InsightFace MIT License
-- Accuracy: 97.6% on WIDER Face Hard benchmark
+| Component | Version | License | Copyright Holder |
+|-----------|---------|---------|------------------|
+| **FastAPI** | 0.104+ | MIT License | © 2018 Sebastián Ramírez |
+| **Uvicorn** | 0.24+ | BSD 3-Clause | © 2017-2024 Encode OSS |
+| **Pydantic** | 2.0+ | MIT License | © 2017-2024 Samuel Colvin |
+| **SQLAlchemy** | 2.0+ | MIT License | © 2005-2024 Michael Bayer |
+| **Alembic** | 1.12+ | MIT License | © 2009-2024 Michael Bayer |
 
-**ArcFace (Additive Angular Margin Loss)**
-- Paper: "ArcFace: Additive Angular Margin Loss for Deep Face Recognition" (CVPR 2019)
-- Authors: Jiankang Deng, Jia Guo, Niannan Xue, Stefanos Zafeiriou
-- Model: buffalo_l (ResNet-100 backbone)
-- License: InsightFace MIT License
-- Accuracy: 96.8% on IJB-C TAR@FAR benchmark
+### 3.2 Computer Vision & AI Libraries
 
-**Future Models (Planned)**:
-- AdaFace: "AdaFace: Quality Adaptive Margin for Face Recognition" (CVPR 2022)
-- CosFace: Available in InsightFace (MIT License)
+| Component | Version | License | Copyright Holder |
+|-----------|---------|---------|------------------|
+| **OpenCV** | 4.8+ | Apache 2.0 | © 2000-2024 Intel Corporation, Willow Garage, Itseez |
+| **NumPy** | 1.24+ | BSD 3-Clause | © 2005-2024 NumPy Developers |
+| **Pillow (PIL)** | 10.0+ | HPND License | © 1997-2011 Secret Labs AB |
+| **InsightFace** | 0.7+ | MIT License | © 2018 Jiankang Deng, Jia Guo |
+| **ONNX Runtime** | 1.19+ | MIT License | © Microsoft Corporation |
 
-### Hardware Platform
+### 3.3 AI Models and Research
 
-**NVIDIA Jetson AGX Orin**
-- TensorRT: NVIDIA TensorRT 8.5.2.2
-- CUDA: NVIDIA CUDA 12.6
-- JetPack SDK: 6.1 (R36.4.7)
-- License: NVIDIA Software License Agreement
+#### SCRFD (Face Detection)
+- **Paper**: "Sample and Computation Redistribution for Efficient Face Detection" (CVPR 2022)
+- **Authors**: Jia Guo, Jiankang Deng, Alexandros Lattas, Stefanos Zafeiriou
+- **License**: MIT License (via InsightFace)
+- **Model**: det_10g.onnx
+- **Citation Required**: Yes
+- **URL**: https://github.com/deepinsight/insightface/tree/master/detection/scrfd
 
-### Development Tools
+#### ArcFace (Face Recognition)
+- **Paper**: "ArcFace: Additive Angular Margin Loss for Deep Face Recognition" (CVPR 2019)
+- **Authors**: Jiankang Deng, Jia Guo, Niannan Xue, Stefanos Zafeiriou
+- **License**: MIT License (via InsightFace)
+- **Model**: buffalo_l (ResNet-100 backbone, 512-D embeddings)
+- **Citation Required**: Yes
+- **URL**: https://github.com/deepinsight/insightface
 
-**Python** (https://www.python.org/)
-- License: Python Software Foundation License
-- Version: 3.10.12
+#### Stable Diffusion 1.5 (Planned - Data Augmentation)
+- **License**: CreativeML Open RAIL-M License
+- **Copyright**: © Stability AI, CompVis, Runway ML
+- **Restrictions**: Prohibited uses defined in license
+- **URL**: https://github.com/Stability-AI/stablediffusion
 
----
+#### ControlNet (Planned - Pose Guidance)
+- **Paper**: "Adding Conditional Control to Text-to-Image Diffusion Models" (ICCV 2023)
+- **Authors**: Lvmin Zhang, Maneesh Agrawala
+- **License**: Apache 2.0
+- **URL**: https://github.com/lllyasviel/ControlNet
 
-## Contact Information
+### 3.4 NVIDIA Platform Components
 
-**Developer**: Muhammad Mujeeb Awan
-**Email**: mawan.msee24seecs@seecs.edu.pk
-**Institution**: National University of Sciences and Technology (NUST), Pakistan
-**Program**: MS Electrical Engineering (2024)
-**GitHub**: https://github.com/mujeebawan/face-recognition-security-system
+| Component | Version | License | Purpose |
+|-----------|---------|---------|---------|
+| **CUDA Toolkit** | 12.2 | NVIDIA CUDA EULA | GPU acceleration |
+| **TensorRT** | 8.6+ | NVIDIA TensorRT EULA | Inference optimization |
+| **cuDNN** | 8.9+ | NVIDIA cuDNN EULA | Deep learning primitives |
+| **JetPack SDK** | 6.1 (L4T 36.4.0) | NVIDIA JetPack EULA | Jetson platform software |
 
----
+**Note**: NVIDIA components are subject to NVIDIA Software License Agreement and may have export/import restrictions.
 
-## Research Use
+### 3.5 Development & Utility Libraries
 
-If you use this software in your research, please cite:
+| Component | License | Purpose |
+|-----------|---------|---------|
+| **python-dotenv** | BSD 3-Clause | Environment variable management |
+| **python-multipart** | Apache 2.0 | Multipart form data parsing |
+| **aiofiles** | Apache 2.0 | Async file operations |
+| **websockets** | BSD 3-Clause | WebSocket protocol |
+| **Jinja2** | BSD 3-Clause | Template engine |
+| **pytest** | MIT License | Testing framework |
+| **black** | MIT License | Code formatter |
+| **flake8** | MIT License | Linting tool |
 
-```
+### 3.6 AI Development Assistance
+
+**Claude AI by Anthropic**
+- **Service**: AI-powered development assistant
+- **Provider**: Anthropic PBC
+- **License**: Anthropic Terms of Service
+- **Usage**: Code generation, documentation, architecture design, debugging assistance
+- **URL**: https://www.anthropic.com
+- **Attribution**: Portions of code generation, documentation structure, and development workflow assisted by Claude (claude-sonnet-4-5)
+- **Date**: October 2025
+
+**Acknowledgment**: This project was developed with significant assistance from Claude AI (Anthropic) for:
+- Code architecture and design patterns
+- API endpoint implementation
+- Documentation writing and structuring
+- Debugging and optimization suggestions
+- Best practices and security considerations
+
+The AI-generated code has been reviewed, tested, and customized for this specific application.
+
+## 4. Compliance Requirements
+
+### 4.1 Privacy & Data Protection
+Users MUST comply with:
+- **GDPR** (EU General Data Protection Regulation)
+- **CCPA** (California Consumer Privacy Act)
+- **BIPA** (Illinois Biometric Information Privacy Act)
+- **Local data protection laws** in jurisdiction of deployment
+
+### 4.2 Biometric Data Regulations
+This system processes biometric data (facial features). Users must:
+- Obtain informed consent before enrolling individuals
+- Maintain audit logs of all data access
+- Implement data retention and deletion policies
+- Secure biometric data with encryption
+- Comply with biometric privacy laws
+
+### 4.3 Facial Recognition Restrictions
+Certain jurisdictions prohibit or restrict facial recognition:
+- Check local laws before deployment
+- Obtain necessary permits and authorizations
+- Follow law enforcement protocols if applicable
+- Respect restricted use cases (e.g., surveillance in public spaces)
+
+## 5. Research Citations
+
+### 5.1 Software Citation
+If using this software in research, cite as:
+
+```bibtex
 @software{awan2025facerec,
   author = {Awan, Muhammad Mujeeb},
-  title = {Multi-Agent Face Recognition System for Law Enforcement},
+  title = {Face Recognition Security System: Enterprise-Grade Real-Time Identification Platform},
   year = {2025},
-  publisher = {GitHub},
-  url = {https://github.com/mujeebawan/face-recognition-security-system}
+  institution = {National University of Sciences and Technology (NUST), Pakistan},
+  url = {https://github.com/mujeebawan/face-recognition-security-system},
+  note = {Proprietary software. Contact for licensing.}
 }
 ```
 
----
+### 5.2 Model Citations
+If using the underlying models, cite:
 
-## Disclaimer
+**SCRFD:**
+```bibtex
+@inproceedings{guo2022scrfd,
+  title={Sample and Computation Redistribution for Efficient Face Detection},
+  author={Guo, Jia and Deng, Jiankang and Lattas, Alexandros and Zafeiriou, Stefanos},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  year={2022}
+}
+```
 
-This software is designed for law enforcement and security applications. Users must comply with all applicable laws, regulations, and ethical guidelines regarding:
+**ArcFace:**
+```bibtex
+@inproceedings{deng2019arcface,
+  title={ArcFace: Additive Angular Margin Loss for Deep Face Recognition},
+  author={Deng, Jiankang and Guo, Jia and Xue, Niannan and Zafeiriou, Stefanos},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={4690--4699},
+  year={2019}
+}
+```
 
-- Privacy and data protection (GDPR, local data protection laws)
-- Biometric data collection and storage
-- Facial recognition technology usage restrictions
-- Law enforcement protocols and procedures
+## 6. Warranty Disclaimer
 
-The authors and contributors of this software are not responsible for any misuse, illegal use, or ethical violations by end users.
+THIS SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO:
 
----
+- MERCHANTABILITY
+- FITNESS FOR A PARTICULAR PURPOSE
+- NON-INFRINGEMENT
+- ACCURACY OR RELIABILITY
+- ERROR-FREE OPERATION
+- SECURITY
 
-## Acknowledgments
+The copyright holder does not warrant that:
+- The software will meet your requirements
+- The software will be uninterrupted or error-free
+- Defects will be corrected
+- The software is free from viruses or harmful components
 
-- National University of Sciences and Technology (NUST), Pakistan
+## 7. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR:
+
+- Any indirect, incidental, special, consequential, or punitive damages
+- Loss of profits, revenue, data, or use
+- Business interruption
+- Cost of substitute goods or services
+- Damages arising from unauthorized access or use
+- Damages from errors, bugs, or security vulnerabilities
+
+## 8. Indemnification
+
+Users agree to indemnify, defend, and hold harmless Muhammad Mujeeb Awan and affiliated institutions from and against any claims, damages, losses, liabilities, costs, and expenses arising from:
+
+- Unauthorized use of the software
+- Violation of applicable laws or regulations
+- Infringement of third-party rights
+- Misuse of biometric or personal data
+- Failure to obtain necessary consents or authorizations
+
+## 9. Export Controls
+
+This software may be subject to export control laws and regulations. Users are responsible for complying with all applicable export/import laws. Dual-use technology restrictions may apply.
+
+## 10. Term and Termination
+
+This license is effective until terminated. It will terminate immediately without notice if you fail to comply with any term. Upon termination, you must:
+- Cease all use of the software
+- Delete all copies of the software
+- Destroy all documentation
+- Certify destruction in writing if requested
+
+## 11. Governing Law
+
+This license shall be governed by and construed in accordance with the laws of Pakistan, without regard to conflict of law principles. Disputes shall be resolved in the courts of Islamabad, Pakistan.
+
+## 12. Contact Information
+
+### License Inquiries and Authorization Requests
+
+**Muhammad Mujeeb Awan**
+MS Electrical Engineering (2024)
+School of Electrical Engineering and Computer Science (SEECS)
+National University of Sciences and Technology (NUST)
+Islamabad, Pakistan
+
+**Email**: mujeebciit72@gmail.com
+**GitHub**: https://github.com/mujeebawan
+**Institution**: https://seecs.nust.edu.pk
+
+For:
+- Commercial licensing inquiries
+- Authorization requests
+- Permission to use or modify
+- Technical support contracts
+- Research collaboration
+
+## 13. Acknowledgments
+
+### Institutions
+- **National University of Sciences and Technology (NUST), Pakistan**
+  - SEECS (School of Electrical Engineering and Computer Science)
+  - Computational Intelligence Lab
+  - High Performance Computing Lab
+
+### Research Community
 - InsightFace team for open-source face recognition models
-- NVIDIA for Jetson platform and TensorRT optimization
+- NVIDIA for Jetson AGX Orin platform and optimization tools
 - FastAPI community for excellent web framework
-- Open-source community for various libraries and tools
+- Open-source maintainers of dependencies listed above
+
+### AI Development
+- Anthropic for Claude AI development assistance
+- OpenAI for contributions to AI tooling ecosystem
 
 ---
 
-**Last Updated**: October 15, 2025
-**License Version**: 1.0
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | October 30, 2025 | Initial proprietary license |
+
+---
+
+**FINAL NOTICE**
+
+This is proprietary software. Unauthorized use, copying, distribution, or modification is prohibited by law and this license agreement. All rights reserved.
+
+For questions about this license or to request permission for use, contact the copyright holder at the email address provided above.
+
+---
+
+*Last Updated: October 30, 2025*
+*License Type: Proprietary - All Rights Reserved*
+*Version: 1.0.0*
