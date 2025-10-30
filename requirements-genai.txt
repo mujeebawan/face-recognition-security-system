@@ -1,0 +1,104 @@
+# Generative AI Dependencies for Phase 5: Stable Diffusion Data Augmentation
+# Compatible with: NVIDIA Jetson AGX Orin (ARM64), PyTorch 2.1.0, CUDA 12.6, Python 3.10
+#
+# Installation:
+#   pip install -r requirements-genai.txt
+#
+# Note: These packages are OPTIONAL and only needed if you want to use
+# Stable Diffusion + ControlNet for automated face angle generation during enrollment.
+
+# ============================================================================
+# Core Stable Diffusion Pipeline
+# ============================================================================
+
+# Hugging Face Diffusers - Stable Diffusion pipeline
+diffusers>=0.25.0
+
+# Transformers - CLIP text encoder and tokenizer
+transformers>=4.36.0
+
+# Accelerate - Memory-efficient model loading and inference
+accelerate>=0.25.0
+
+# SafeTensors - Safe and fast tensor serialization
+safetensors>=0.4.1
+
+# ============================================================================
+# ControlNet Support
+# ============================================================================
+
+# ControlNet auxiliary models for pose/depth/canny preprocessing
+controlnet-aux>=0.0.7
+
+# OpenCV for image preprocessing (may already be installed)
+# opencv-python>=4.8.0  # Already in main requirements.txt
+
+# ============================================================================
+# Model Configuration & Utilities
+# ============================================================================
+
+# OmegaConf - Configuration management
+omegaconf>=2.3.0
+
+# Invisible Watermark - SD watermark detection/removal
+invisible-watermark>=0.2.0
+
+# Einops - Tensor operations for attention mechanisms
+einops>=0.7.0
+
+# ============================================================================
+# Performance Optimization (Optional)
+# ============================================================================
+
+# NOTE: xformers may not be available for ARM64 (Jetson)
+# If installation fails, comment out this line - performance will still be good with PyTorch 2.1's native optimizations
+# xformers>=0.0.23  # Memory-efficient attention (x86_64 only)
+
+# ============================================================================
+# Image Processing & Validation
+# ============================================================================
+
+# PIL/Pillow - Already in main requirements, but ensuring version
+Pillow>=10.0.0
+
+# MediaPipe - Face mesh detection for ControlNet pose guidance (optional)
+# mediapipe>=0.10.0  # Uncomment if using face mesh for pose
+
+# ============================================================================
+# Model Download & Caching
+# ============================================================================
+
+# Hugging Face Hub - Model downloading and caching
+huggingface-hub>=0.20.0
+
+# ============================================================================
+# Additional Utilities
+# ============================================================================
+
+# TQDM - Progress bars
+tqdm>=4.66.0
+
+# Scipy - Image processing utilities
+scipy>=1.11.0
+
+# ============================================================================
+# Installation Notes for Jetson AGX Orin
+# ============================================================================
+#
+# 1. PyTorch 2.1.0 is already installed (JetPack 6.x)
+# 2. Some packages may require building from source on ARM64
+# 3. Estimated GPU memory usage: 6-8GB for SD 1.5 in FP16
+# 4. First model download will take time (~4GB models)
+#
+# Recommended Models (will auto-download on first use):
+#   - runwayml/stable-diffusion-v1-5 (~4GB)
+#   - lllyasviel/control_v11p_sd15_openpose (~1.5GB)
+#
+# Total disk space needed: ~8-10GB for models
+#
+# Performance expectations on Jetson AGX Orin:
+#   - Image generation: 1.5-3s per image (512x512, FP16)
+#   - 5 angles generation: ~10-15 seconds total
+#   - Batch processing: Can generate multiple images in parallel
+#
+# ============================================================================
