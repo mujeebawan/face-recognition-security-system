@@ -398,6 +398,13 @@
                     <div class="file-name" id="fileName">No file selected</div>
                     <img id="imagePreview" class="image-preview" alt="Preview">
                     <p class="form-help">Upload clear frontal face photo (JPG, PNG)</p>
+
+                    <!-- Camera Capture Button -->
+                    <div style="margin-top: 15px; text-align: center;">
+                        <button type="button" class="btn-secondary" onclick="openCameraModal()" style="padding: 10px 20px; background: #475569; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95em;">
+                            📷 OR Capture from Camera
+                        </button>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -512,6 +519,31 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-danger" id="confirmRemoveBtn">Remove</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Capture Modal -->
+    <div class="modal" id="cameraModal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">📷 Capture from Live Camera</div>
+            <div class="modal-body">
+                <div style="text-align: center;">
+                    <img id="cameraPreview" style="max-width: 100%; border-radius: 8px; border: 2px solid #334155; margin-bottom: 15px;" alt="Camera Preview">
+                    <div id="cameraLoading" style="display: none; padding: 20px;">
+                        <div class="spinner" style="margin: 0 auto;"></div>
+                        <p style="margin-top: 10px;">Loading camera feed...</p>
+                    </div>
+                </div>
+                <p style="color: #94a3b8; font-size: 0.9em; margin-top: 10px;">
+                    Position the person in the frame. The system will capture the best quality image automatically.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCameraModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="captureFromCamera()" id="captureBtn">
+                    ✓ Use This Image
+                </button>
             </div>
         </div>
     </div>
@@ -841,6 +873,82 @@
             setTimeout(() => {
                 loadWantedPersons();
             }, 2000);
+        });
+
+        // Camera capture functionality
+        let cameraInterval = null;
+        let latestCameraBlob = null;
+
+        async function openCameraModal() {
+            const modal = document.getElementById('cameraModal');
+            const preview = document.getElementById('cameraPreview');
+            const loading = document.getElementById('cameraLoading');
+
+            modal.style.display = 'flex';
+            loading.style.display = 'block';
+            preview.style.display = 'none';
+
+            // Start fetching camera frames
+            await updateCameraPreview();
+            cameraInterval = setInterval(updateCameraPreview, 500); // Update every 500ms
+        }
+
+        async function updateCameraPreview() {
+            try {
+                const preview = document.getElementById('cameraPreview');
+                const loading = document.getElementById('cameraLoading');
+
+                const response = await fetch('/api/camera/snapshot');
+                const blob = await response.blob();
+                latestCameraBlob = blob;
+
+                const url = URL.createObjectURL(blob);
+                preview.src = url;
+                preview.style.display = 'block';
+                loading.style.display = 'none';
+            } catch (error) {
+                console.error('Error fetching camera frame:', error);
+            }
+        }
+
+        function closeCameraModal() {
+            const modal = document.getElementById('cameraModal');
+            modal.style.display = 'none';
+
+            // Stop fetching frames
+            if (cameraInterval) {
+                clearInterval(cameraInterval);
+                cameraInterval = null;
+            }
+        }
+
+        async function captureFromCamera() {
+            if (!latestCameraBlob) {
+                alert('No camera frame available. Please wait for preview to load.');
+                return;
+            }
+
+            // Convert blob to file
+            const file = new File([latestCameraBlob], 'camera_capture.jpg', { type: 'image/jpeg' });
+
+            // Create a data transfer to set the file input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            photoInput.files = dataTransfer.files;
+
+            // Trigger the change event to show preview
+            const event = new Event('change', { bubbles: true });
+            photoInput.dispatchEvent(event);
+
+            // Close modal
+            closeCameraModal();
+        }
+
+        // Close camera modal when clicking outside
+        document.getElementById('cameraModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCameraModal();
+            }
         });
     </script>
 </body>
