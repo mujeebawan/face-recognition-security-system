@@ -5,13 +5,16 @@
 echo "🚀 Face Recognition System - Starting..."
 echo ""
 
-# Kill any existing processes on port 8000
+# Kill any existing processes
+echo "🔄 Stopping any existing server processes..."
+pkill -9 -f "uvicorn.*app.main:app" 2>/dev/null
+sleep 2
+
 OLD_PIDS=$(lsof -ti :8000 2>/dev/null)
 if [ ! -z "$OLD_PIDS" ]; then
-    echo "🔄 Found existing server processes, cleaning up..."
     kill -9 $OLD_PIDS 2>/dev/null
     sleep 1
-    echo "✓ Old processes killed"
+    echo "✓ Old processes cleaned up"
 else
     echo "✓ No existing processes found"
 fi
@@ -28,18 +31,31 @@ echo "⏳ Waiting for models to load (this takes ~10 seconds)..."
 sleep 10
 
 # Check if server is responding
-if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+if lsof -ti :8000 > /dev/null 2>&1; then
+    # Get local IP address
+    LOCAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7}' | head -1)
+
     echo "✅ Server is running successfully!"
     echo ""
     echo "📍 Access the system:"
-    echo "   • Admin Panel:    http://localhost:8000/admin"
-    echo "   • Live Stream:    http://localhost:8000/live"
-    echo "   • Dashboard:      http://localhost:8000/dashboard"
-    echo "   • API Docs:       http://localhost:8000/docs"
+    if [ ! -z "$LOCAL_IP" ]; then
+        echo "   • Admin Panel:    http://${LOCAL_IP}:8000/admin"
+        echo "   • Live Stream:    http://${LOCAL_IP}:8000/live"
+        echo "   • Dashboard:      http://${LOCAL_IP}:8000/dashboard"
+        echo "   • API Docs:       http://${LOCAL_IP}:8000/docs"
+    else
+        echo "   • Admin Panel:    http://localhost:8000/admin"
+        echo "   • Live Stream:    http://localhost:8000/live"
+        echo "   • Dashboard:      http://localhost:8000/dashboard"
+        echo "   • API Docs:       http://localhost:8000/docs"
+    fi
     echo ""
-    echo "📋 Server PID: $SERVER_PID (to stop: kill $SERVER_PID)"
-    echo "📄 Logs: tail -f server.log"
+    echo "📋 To stop server: ./stop_server.sh"
+    echo "📄 View logs: tail -f server.log"
+    echo ""
 else
-    echo "❌ Server failed to start. Check server.log for errors."
+    echo "❌ Server failed to start. Check server.log for errors:"
+    echo ""
+    tail -20 server.log
     exit 1
 fi
