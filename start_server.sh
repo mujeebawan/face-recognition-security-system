@@ -24,7 +24,8 @@ SERVER_PID=$!
 
 echo "✓ Server started with PID: $SERVER_PID"
 echo ""
-sleep 3
+echo "⏳ Waiting for models to load (this takes ~10 seconds)..."
+sleep 10
 
 # Check if server is responding
 if curl -s http://localhost:8000/health > /dev/null 2>&1; then
