@@ -12,10 +12,12 @@
 # ============================================================================
 
 # Hugging Face Diffusers - Stable Diffusion pipeline
-diffusers>=0.25.0
+# Note: Using 0.25.0 for compatibility with PyTorch 2.1.0
+diffusers==0.25.0
 
 # Transformers - CLIP text encoder and tokenizer
-transformers>=4.36.0
+# Note: Using 4.36.2 for compatibility with PyTorch 2.1.0
+transformers==4.36.2
 
 # Accelerate - Memory-efficient model loading and inference
 accelerate>=0.25.0
@@ -69,7 +71,8 @@ Pillow>=10.0.0
 # ============================================================================
 
 # Hugging Face Hub - Model downloading and caching
-huggingface-hub>=0.20.0
+# Note: Using 0.20.0 for compatibility with diffusers 0.25.0
+huggingface-hub==0.20.0
 
 # ============================================================================
 # Additional Utilities
