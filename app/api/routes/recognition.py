@@ -22,6 +22,7 @@ from app.core.alerts import AlertManager
 from app.core.database import get_db
 from app.models.database import Person, FaceEmbedding, RecognitionLog
 from app.config import settings
+import torch
 
 
 logger = logging.getLogger(__name__)
