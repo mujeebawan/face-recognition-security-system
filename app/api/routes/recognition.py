@@ -86,6 +86,8 @@ async def enroll_person(
     name: str = Form(...),
     cnic: str = Form(...),
     file: UploadFile = File(...),
+    use_sd_augmentation: bool = Form(False),
+    num_sd_variations: int = Form(5),
     db: Session = Depends(get_db)
 ):
     """
@@ -95,10 +97,12 @@ async def enroll_person(
         name: Person's name
         cnic: National ID number (unique)
         file: Face image file
+        use_sd_augmentation: Use Stable Diffusion to generate additional angles (default: False)
+        num_sd_variations: Number of SD variations to generate if enabled (default: 5, max: 10)
         db: Database session
 
     Returns:
-        Enrollment result with person ID
+        Enrollment result with person ID and total embeddings
     """
     try:
         # Check if CNIC already exists
@@ -114,7 +118,7 @@ async def enroll_person(
         if image is None:
             raise HTTPException(status_code=400, detail="Invalid image file")
 
-        # Extract face embedding
+        # Extract face embedding from original
         recognizer = get_recognizer()
         result = recognizer.extract_embedding(image)
 
@@ -130,7 +134,7 @@ async def enroll_person(
         db.add(person)
         db.flush()  # Get the person.id
 
-        # Store face embedding
+        # Store original face embedding
         embedding_data = FaceRecognizer.serialize_embedding(result.embedding)
         face_embedding = FaceEmbedding(
             person_id=person.id,
@@ -139,23 +143,97 @@ async def enroll_person(
             confidence=result.confidence
         )
         db.add(face_embedding)
-        db.commit()
 
         # Save reference image
         import os
         os.makedirs("data/images", exist_ok=True)
         cv2.imwrite(person.reference_image_path, image)
 
-        logger.info(f"Enrolled person: {name} (CNIC: {cnic}, ID: {person.id})")
+        total_embeddings = 1
+        sd_generation_time = 0
 
-        return {
+        # Generate SD augmented faces if requested
+        if use_sd_augmentation:
+            try:
+                from app.core.generative_augmentation import StableDiffusionAugmentor
+                import time
+
+                logger.info(f"Generating {num_sd_variations} SD augmented angles for {name}...")
+
+                # Limit variations
+                num_variations = min(max(1, num_sd_variations), 10)
+
+                # Initialize SD augmentor (singleton pattern would be better for production)
+                sd_augmentor = StableDiffusionAugmentor(
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                    use_fp16=True
+                )
+
+                # Load model
+                if not sd_augmentor.load_model():
+                    logger.error("Failed to load SD model, skipping augmentation")
+                else:
+                    # Generate variations
+                    start_time = time.time()
+                    generated_images = sd_augmentor.generate_face_angles(
+                        reference_image=image,
+                        num_variations=num_variations,
+                        num_inference_steps=20,  # Fast generation
+                        guidance_scale=7.5
+                    )
+                    sd_generation_time = time.time() - start_time
+
+                    logger.info(f"SD generation completed in {sd_generation_time:.2f}s ({len(generated_images)} images)")
+
+                    # Process each generated image
+                    for idx, gen_img in enumerate(generated_images):
+                        # Extract embedding from generated image
+                        gen_result = recognizer.extract_embedding(gen_img)
+
+                        if gen_result is not None:
+                            # Store embedding
+                            gen_embedding_data = FaceRecognizer.serialize_embedding(gen_result.embedding)
+                            gen_face_embedding = FaceEmbedding(
+                                person_id=person.id,
+                                embedding=gen_embedding_data,
+                                source=f'sd_augmented_{idx+1}',
+                                confidence=gen_result.confidence
+                            )
+                            db.add(gen_face_embedding)
+                            total_embeddings += 1
+
+                            # Save generated image
+                            gen_img_path = f"data/images/{cnic}_sd_gen_{idx+1}.jpg"
+                            cv2.imwrite(gen_img_path, gen_img)
+
+                    # Unload model to free GPU memory
+                    sd_augmentor.unload_model()
+
+                    logger.info(f"✅ SD augmentation complete: {total_embeddings} total embeddings")
+
+            except Exception as aug_e:
+                logger.error(f"SD augmentation failed: {aug_e}, continuing with original only")
+                # Continue with enrollment even if augmentation fails
+
+        db.commit()
+
+        logger.info(f"Enrolled person: {name} (CNIC: {cnic}, ID: {person.id}, Embeddings: {total_embeddings})")
+
+        response = {
             "success": True,
             "message": f"Person {name} enrolled successfully",
             "person_id": person.id,
             "cnic": cnic,
             "confidence": result.confidence,
-            "embedding_dimension": len(result.embedding)
+            "total_embeddings": total_embeddings,
+            "sd_augmentation_used": use_sd_augmentation
         }
+
+        if use_sd_augmentation and sd_generation_time > 0:
+            response["sd_generation_time"] = round(sd_generation_time, 2)
+            response["avg_time_per_image"] = round(sd_generation_time / num_variations, 2)
+
+        return response
 
     except HTTPException:
         raise
