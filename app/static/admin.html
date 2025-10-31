@@ -443,9 +443,37 @@
                     <p class="form-help">Add any relevant case information</p>
                 </div>
 
+                <!-- AI Augmentation Toggle -->
+                <div class="form-group" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 12px; border: 2px solid #334155;">
+                    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                        <input type="checkbox" id="useSDaugmentation" style="width: 20px; height: 20px; margin-right: 12px; cursor: pointer;">
+                        <label for="useSDaugmentation" style="font-size: 1.1em; color: #fbbf24; margin: 0; cursor: pointer; font-weight: 600;">
+                            ✨ Use AI Augmentation (Recommended for Single Photo)
+                        </label>
+                    </div>
+                    <p class="form-help" style="margin: 0 0 15px 32px; color: #94a3b8;">
+                        Generates 5-10 synthetic face angles using Stable Diffusion AI to improve recognition accuracy.
+                        <strong style="color: #60a5fa;">Takes 10-15 seconds but significantly improves accuracy!</strong>
+                    </p>
+
+                    <div id="sdOptions" style="display: none; margin-left: 32px;">
+                        <label class="form-label" for="numVariations" style="font-size: 0.95em;">Number of AI-generated angles:</label>
+                        <input type="range" id="numVariations" min="3" max="10" value="5" style="width: 100%; margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #94a3b8; margin-bottom: 15px;">
+                            <span>3 (Faster ~6s)</span>
+                            <span id="numVariationsValue" style="color: #fbbf24; font-weight: 600;">5 variations</span>
+                            <span>10 (Best ~20s)</span>
+                        </div>
+                        <p class="form-help" style="margin: 0; font-size: 0.85em; color: #cbd5e1;">
+                            💡 <strong>Tip:</strong> 5 variations provides excellent balance between speed and accuracy.
+                            Use 8-10 for critical cases.
+                        </p>
+                    </div>
+                </div>
+
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
-                    <p style="margin-top: 10px;">Processing... This may take 5-10 seconds</p>
+                    <p id="loadingText" style="margin-top: 10px;">Processing... This may take 5-10 seconds</p>
                 </div>
 
                 <button type="submit" class="btn btn-primary" id="submitBtn">
@@ -637,8 +665,25 @@
         const form = document.getElementById('addPersonForm');
         const submitBtn = document.getElementById('submitBtn');
         const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
         const successAlert = document.getElementById('successAlert');
         const errorAlert = document.getElementById('errorAlert');
+
+        // SD Augmentation UI Controls
+        const useSDCheckbox = document.getElementById('useSDaugmentation');
+        const sdOptions = document.getElementById('sdOptions');
+        const numVariationsSlider = document.getElementById('numVariations');
+        const numVariationsValue = document.getElementById('numVariationsValue');
+
+        // Toggle SD options visibility
+        useSDCheckbox.addEventListener('change', function() {
+            sdOptions.style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Update slider value display
+        numVariationsSlider.addEventListener('input', function() {
+            numVariationsValue.textContent = `${this.value} variations`;
+        });
 
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -652,35 +697,47 @@
             const cnic = document.getElementById('cnic').value;
             const name = document.getElementById('name').value;
             const notes = document.getElementById('notes').value;
+            const useSD = useSDCheckbox.checked;
+            const numVariations = parseInt(numVariationsSlider.value);
 
             if (!files || files.length === 0) {
                 showError('Please select at least one photo');
                 return;
             }
 
-            // Show loading
+            // Show loading with appropriate message
             submitBtn.disabled = true;
             loading.style.display = 'block';
+
+            if (useSD && files.length === 1) {
+                loadingText.textContent = `⏳ Generating ${numVariations} AI angles... This will take ~${Math.ceil(numVariations * 2.5)}s`;
+            } else {
+                loadingText.textContent = 'Processing... This may take 5-10 seconds';
+            }
 
             try {
                 // Create FormData
                 const formData = new FormData();
                 formData.append('name', name);
                 formData.append('cnic', cnic);
-                formData.append('use_augmentation', 'true'); // Enable augmentation
 
                 let endpoint, successMessage;
 
                 if (files.length === 1) {
                     // Single image enrollment
                     formData.append('file', files[0]);
+                    formData.append('use_sd_augmentation', useSD ? 'true' : 'false');
+                    formData.append('num_sd_variations', numVariations.toString());
                     endpoint = '/api/enroll';
-                    successMessage = `✅ Successfully enrolled "${name}" with 1 image!`;
+                    successMessage = useSD
+                        ? `✅ Successfully enrolled "${name}" with AI augmentation (${numVariations + 1} total embeddings)!`
+                        : `✅ Successfully enrolled "${name}" with 1 image!`;
                 } else {
-                    // Multiple images enrollment
+                    // Multiple images enrollment (use traditional augmentation)
                     for (let i = 0; i < files.length; i++) {
                         formData.append('files', files[i]);
                     }
+                    formData.append('use_augmentation', 'true'); // Traditional augmentation
                     endpoint = '/api/enroll/multiple';
                     successMessage = `✅ Successfully enrolled "${name}" with ${files.length} images!`;
                 }
@@ -694,10 +751,15 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
+                    // Enhanced success message with timing
+                    if (useSD && data.sd_generation_time) {
+                        successMessage += ` (AI generation: ${data.sd_generation_time}s, avg: ${data.avg_time_per_image}s per image)`;
+                    }
                     showSuccess(successMessage);
                     form.reset();
                     fileName.textContent = 'No file selected';
                     imagePreview.style.display = 'none';
+                    sdOptions.style.display = 'none'; // Hide SD options
                 } else {
                     showError(data.detail || data.message || 'Failed to enroll person');
                 }
@@ -708,6 +770,7 @@
             } finally {
                 submitBtn.disabled = false;
                 loading.style.display = 'none';
+                loadingText.textContent = 'Processing... This may take 5-10 seconds';
             }
         });
 

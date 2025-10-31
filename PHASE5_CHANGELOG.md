@@ -129,30 +129,85 @@ generated_images = augmentor.generate_face_angles(
 
 ---
 
-## 🚧 Phase 5.3: API Integration (IN PROGRESS)
+## ✅ Phase 5.3: API Integration (COMPLETED)
 
-**Status**: Pending
+**Date**: October 30, 2025
 
-### Planned Work:
-1. Add `/api/enroll` endpoint parameter: `use_augmentation: bool`
-2. Integrate `StableDiffusionAugmentor` with enrollment flow
-3. Save generated images with proper naming: `augmented_left_1.jpg`
-4. Extract embeddings from all generated + original images
-5. Store embeddings with source metadata
+### What Was Done:
+1. **Updated `/api/enroll` endpoint** with SD augmentation support:
+   - Added parameter: `use_sd_augmentation: bool = False` (backwards compatible)
+   - Added parameter: `num_sd_variations: int = 5` (1-10 range)
+   - Integrated `StableDiffusionAugmentor` into enrollment flow
+   - Automatic model loading and GPU memory management
+   - Graceful fallback if SD generation fails
 
-### Expected Flow:
-```
-User uploads 1 image
-  ↓
-If use_augmentation=True:
-  ↓
-Generate 5-10 angles using SD
-  ↓
-Extract embeddings from all images (6-11 total)
-  ↓
-Store in database with source tags
-  ↓
-Return success with count of embeddings
+2. **Enrollment Flow** with SD:
+   ```
+   POST /api/enroll
+     ↓
+   Upload 1 image + use_sd_augmentation=True
+     ↓
+   Extract embedding from original (store as 'original')
+     ↓
+   Load SD 1.5 model with FP16
+     ↓
+   Generate 5 synthetic angles (frontal, left, right, up, down)
+     ↓
+   Extract embeddings from each generated image
+     ↓
+   Store embeddings with source='sd_augmented_1' through 'sd_augmented_5'
+     ↓
+   Save generated images: {cnic}_sd_gen_1.jpg through {cnic}_sd_gen_5.jpg
+     ↓
+   Unload SD model to free GPU memory
+     ↓
+   Return: total_embeddings=6, generation_time, avg_time_per_image
+   ```
+
+3. **Response Format**:
+   ```json
+   {
+     "success": true,
+     "person_id": 1,
+     "cnic": "12345-6789012-3",
+     "confidence": 0.98,
+     "total_embeddings": 6,
+     "sd_augmentation_used": true,
+     "sd_generation_time": 12.5,
+     "avg_time_per_image": 2.5
+   }
+   ```
+
+4. **Error Handling**:
+   - SD generation errors logged but don't fail enrollment
+   - Falls back to original image only if SD fails
+   - Continues with partial results if some generations fail
+   - Comprehensive logging at each step
+
+5. **Performance Optimizations**:
+   - Model loads only when needed (lazy loading)
+   - Unloads immediately after generation to free GPU RAM
+   - Uses FP16 for 50% memory reduction
+   - 20 inference steps for speed (vs 50 for quality)
+
+### Files Modified:
+- `app/api/routes/recognition.py` (+85 lines, SD integration)
+
+### Commits:
+- `feat(phase5.3): Add Stable Diffusion augmentation to enrollment API`
+- `fix: Add torch import for CUDA availability check`
+
+### Testing Required:
+```bash
+# Test enrollment with SD augmentation
+curl -X POST "http://localhost:8000/api/enroll" \
+  -F "name=Test Person" \
+  -F "cnic=12345-6789012-3" \
+  -F "file=@test_face.jpg" \
+  -F "use_sd_augmentation=true" \
+  -F "num_sd_variations=5"
+
+# Expected: ~12-15s response time, 6 total embeddings
 ```
 
 ---
