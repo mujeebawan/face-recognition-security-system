@@ -468,6 +468,20 @@
                             💡 <strong>Tip:</strong> 5 variations provides excellent balance between speed and accuracy.
                             Use 8-10 for critical cases.
                         </p>
+
+                        <!-- ControlNet Toggle -->
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #334155;">
+                            <div style="display: flex; align-items: center;">
+                                <input type="checkbox" id="useControlNet" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
+                                <label for="useControlNet" style="font-size: 0.95em; color: #a78bfa; margin: 0; cursor: pointer; font-weight: 600;">
+                                    🎯 Use ControlNet (Better Pose Control)
+                                </label>
+                            </div>
+                            <p class="form-help" style="margin: 8px 0 0 28px; font-size: 0.85em; color: #cbd5e1;">
+                                <strong style="color: #a78bfa;">Recommended!</strong> Uses advanced AI to generate precise face angles with better identity preservation.
+                                Slightly slower but produces more accurate results.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -766,6 +780,7 @@
             const notes = document.getElementById('notes').value;
             const useSD = useSDCheckbox.checked;
             const numVariations = parseInt(numVariationsSlider.value);
+            const useControlNet = document.getElementById('useControlNet').checked;
 
             if (!files || files.length === 0) {
                 showError('Please select at least one photo');
@@ -777,7 +792,9 @@
             loading.style.display = 'block';
 
             if (useSD && files.length === 1) {
-                loadingText.textContent = `⏳ Generating ${numVariations} AI angles... This will take ~${Math.ceil(numVariations * 2.5)}s`;
+                const estimatedTime = useControlNet ? Math.ceil(numVariations * 3.5) : Math.ceil(numVariations * 2.5);
+                const method = useControlNet ? 'ControlNet' : 'img2img';
+                loadingText.textContent = `⏳ Generating ${numVariations} AI angles (${method})... This will take ~${estimatedTime}s`;
             } else {
                 loadingText.textContent = 'Processing... This may take 5-10 seconds';
             }
@@ -794,11 +811,15 @@
                     // Single image enrollment
                     formData.append('file', files[0]);
                     formData.append('use_sd_augmentation', useSD ? 'true' : 'false');
+                    formData.append('use_controlnet', (useSD && useControlNet) ? 'true' : 'false');
                     formData.append('num_sd_variations', numVariations.toString());
                     endpoint = '/api/enroll';
-                    successMessage = useSD
-                        ? `✅ Successfully enrolled "${name}" with AI augmentation (${numVariations + 1} total embeddings)!`
-                        : `✅ Successfully enrolled "${name}" with 1 image!`;
+                    if (useSD) {
+                        const method = useControlNet ? 'ControlNet' : 'img2img';
+                        successMessage = `✅ Successfully enrolled "${name}" with ${method} AI augmentation (${numVariations + 1} total embeddings)!`;
+                    } else {
+                        successMessage = `✅ Successfully enrolled "${name}" with 1 image!`;
+                    }
                 } else {
                     // Multiple images enrollment (use traditional augmentation)
                     for (let i = 0; i < files.length; i++) {
