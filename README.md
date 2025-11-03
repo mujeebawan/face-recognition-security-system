@@ -12,7 +12,7 @@ High-performance GPU-accelerated security system for real-time identification an
 
 ---
 
-## 🎯 Overview
+##  Overview
 
 A production-ready, AI-powered face recognition security platform designed for mission-critical applications including border security, law enforcement, corporate access control, and public safety monitoring. The system processes live video streams in real-time, automatically detecting and identifying individuals against a database of enrolled persons.
 
