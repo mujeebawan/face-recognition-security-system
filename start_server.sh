@@ -2,6 +2,15 @@
 # Face Recognition System - Server Start Script
 # This script automatically kills old processes and starts the server fresh
 
+# Set CUDA library path for PyTorch + Stable Diffusion + ONNX Runtime GPU
+export LD_LIBRARY_PATH=$HOME/.local/lib:/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
+
+# Fix OpenBLAS/OpenMP threading conflict (prevents hang)
+export OMP_NUM_THREADS=4
+export OPENBLAS_NUM_THREADS=4
+export MKL_NUM_THREADS=4
+export OMP_WAIT_POLICY=PASSIVE
+
 echo "🚀 Face Recognition System - Starting..."
 echo ""
 

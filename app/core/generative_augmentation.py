@@ -49,14 +49,19 @@ class StableDiffusionAugmentor:
         """
         self.model_id = model_id
         self.device = device
-        self.use_fp16 = use_fp16
+        # CPU doesn't support FP16, force FP32
+        if device == "cpu":
+            self.use_fp16 = False
+            logger.warning("CPU detected - FP16 not supported, using FP32 (slower)")
+        else:
+            self.use_fp16 = use_fp16
         self.cache_dir = cache_dir or os.path.expanduser("~/.cache/huggingface")
 
         self.pipeline = None
         self._is_loaded = False
 
         logger.info(f"Initializing StableDiffusionAugmentor with model: {model_id}")
-        logger.info(f"Device: {device}, FP16: {use_fp16}")
+        logger.info(f"Device: {device}, FP16: {self.use_fp16}")
 
     def load_model(self) -> bool:
         """
@@ -73,13 +78,13 @@ class StableDiffusionAugmentor:
             return True
 
         try:
-            logger.info("Loading Stable Diffusion pipeline...")
+            logger.info("Loading Stable Diffusion Img2Img pipeline...")
             logger.info(f"This may take 30-60 seconds on first run (downloading ~4GB model)")
 
-            from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+            from diffusers import StableDiffusionImg2ImgPipeline, DPMSolverMultistepScheduler
 
-            # Load pipeline
-            self.pipeline = StableDiffusionPipeline.from_pretrained(
+            # Load img2img pipeline (transforms input image instead of generating from scratch)
+            self.pipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
                 self.model_id,
                 cache_dir=self.cache_dir,
                 torch_dtype=torch.float16 if self.use_fp16 else torch.float32,
@@ -128,10 +133,11 @@ class StableDiffusionAugmentor:
         angles: Optional[List[str]] = None,
         guidance_scale: float = 7.5,
         num_inference_steps: int = 20,
+        strength: float = 0.65,
         seed: Optional[int] = None
     ) -> List[np.ndarray]:
         """
-        Generate multiple face angles from a single reference image.
+        Generate multiple face angles from a single reference image using img2img transformation.
 
         Args:
             reference_image: Input face image (numpy array, BGR format from OpenCV)
@@ -140,6 +146,10 @@ class StableDiffusionAugmentor:
                    If None, generates diverse angles automatically
             guidance_scale: How closely to follow the prompt (7-8 recommended)
             num_inference_steps: Number of denoising steps (20-30 for speed, 50 for quality)
+            strength: How much to transform the image (0.5-0.8 recommended)
+                     0.5 = subtle changes, preserves identity strongly
+                     0.65 = moderate changes (default)
+                     0.8 = stronger changes, more variation
             seed: Random seed for reproducibility (None = random)
 
         Returns:
@@ -157,25 +167,23 @@ class StableDiffusionAugmentor:
             # Convert BGR to RGB and create PIL Image
             reference_rgb = Image.fromarray(reference_image[:, :, ::-1])
 
-            # Define angle prompts
+            # Define angle prompts for img2img transformation
             if angles is None:
                 angle_prompts = [
-                    "portrait photo, looking directly at camera, frontal view, neutral expression",
-                    "portrait photo, face turned slightly to the left, side profile",
-                    "portrait photo, face turned slightly to the right, side profile",
-                    "portrait photo, looking slightly upward, chin up",
-                    "portrait photo, looking slightly downward, chin down",
-                    "portrait photo, smiling, frontal view",
-                    "portrait photo, serious expression, frontal view",
+                    "face turned slightly to the left, same person",
+                    "face turned slightly to the right, same person",
+                    "face turned to the left, side angle, same person",
+                    "face turned to the right, side angle, same person",
+                    "looking slightly upward, same person",
                 ]
             else:
                 # Map angles to prompts
                 angle_map = {
-                    'frontal': "portrait photo, looking directly at camera, frontal view",
-                    'left': "portrait photo, face turned to the left, side profile",
-                    'right': "portrait photo, face turned to the right, side profile",
-                    'up': "portrait photo, looking upward, chin up",
-                    'down': "portrait photo, looking downward, chin down",
+                    'frontal': "looking directly at camera, frontal view, same person",
+                    'left': "face turned to the left, same person",
+                    'right': "face turned to the right, same person",
+                    'up': "looking upward, chin up, same person",
+                    'down': "looking downward, chin down, same person",
                 }
                 angle_prompts = [angle_map.get(a, angle_map['frontal']) for a in angles]
 
@@ -193,19 +201,19 @@ class StableDiffusionAugmentor:
             for i, prompt in enumerate(angle_prompts):
                 logger.info(f"Generating variation {i+1}/{len(angle_prompts)}: {prompt[:50]}...")
 
-                # Full prompt with quality boosters
-                full_prompt = f"{prompt}, high quality, sharp focus, detailed face, professional photo, 4k"
-                negative_prompt = "blurry, low quality, distorted face, deformed, ugly, bad anatomy, watermark, text"
+                # Full prompt with quality boosters - focused on transformation rather than generation
+                full_prompt = f"{prompt}, same person, preserve identity, high quality, sharp focus, detailed face"
+                negative_prompt = "different person, blurry, low quality, distorted face, deformed, ugly, bad anatomy, watermark, text, multiple people"
 
-                # Generate image
+                # Generate image using img2img (transforms the reference image)
                 with torch.inference_mode():
                     output = self.pipeline(
                         prompt=full_prompt,
+                        image=reference_rgb,  # Pass the actual input image
                         negative_prompt=negative_prompt,
+                        strength=strength,  # Controls transformation amount
                         guidance_scale=guidance_scale,
                         num_inference_steps=num_inference_steps,
-                        height=512,
-                        width=512,
                         generator=generator
                     )
 

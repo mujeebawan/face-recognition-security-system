@@ -462,6 +462,93 @@ async def list_persons(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/persons/{person_id}")
+async def get_person_details(person_id: int, db: Session = Depends(get_db)):
+    """Get detailed information about a person including all their images and case history"""
+    from app.models.database import Alert
+    person = db.query(Person).filter(Person.id == person_id).first()
+
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    # Get all embeddings with their sources
+    embeddings = db.query(FaceEmbedding).filter(FaceEmbedding.person_id == person_id).all()
+
+    # Get all alerts/cases for this person
+    alerts = db.query(Alert).filter(Alert.person_id == person_id).order_by(Alert.timestamp.desc()).all()
+
+    # Get recognition log count
+    recognition_count = db.query(RecognitionLog).filter(
+        RecognitionLog.person_id == person_id,
+        RecognitionLog.matched == 1
+    ).count()
+
+    # Collect all image paths
+    import os
+    from pathlib import Path
+    images = []
+
+    # Add original image
+    if person.reference_image_path and os.path.exists(person.reference_image_path):
+        images.append({
+            "source": "original",
+            "path": person.reference_image_path,
+            "url": f"/api/image/{person.cnic}/original"
+        })
+
+    # Add SD generated images
+    for emb in embeddings:
+        if emb.source.startswith('sd_augmented_'):
+            idx = emb.source.split('_')[-1]
+            img_path = f"data/images/{person.cnic}_sd_gen_{idx}.jpg"
+            if os.path.exists(img_path):
+                images.append({
+                    "source": emb.source,
+                    "path": img_path,
+                    "url": f"/api/image/{person.cnic}/sd_gen_{idx}",
+                    "confidence": emb.confidence
+                })
+
+    return {
+        "success": True,
+        "person": {
+            "id": person.id,
+            "name": person.name,
+            "cnic": person.cnic,
+            "enrolled_at": person.created_at,
+            "updated_at": person.updated_at
+        },
+        "embeddings": [
+            {
+                "id": emb.id,
+                "source": emb.source,
+                "confidence": emb.confidence,
+                "created_at": emb.created_at
+            }
+            for emb in embeddings
+        ],
+        "images": images,
+        "alerts": [
+            {
+                "id": alert.id,
+                "timestamp": alert.timestamp,
+                "event_type": alert.event_type,
+                "confidence": alert.confidence,
+                "acknowledged": alert.acknowledged,
+                "acknowledged_by": alert.acknowledged_by,
+                "acknowledged_at": alert.acknowledged_at,
+                "notes": alert.notes,
+                "snapshot_path": alert.snapshot_path
+            }
+            for alert in alerts
+        ],
+        "total_embeddings": len(embeddings),
+        "total_images": len(images),
+        "total_alerts": len(alerts),
+        "recognition_count": recognition_count
+    }
+
+
 @router.delete("/persons/{person_id}")
 async def delete_person(person_id: int, db: Session = Depends(get_db)):
     """Delete an enrolled person"""
@@ -477,6 +564,31 @@ async def delete_person(person_id: int, db: Session = Depends(get_db)):
         "success": True,
         "message": f"Person {person.name} deleted successfully"
     }
+
+
+@router.get("/image/{cnic}/{image_type}")
+async def get_person_image(cnic: str, image_type: str, db: Session = Depends(get_db)):
+    """Serve person images (original or SD generated)"""
+    import os
+    from fastapi.responses import FileResponse
+
+    # Determine image path based on type
+    if image_type == "original":
+        # Get actual path from database instead of assuming filename
+        person = db.query(Person).filter(Person.cnic == cnic).first()
+        if not person or not person.reference_image_path:
+            raise HTTPException(status_code=404, detail="Person or original image not found")
+        image_path = person.reference_image_path
+    elif image_type.startswith("sd_gen_"):
+        image_path = f"data/images/{cnic}_{image_type}.jpg"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid image type")
+
+    # Check if file exists
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return FileResponse(image_path, media_type="image/jpeg")
 
 
 @router.post("/enroll/multiple")
@@ -1114,7 +1226,12 @@ async def preview_stream():
     def generate_preview_stream():
         """Generate raw camera frames without any processing"""
         import time
-        camera = get_camera()
+        # Use separate camera instance for preview to avoid conflicts with main stream
+        camera = CameraHandler(use_main_stream=False)
+
+        if not camera.connect():
+            logger.error("Preview stream: Failed to connect to camera")
+            return
 
         try:
             while True:
@@ -1137,8 +1254,14 @@ async def preview_stream():
                 # Small delay to prevent overwhelming browser (50ms = ~20 FPS)
                 time.sleep(0.05)
 
+        except GeneratorExit:
+            logger.info("Preview stream disconnected by client")
         except Exception as e:
             logger.error(f"Preview stream error: {e}")
+        finally:
+            # Clean up camera connection when stream ends
+            camera.disconnect()
+            logger.info("Preview stream camera disconnected")
 
     return StreamingResponse(
         generate_preview_stream(),

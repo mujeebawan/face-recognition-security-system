@@ -616,6 +616,73 @@
         </div>
     </div>
 
+    <!-- Person Details Modal -->
+    <div class="modal" id="personDetailsModal" style="display: none;">
+        <div class="modal-content" style="max-width: 1000px;">
+            <div class="modal-header">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span>👤 Person Details</span>
+                    <button class="btn btn-secondary" onclick="closePersonDetailsModal()" style="padding: 5px 15px;">×</button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Person Info -->
+                <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                    <h3 id="detailsPersonName" style="margin: 0 0 10px 0; color: #60a5fa;">Loading...</h3>
+                    <p style="margin: 5px 0;"><strong>CNIC:</strong> <span id="detailsPersonCnic">-</span></p>
+                    <p style="margin: 5px 0;"><strong>Enrolled:</strong> <span id="detailsPersonEnrolled">-</span></p>
+                    <p style="margin: 5px 0;"><strong>Total Embeddings:</strong> <span id="detailsTotalEmbeddings">-</span></p>
+                </div>
+
+                <!-- Images Grid -->
+                <div>
+                    <h4 style="margin: 0 0 15px 0; color: #fbbf24;">📸 Enrolled Photos</h4>
+                    <div id="detailsImagesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                        <!-- Images will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Embeddings List -->
+                <div style="margin-top: 25px;">
+                    <h4 style="margin: 0 0 15px 0; color: #a78bfa;">🧠 Face Embeddings</h4>
+                    <div id="detailsEmbeddingsList" style="background: #1e293b; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto;">
+                        <!-- Embeddings will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Case Notes / Alerts -->
+                <div style="margin-top: 25px;">
+                    <h4 style="margin: 0 0 15px 0; color: #ef4444;">🚨 Case History & Alerts</h4>
+                    <div style="background: #1e293b; padding: 15px; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div style="background: #0f172a; padding: 12px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 2em; color: #fbbf24;">📊</div>
+                                <div style="font-size: 0.9em; color: #94a3b8;">Total Detections</div>
+                                <div id="detailsRecognitionCount" style="font-size: 1.5em; color: #60a5fa; font-weight: bold;">-</div>
+                            </div>
+                            <div style="background: #0f172a; padding: 12px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 2em; color: #ef4444;">⚠️</div>
+                                <div style="font-size: 0.9em; color: #94a3b8;">Total Alerts</div>
+                                <div id="detailsTotalAlerts" style="font-size: 1.5em; color: #ef4444; font-weight: bold;">-</div>
+                            </div>
+                            <div style="background: #0f172a; padding: 12px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 2em; color: #10b981;">✓</div>
+                                <div style="font-size: 0.9em; color: #94a3b8;">Embeddings</div>
+                                <div id="detailsEmbeddingsCount" style="font-size: 1.5em; color: #10b981; font-weight: bold;">-</div>
+                            </div>
+                        </div>
+                        <div id="detailsAlertsList" style="max-height: 300px; overflow-y: auto;">
+                            <!-- Alerts will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePersonDetailsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // File input handling
         const photoInput = document.getElementById('photoInput');
@@ -889,9 +956,9 @@
                     day: 'numeric'
                 });
 
-                // For photo, we'll show a placeholder since we don't have image URLs yet
+                // Show actual original photo
                 const photoHTML = person.reference_image_path
-                    ? `<img src="/static/placeholder.jpg" class="person-photo" alt="${person.name}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22%3E%3Crect fill=%22%23334155%22 width=%2260%22 height=%2260%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%23cbd5e1%22 text-anchor=%22middle%22 dy=%22.3em%22%3E${person.name.charAt(0)}%3C/text%3E%3C/svg%3E'">`
+                    ? `<img src="/api/image/${person.cnic}/original" class="person-photo" alt="${person.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid #334155;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22%3E%3Crect fill=%22%23334155%22 width=%2260%22 height=%2260%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%23cbd5e1%22 text-anchor=%22middle%22 dy=%22.3em%22%3E${person.name.charAt(0)}%3C/text%3E%3C/svg%3E'">`
                     : `<div style="width: 60px; height: 60px; background: #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #cbd5e1;">${person.name.charAt(0)}</div>`;
 
                 // Highlight matching CNIC
@@ -904,8 +971,11 @@
                         <td><strong>${person.name}</strong></td>
                         <td>${person.cnic}</td>
                         <td>${enrolledDate}</td>
-                        <td>
-                            <button class="btn-danger" onclick="confirmRemovePerson(${person.id}, '${person.name}')">
+                        <td style="white-space: nowrap;">
+                            <button class="btn-secondary" onclick="viewPersonDetails(${person.id})" style="padding: 8px 12px; background: #475569; border-radius: 6px; border: none; color: white; cursor: pointer; font-size: 0.9em; margin-right: 8px;">
+                                👁️ View
+                            </button>
+                            <button class="btn-danger" onclick="confirmRemovePerson(${person.id}, '${person.name}')" style="padding: 8px 12px; background: #dc2626; border-radius: 6px; border: none; color: white; cursor: pointer; font-size: 0.9em;">
                                 🗑️ Remove
                             </button>
                         </td>
@@ -1020,7 +1090,8 @@
             document.getElementById('imageCount').textContent = '0';
 
             // Set MJPEG stream source (smooth, continuous stream ~15-20 FPS)
-            liveStream.src = '/api/stream/preview';
+            // Add timestamp to prevent browser caching
+            liveStream.src = `/api/stream/preview?t=${Date.now()}`;
         }
 
         function closeCameraModal() {
@@ -1060,7 +1131,8 @@
         async function captureFromCamera() {
             try {
                 // Fetch current frame from sub-stream (fast, no processing)
-                const response = await fetch('/api/camera/snapshot?draw_detections=false');
+                // Add timestamp to prevent caching
+                const response = await fetch(`/api/camera/snapshot?draw_detections=false&t=${Date.now()}`);
                 const blob = await response.blob();
 
                 // Create object URL for preview
@@ -1179,6 +1251,145 @@
                 closeCameraModal();
             }
         });
+
+        // Person Details Modal Functions
+        async function showPersonDetails(personId) {
+            const modal = document.getElementById('personDetailsModal');
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch(`/api/persons/${personId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    // Populate person info
+                    document.getElementById('detailsPersonName').textContent = data.person.name;
+                    document.getElementById('detailsPersonCnic').textContent = data.person.cnic;
+                    document.getElementById('detailsPersonEnrolled').textContent = new Date(data.person.enrolled_at).toLocaleString();
+                    document.getElementById('detailsTotalEmbeddings').textContent = data.total_embeddings;
+
+                    // Populate stats
+                    document.getElementById('detailsRecognitionCount').textContent = data.recognition_count || 0;
+                    document.getElementById('detailsTotalAlerts').textContent = data.total_alerts || 0;
+                    document.getElementById('detailsEmbeddingsCount').textContent = data.total_embeddings;
+
+                    // Populate images grid
+                    const imagesGrid = document.getElementById('detailsImagesGrid');
+                    imagesGrid.innerHTML = '';
+
+                    data.images.forEach((img, index) => {
+                        const imageCard = document.createElement('div');
+                        imageCard.style.cssText = 'background: #1e293b; border-radius: 12px; overflow: hidden; border: 2px solid #334155; transition: transform 0.2s;';
+                        imageCard.innerHTML = `
+                            <img src="${img.url}" alt="${img.source}" style="width: 100%; height: 180px; object-fit: cover;">
+                            <div style="padding: 10px;">
+                                <p style="margin: 0; font-size: 0.9em; color: #60a5fa;">
+                                    ${img.source === 'original' ? '📷 Original' : '✨ AI Generated #' + img.source.split('_').pop()}
+                                </p>
+                                ${img.confidence ? `<p style="margin: 5px 0 0 0; font-size: 0.8em; color: #94a3b8;">Confidence: ${(img.confidence * 100).toFixed(1)}%</p>` : ''}
+                            </div>
+                        `;
+                        imageCard.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
+                        imageCard.onmouseout = function() { this.style.transform = 'scale(1)'; };
+                        imagesGrid.appendChild(imageCard);
+                    });
+
+                    // Populate embeddings list
+                    const embeddingsList = document.getElementById('detailsEmbeddingsList');
+                    embeddingsList.innerHTML = '';
+
+                    data.embeddings.forEach((emb, index) => {
+                        const embDiv = document.createElement('div');
+                        embDiv.style.cssText = 'background: #0f172a; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #60a5fa;';
+                        embDiv.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="color: #fbbf24;">#${index + 1}</strong>
+                                    <span style="color: #94a3b8; margin-left: 10px;">${emb.source}</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="color: #10b981;">Confidence: ${(emb.confidence * 100).toFixed(1)}%</div>
+                                    <div style="color: #64748b; font-size: 0.8em;">${new Date(emb.created_at).toLocaleString()}</div>
+                                </div>
+                            </div>
+                        `;
+                        embeddingsList.appendChild(embDiv);
+                    });
+
+                    // Populate alerts/case history
+                    const alertsList = document.getElementById('detailsAlertsList');
+                    alertsList.innerHTML = '';
+
+                    if (data.alerts && data.alerts.length > 0) {
+                        data.alerts.forEach((alert, index) => {
+                            const alertDiv = document.createElement('div');
+                            const eventColor = alert.event_type === 'known_person' ? '#10b981' : '#ef4444';
+                            const eventIcon = alert.event_type === 'known_person' ? '✓' : '⚠️';
+                            const statusBadge = alert.acknowledged
+                                ? '<span style="background: #10b981; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">✓ Acknowledged</span>'
+                                : '<span style="background: #ef4444; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">⚠ Pending</span>';
+
+                            alertDiv.style.cssText = 'background: #0f172a; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid ' + eventColor + ';';
+                            alertDiv.innerHTML = `
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                                            <span style="font-size: 1.2em;">${eventIcon}</span>
+                                            <strong style="color: ${eventColor};">${alert.event_type.replace('_', ' ').toUpperCase()}</strong>
+                                            ${statusBadge}
+                                        </div>
+                                        <div style="color: #94a3b8; font-size: 0.9em;">
+                                            <div>📅 ${new Date(alert.timestamp).toLocaleString()}</div>
+                                            ${alert.confidence ? `<div>🎯 Confidence: ${(alert.confidence * 100).toFixed(1)}%</div>` : ''}
+                                            ${alert.acknowledged_by ? `<div>👤 Acknowledged by: ${alert.acknowledged_by}</div>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                ${alert.notes ? `<div style="background: #1e293b; padding: 8px; border-radius: 4px; margin-top: 8px; font-size: 0.9em; color: #cbd5e1;"><strong>Notes:</strong> ${alert.notes}</div>` : ''}
+                            `;
+                            alertsList.appendChild(alertDiv);
+                        });
+                    } else {
+                        alertsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #64748b;">No alerts or case history found</div>';
+                    }
+
+                } else {
+                    alert('Failed to load person details');
+                    closePersonDetailsModal();
+                }
+            } catch (error) {
+                console.error('Error fetching person details:', error);
+                alert('Failed to load person details');
+                closePersonDetailsModal();
+            }
+        }
+
+        function closePersonDetailsModal() {
+            document.getElementById('personDetailsModal').style.display = 'none';
+        }
+
+        // Wrapper function for viewing person details from the View button
+        function viewPersonDetails(personId) {
+            showPersonDetails(personId);
+        }
+
+        // Make person rows in search results clickable
+        function makePersonRowsClickable() {
+            const personRows = document.querySelectorAll('#enrolledPersonsTable tbody tr');
+            personRows.forEach(row => {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function(e) {
+                    // Don't trigger if clicking remove button
+                    if (!e.target.classList.contains('btn-danger')) {
+                        const personId = this.dataset.personId;
+                        if (personId) {
+                            showPersonDetails(personId);
+                        }
+                    }
+                });
+            });
+        }
+
     </script>
 </body>
 </html>

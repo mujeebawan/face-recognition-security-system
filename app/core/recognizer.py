@@ -35,19 +35,19 @@ class FaceRecognizer:
         logger.info("Initializing InsightFace face recognition...")
 
         # Initialize FaceAnalysis with buffalo_l model
-        # Configure TensorRT with engine caching to avoid recompilation
-        import os
-        tensorrt_options = {
-            'trt_engine_cache_enable': True,
-            'trt_engine_cache_path': os.path.join(os.getcwd(), 'data/tensorrt_engines'),
-            'trt_fp16_enable': True,  # FP16 for faster inference
+        # Use CUDA provider for GPU acceleration with FP16
+        # Note: TensorRT requires cuDNN 8, we have cuDNN 9, so using CUDA only
+        cuda_options = {
+            'device_id': 0,
+            'arena_extend_strategy': 'kNextPowerOfTwo',
+            'cudnn_conv_algo_search': 'EXHAUSTIVE',
+            'do_copy_in_default_stream': True,
         }
 
         self.app = FaceAnalysis(
             name='buffalo_l',
             providers=[
-                ('TensorrtExecutionProvider', tensorrt_options),
-                'CUDAExecutionProvider',
+                ('CUDAExecutionProvider', cuda_options),
                 'CPUExecutionProvider'
             ]
         )

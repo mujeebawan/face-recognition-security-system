@@ -33,23 +33,22 @@ class FaceDetector:
         """
         self.min_detection_confidence = min_detection_confidence
 
-        logger.info("Initializing SCRFD face detector (TensorRT)...")
+        logger.info("Initializing SCRFD face detector (CUDA)...")
 
         # Initialize FaceAnalysis with SCRFD detector
         # This uses the 'det_10g' model from buffalo_l pack (10G FLOPs SCRFD)
-        # Configure TensorRT with engine caching for optimal Jetson performance
-        import os
-        tensorrt_options = {
-            'trt_engine_cache_enable': True,
-            'trt_engine_cache_path': os.path.join(os.getcwd(), 'data/tensorrt_engines'),
-            'trt_fp16_enable': True,  # FP16 for faster inference on Jetson
+        # Use CUDA provider for GPU acceleration (TensorRT requires cuDNN 8, we have cuDNN 9)
+        cuda_options = {
+            'device_id': 0,
+            'arena_extend_strategy': 'kNextPowerOfTwo',
+            'cudnn_conv_algo_search': 'EXHAUSTIVE',
+            'do_copy_in_default_stream': True,
         }
 
         self.app = FaceAnalysis(
             name='buffalo_l',  # Uses SCRFD det_10g detector
             providers=[
-                ('TensorrtExecutionProvider', tensorrt_options),
-                'CUDAExecutionProvider',
+                ('CUDAExecutionProvider', cuda_options),
                 'CPUExecutionProvider'
             ]
         )

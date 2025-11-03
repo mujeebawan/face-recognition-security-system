@@ -5,6 +5,11 @@ High-performance GPU-accelerated security system for real-time identification an
 
 > **🚀 Quick Start**: Want to run the system right away? See [QUICK_START.md](QUICK_START.md) for simple start/stop commands.
 
+> **📚 Documentation**:
+> - **[Jetson Setup Guide](docs/JETSON_SETUP.md)** - Complete installation guide for Jetson AGX Orin (CUDA, ONNX Runtime GPU, dependencies)
+> - **[System Configuration](docs/SYSTEM_CONFIGURATION.md)** - Current system state, versions, and configuration details
+> - **[Quick Start](QUICK_START.md)** - Simple start/stop commands
+
 ---
 
 ## 🎯 Overview

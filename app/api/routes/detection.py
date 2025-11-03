@@ -112,7 +112,8 @@ async def get_camera_snapshot(draw_detections: bool = True):
         camera = get_camera()  # Use singleton camera handler
 
         # Read frame from the already-connected camera
-        ret, frame = camera.read_frame(crop_osd=False, flush_buffer=False)
+        # Flush buffer to get the LATEST frame (important for snapshot capture!)
+        ret, frame = camera.read_frame(crop_osd=False, flush_buffer=True)
 
         if not ret or frame is None:
             raise HTTPException(status_code=503, detail="Failed to capture frame from camera")
