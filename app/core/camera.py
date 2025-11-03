@@ -39,17 +39,18 @@ class CameraHandler:
         try:
             logger.info(f"Connecting to camera at {settings.camera_ip}...")
 
-            # Create VideoCapture with RTSP URL
+            # Create VideoCapture with RTSP URL and hardware acceleration
+            # Set environment variable for FFMPEG hardware decoding
+            import os
+            os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp|analyzeduration;1000000|probesize;1000000'
+
             self.capture = cv2.VideoCapture(self.stream_url, cv2.CAP_FFMPEG)
 
-            # Optimize for low latency streaming
-            self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer
-            self.capture.set(cv2.CAP_PROP_FPS, 30)  # Request 30 FPS
+            # Aggressive low-latency settings
+            self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer (critical!)
 
-            # Disable any additional buffering
-            if hasattr(cv2, 'CAP_PROP_FOURCC'):
-                # Try to set optimal codec
-                self.capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
+            # Don't set FPS - let camera decide for smoothest playback
+            # self.capture.set(cv2.CAP_PROP_FPS, 30)  # Removed - causes choppiness
 
             # Try to read a frame to verify connection
             if self.capture.isOpened():
@@ -101,8 +102,8 @@ class CameraHandler:
                 # Flush old buffered frames to get the latest frame (reduces delay)
                 # Grab and discard buffered frames to get the most recent one
                 if flush_buffer:
-                    # Grab multiple frames to clear buffer (grab is fast, doesn't decode)
-                    for _ in range(3):
+                    # Grab 2 frames to clear buffer without being too aggressive
+                    for _ in range(2):
                         self.capture.grab()
 
                 ret, frame = self.capture.read()

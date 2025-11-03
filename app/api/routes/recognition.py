@@ -1091,8 +1091,8 @@ def generate_video_stream(db: Session):
 
                 frame_count += 1
 
-                # Skip frames to reduce processing load (process every 3rd frame for better performance)
-                if frame_count % 3 != 0:
+                # Skip frames to reduce processing load (process every 2nd frame)
+                if frame_count % 2 != 0:
                     # Use cached detections for skipped frames
                     for bbox in last_detections:
                         x, y, w, h = bbox
@@ -1219,15 +1219,14 @@ def generate_video_stream(db: Session):
                     last_recognitions = {}
                     last_detections = []
 
-                # Encode frame to JPEG with reduced quality for faster streaming (70 is good balance)
-                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                # Encode frame to JPEG with balanced quality (75 = good quality + good speed)
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
 
                 # Yield frame in MJPEG format
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
-                # Small delay to control frame rate (~20 FPS) and reduce browser overload
-                time.sleep(0.033)
+                # No artificial delay - let it run at natural camera speed for smooth video
 
         except GeneratorExit:
             logger.info("Streaming stopped by client")
@@ -1285,16 +1284,15 @@ async def preview_stream():
                     time.sleep(0.1)
                     continue
 
-                # Encode frame as JPEG with reduced quality for faster streaming
-                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                # Encode frame as JPEG with balanced quality for faster streaming
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 frame_bytes = buffer.tobytes()
 
                 # Yield frame in MJPEG format
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
-                # Frame rate control (~25 FPS for smoother preview)
-                time.sleep(0.04)
+                # No artificial delay - natural camera speed for smooth preview
 
         except GeneratorExit:
             logger.info("Preview stream disconnected by client")
