@@ -128,7 +128,16 @@ async def get_camera_snapshot(draw_detections: bool = True):
         _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
         io_buf = io.BytesIO(buffer)
 
-        return StreamingResponse(io_buf, media_type="image/jpeg")
+        # Return with cache control headers to prevent browser caching
+        return StreamingResponse(
+            io_buf,
+            media_type="image/jpeg",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
 
     except HTTPException:
         raise
