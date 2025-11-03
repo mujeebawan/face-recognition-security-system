@@ -39,18 +39,24 @@ class CameraHandler:
         try:
             logger.info(f"Connecting to camera at {settings.camera_ip}...")
 
-            # Create VideoCapture with RTSP URL and hardware acceleration
-            # Set environment variable for FFMPEG hardware decoding
-            import os
-            os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp|analyzeduration;1000000|probesize;1000000'
+            # Use GStreamer with Jetson hardware decoder (NVDEC) for smooth, accelerated decoding
+            # This uses the Jetson's dedicated video decoder chip instead of CPU
+            gst_pipeline = (
+                f"rtspsrc location={self.stream_url} latency=0 protocols=tcp ! "
+                "rtph264depay ! h264parse ! "
+                "nvv4l2decoder enable-max-performance=true ! "  # Hardware decode on Jetson GPU
+                "nvvidconv ! "  # Hardware video convert
+                "video/x-raw,format=BGRx ! "
+                "videoconvert ! "
+                "video/x-raw,format=BGR ! "
+                "appsink drop=true max-buffers=1"  # Drop old frames, keep only latest
+            )
 
-            self.capture = cv2.VideoCapture(self.stream_url, cv2.CAP_FFMPEG)
+            logger.info("Using GStreamer with Jetson hardware decoder (NVDEC)")
+            self.capture = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
 
-            # Aggressive low-latency settings
-            self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer (critical!)
-
-            # Don't set FPS - let camera decide for smoothest playback
-            # self.capture.set(cv2.CAP_PROP_FPS, 30)  # Removed - causes choppiness
+            # Buffer settings not needed with appsink drop=true max-buffers=1
+            # GStreamer pipeline handles low-latency automatically
 
             # Try to read a frame to verify connection
             if self.capture.isOpened():
