@@ -1093,7 +1093,12 @@
             document.getElementById('capturedImagesGrid').innerHTML = '';
             document.getElementById('imageCount').textContent = '0';
 
-            // Clear enrollment form preview (important for new person enrollment)
+            // Clear enrollment form completely (CRITICAL FIX)
+            // Clear the file input - this was missing!
+            photoInput.value = '';  // Clear file input
+            photoInput.files = new DataTransfer().files;  // Empty files
+
+            // Clear preview
             imagePreview.src = '';
             imagePreview.style.display = 'none';
             fileName.textContent = 'No file selected';
