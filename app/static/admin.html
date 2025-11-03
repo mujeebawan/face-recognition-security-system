@@ -1089,6 +1089,11 @@
             document.getElementById('capturedImagesGrid').innerHTML = '';
             document.getElementById('imageCount').textContent = '0';
 
+            // Clear enrollment form preview (important for new person enrollment)
+            imagePreview.src = '';
+            imagePreview.style.display = 'none';
+            fileName.textContent = 'No file selected';
+
             // Set MJPEG stream source (smooth, continuous stream ~15-20 FPS)
             // Add timestamp to prevent browser caching
             liveStream.src = `/api/stream/preview?t=${Date.now()}`;
