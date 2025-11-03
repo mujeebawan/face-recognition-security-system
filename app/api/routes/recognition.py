@@ -88,6 +88,7 @@ async def enroll_person(
     cnic: str = Form(...),
     file: UploadFile = File(...),
     use_sd_augmentation: bool = Form(False),
+    use_controlnet: bool = Form(False),
     num_sd_variations: int = Form(5),
     db: Session = Depends(get_db)
 ):
@@ -99,6 +100,7 @@ async def enroll_person(
         cnic: National ID number (unique)
         file: Face image file
         use_sd_augmentation: Use Stable Diffusion to generate additional angles (default: False)
+        use_controlnet: Use ControlNet for better pose control (default: False, requires use_sd_augmentation=True)
         num_sd_variations: Number of SD variations to generate if enabled (default: 5, max: 10)
         db: Database session
 
@@ -156,35 +158,56 @@ async def enroll_person(
         # Generate SD augmented faces if requested
         if use_sd_augmentation:
             try:
-                from app.core.generative_augmentation import StableDiffusionAugmentor
                 import time
-
-                logger.info(f"Generating {num_sd_variations} SD augmented angles for {name}...")
 
                 # Limit variations
                 num_variations = min(max(1, num_sd_variations), 10)
 
-                # Initialize SD augmentor (singleton pattern would be better for production)
-                sd_augmentor = StableDiffusionAugmentor(
-                    device="cuda" if torch.cuda.is_available() else "cpu",
-                    use_fp16=True
-                )
+                # Choose augmentation method: ControlNet or img2img
+                if use_controlnet:
+                    from app.core.controlnet_augmentation import ControlNetFaceAugmentor
+                    logger.info(f"Generating {num_variations} ControlNet augmented angles for {name}...")
+
+                    # Initialize ControlNet augmentor
+                    augmentor = ControlNetFaceAugmentor(
+                        device="cuda" if torch.cuda.is_available() else "cpu",
+                        use_fp16=True
+                    )
+                    augmentation_type = "controlnet"
+                else:
+                    from app.core.generative_augmentation import StableDiffusionAugmentor
+                    logger.info(f"Generating {num_variations} SD img2img augmented angles for {name}...")
+
+                    # Initialize SD img2img augmentor
+                    augmentor = StableDiffusionAugmentor(
+                        device="cuda" if torch.cuda.is_available() else "cpu",
+                        use_fp16=True
+                    )
+                    augmentation_type = "img2img"
 
                 # Load model
-                if not sd_augmentor.load_model():
-                    logger.error("Failed to load SD model, skipping augmentation")
+                if not augmentor.load_model():
+                    logger.error(f"Failed to load {augmentation_type} model, skipping augmentation")
                 else:
                     # Generate variations
                     start_time = time.time()
-                    generated_images = sd_augmentor.generate_face_angles(
-                        reference_image=image,
-                        num_variations=num_variations,
-                        num_inference_steps=20,  # Fast generation
-                        guidance_scale=7.5
-                    )
+
+                    # Prepare parameters based on augmentation type
+                    gen_params = {
+                        'reference_image': image,
+                        'num_variations': num_variations,
+                        'num_inference_steps': 30 if use_controlnet else 20,  # ControlNet needs more steps
+                        'guidance_scale': 7.5
+                    }
+
+                    # Add ControlNet-specific parameter
+                    if use_controlnet:
+                        gen_params['controlnet_scale'] = 0.9
+
+                    generated_images = augmentor.generate_face_angles(**gen_params)
                     sd_generation_time = time.time() - start_time
 
-                    logger.info(f"SD generation completed in {sd_generation_time:.2f}s ({len(generated_images)} images)")
+                    logger.info(f"{augmentation_type.upper()} generation completed in {sd_generation_time:.2f}s ({len(generated_images)} images)")
 
                     # Process each generated image
                     for idx, gen_img in enumerate(generated_images):
@@ -197,23 +220,25 @@ async def enroll_person(
                             gen_face_embedding = FaceEmbedding(
                                 person_id=person.id,
                                 embedding=gen_embedding_data,
-                                source=f'sd_augmented_{idx+1}',
+                                source=f'{augmentation_type}_augmented_{idx+1}',
                                 confidence=gen_result.confidence
                             )
                             db.add(gen_face_embedding)
                             total_embeddings += 1
 
                             # Save generated image
-                            gen_img_path = f"data/images/{cnic}_sd_gen_{idx+1}.jpg"
+                            gen_img_path = f"data/images/{cnic}_{augmentation_type}_gen_{idx+1}.jpg"
                             cv2.imwrite(gen_img_path, gen_img)
 
                     # Unload model to free GPU memory
-                    sd_augmentor.unload_model()
+                    augmentor.unload_model()
 
-                    logger.info(f"✅ SD augmentation complete: {total_embeddings} total embeddings")
+                    logger.info(f"✅ {augmentation_type.upper()} augmentation complete: {total_embeddings} total embeddings")
 
             except Exception as aug_e:
-                logger.error(f"SD augmentation failed: {aug_e}, continuing with original only")
+                logger.error(f"Augmentation failed: {aug_e}, continuing with original only")
+                import traceback
+                traceback.print_exc()
                 # Continue with enrollment even if augmentation fails
 
         db.commit()
@@ -227,12 +252,14 @@ async def enroll_person(
             "cnic": cnic,
             "confidence": result.confidence,
             "total_embeddings": total_embeddings,
-            "sd_augmentation_used": use_sd_augmentation
+            "sd_augmentation_used": use_sd_augmentation,
+            "controlnet_used": use_controlnet if use_sd_augmentation else False
         }
 
         if use_sd_augmentation and sd_generation_time > 0:
-            response["sd_generation_time"] = round(sd_generation_time, 2)
+            response["generation_time"] = round(sd_generation_time, 2)
             response["avg_time_per_image"] = round(sd_generation_time / num_variations, 2)
+            response["augmentation_method"] = "ControlNet" if use_controlnet else "img2img"
 
         return response
 
@@ -496,16 +523,26 @@ async def get_person_details(person_id: int, db: Session = Depends(get_db)):
             "url": f"/api/image/{person.cnic}/original"
         })
 
-    # Add SD generated images
+    # Add AI-generated images (both ControlNet and img2img)
     for emb in embeddings:
-        if emb.source.startswith('sd_augmented_'):
+        # Handle both sd_augmented and controlnet_augmented and img2img_augmented
+        if any(emb.source.startswith(prefix) for prefix in ['sd_augmented_', 'controlnet_augmented_', 'img2img_augmented_']):
             idx = emb.source.split('_')[-1]
-            img_path = f"data/images/{person.cnic}_sd_gen_{idx}.jpg"
+
+            # Determine augmentation type
+            if emb.source.startswith('controlnet_augmented_'):
+                aug_type = 'controlnet'
+            elif emb.source.startswith('img2img_augmented_'):
+                aug_type = 'img2img'
+            else:  # sd_augmented (legacy)
+                aug_type = 'sd'
+
+            img_path = f"data/images/{person.cnic}_{aug_type}_gen_{idx}.jpg"
             if os.path.exists(img_path):
                 images.append({
                     "source": emb.source,
                     "path": img_path,
-                    "url": f"/api/image/{person.cnic}/sd_gen_{idx}",
+                    "url": f"/api/image/{person.cnic}/{aug_type}_gen_{idx}",
                     "confidence": emb.confidence
                 })
 
@@ -568,7 +605,7 @@ async def delete_person(person_id: int, db: Session = Depends(get_db)):
 
 @router.get("/image/{cnic}/{image_type}")
 async def get_person_image(cnic: str, image_type: str, db: Session = Depends(get_db)):
-    """Serve person images (original or SD generated)"""
+    """Serve person images (original, SD, ControlNet, or img2img generated)"""
     import os
     from fastapi.responses import FileResponse
 
@@ -579,7 +616,8 @@ async def get_person_image(cnic: str, image_type: str, db: Session = Depends(get
         if not person or not person.reference_image_path:
             raise HTTPException(status_code=404, detail="Person or original image not found")
         image_path = person.reference_image_path
-    elif image_type.startswith("sd_gen_"):
+    elif any(image_type.startswith(prefix) for prefix in ["sd_gen_", "controlnet_gen_", "img2img_gen_"]):
+        # AI-generated images (all types)
         image_path = f"data/images/{cnic}_{image_type}.jpg"
     else:
         raise HTTPException(status_code=400, detail="Invalid image type")
