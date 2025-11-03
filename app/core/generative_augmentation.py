@@ -133,7 +133,7 @@ class StableDiffusionAugmentor:
         angles: Optional[List[str]] = None,
         guidance_scale: float = 7.5,
         num_inference_steps: int = 20,
-        strength: float = 0.65,
+        strength: float = 0.4,
         seed: Optional[int] = None
     ) -> List[np.ndarray]:
         """
@@ -146,10 +146,11 @@ class StableDiffusionAugmentor:
                    If None, generates diverse angles automatically
             guidance_scale: How closely to follow the prompt (7-8 recommended)
             num_inference_steps: Number of denoising steps (20-30 for speed, 50 for quality)
-            strength: How much to transform the image (0.5-0.8 recommended)
-                     0.5 = subtle changes, preserves identity strongly
-                     0.65 = moderate changes (default)
-                     0.8 = stronger changes, more variation
+            strength: How much to transform the image (0.3-0.5 recommended)
+                     0.3 = very subtle changes, maximum identity preservation
+                     0.4 = subtle changes, strong identity preservation (default)
+                     0.5 = moderate changes, balanced variation
+                     0.65+ = stronger changes (may lose identity)
             seed: Random seed for reproducibility (None = random)
 
         Returns:
