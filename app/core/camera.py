@@ -39,24 +39,15 @@ class CameraHandler:
         try:
             logger.info(f"Connecting to camera at {settings.camera_ip}...")
 
-            # Use GStreamer with Jetson hardware decoder (NVDEC) for smooth, accelerated decoding
-            # This uses the Jetson's dedicated video decoder chip instead of CPU
-            gst_pipeline = (
-                f"rtspsrc location={self.stream_url} latency=0 protocols=tcp ! "
-                "rtph264depay ! h264parse ! "
-                "nvv4l2decoder enable-max-performance=true ! "  # Hardware decode on Jetson GPU
-                "nvvidconv ! "  # Hardware video convert
-                "video/x-raw,format=BGRx ! "
-                "videoconvert ! "
-                "video/x-raw,format=BGR ! "
-                "appsink drop=true max-buffers=1"  # Drop old frames, keep only latest
-            )
+            # Use FFMPEG with optimal low-latency settings
+            # Note: OpenCV not built with GStreamer, using FFMPEG
+            import os
+            os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp|fflags;nobuffer|flags;low_delay'
 
-            logger.info("Using GStreamer with Jetson hardware decoder (NVDEC)")
-            self.capture = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
+            self.capture = cv2.VideoCapture(self.stream_url, cv2.CAP_FFMPEG)
 
-            # Buffer settings not needed with appsink drop=true max-buffers=1
-            # GStreamer pipeline handles low-latency automatically
+            # Aggressive low-latency settings
+            self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer
 
             # Try to read a frame to verify connection
             if self.capture.isOpened():

@@ -1081,8 +1081,8 @@ def generate_video_stream(db: Session):
 
         try:
             while True:
-                # No buffer flush needed - GStreamer appsink handles latency automatically
-                ret, frame = camera.read_frame(flush_buffer=False)
+                # Flush buffer to reduce latency in FFMPEG mode
+                ret, frame = camera.read_frame(flush_buffer=True)
 
                 if not ret or frame is None:
                     logger.warning("Failed to read frame from camera")
@@ -1276,8 +1276,8 @@ async def preview_stream():
 
         try:
             while True:
-                # GStreamer handles low latency automatically, no manual flush needed
-                success, frame = camera.read_frame(crop_osd=False, flush_buffer=False)
+                # Flush buffer for low latency in FFMPEG mode
+                success, frame = camera.read_frame(crop_osd=False, flush_buffer=True)
 
                 if not success or frame is None:
                     logger.warning("Failed to read frame from camera")
