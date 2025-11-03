@@ -99,10 +99,11 @@ class CameraHandler:
         while retry_count < max_retries:
             try:
                 # Flush old buffered frames to get the latest frame (reduces delay)
-                # Only flush if explicitly requested and not in streaming mode
+                # Grab and discard buffered frames to get the most recent one
                 if flush_buffer:
-                    # Grab one frame but only decode the next one
-                    self.capture.grab()
+                    # Grab multiple frames to clear buffer (grab is fast, doesn't decode)
+                    for _ in range(3):
+                        self.capture.grab()
 
                 ret, frame = self.capture.read()
                 if ret and frame is not None:
