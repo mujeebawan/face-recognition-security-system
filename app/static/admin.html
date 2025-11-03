@@ -825,7 +825,11 @@
                     showSuccess(successMessage);
                     form.reset();
                     fileName.textContent = 'No file selected';
+
+                    // Completely clear image preview (important for next enrollment)
+                    imagePreview.src = '';  // Clear the src attribute, not just hide
                     imagePreview.style.display = 'none';
+
                     sdOptions.style.display = 'none'; // Hide SD options
                 } else {
                     showError(data.detail || data.message || 'Failed to enroll person');
