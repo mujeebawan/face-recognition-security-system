@@ -104,3 +104,23 @@ class SystemConfiguration(Base):
 
     def __repr__(self):
         return f"<SystemConfiguration(key='{self.config_key}', value='{self.config_value}')>"
+
+
+class User(Base):
+    """User model - stores admin/operator accounts for system access"""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=True, index=True)
+    password_hash = Column(String(255), nullable=False)  # bcrypt hashed password
+    full_name = Column(String(255), nullable=True)
+    role = Column(String(20), nullable=False, default='operator')  # 'admin', 'operator', 'viewer'
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime, nullable=True)
+
+    def __repr__(self):
+        return f"<User(id={self.id}, username='{self.username}', role='{self.role}')>"
