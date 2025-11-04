@@ -20,7 +20,8 @@ from app.core.camera import CameraHandler
 from app.core.augmentation import FaceAugmentation
 from app.core.alerts import AlertManager
 from app.core.database import get_db
-from app.models.database import Person, FaceEmbedding, RecognitionLog
+from app.models.database import Person, FaceEmbedding, RecognitionLog, User
+from app.core.auth import get_current_user
 from app.config import settings
 import torch
 
@@ -91,6 +92,7 @@ async def enroll_person(
     use_controlnet: bool = Form(False),
     use_liveportrait: bool = Form(False),
     num_sd_variations: int = Form(5),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -550,7 +552,10 @@ async def recognize_from_camera(db: Session = Depends(get_db)):
 
 
 @router.get("/persons")
-async def list_persons(db: Session = Depends(get_db)):
+async def list_persons(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """List all enrolled persons"""
     persons = db.query(Person).all()
 
@@ -569,7 +574,11 @@ async def list_persons(db: Session = Depends(get_db)):
 
 
 @router.get("/persons/{person_id}")
-async def get_person_details(person_id: int, db: Session = Depends(get_db)):
+async def get_person_details(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get detailed information about a person including all their images and case history"""
     from app.models.database import Alert
     person = db.query(Person).filter(Person.id == person_id).first()
@@ -668,7 +677,11 @@ async def get_person_details(person_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/persons/{person_id}")
-async def delete_person(person_id: int, db: Session = Depends(get_db)):
+async def delete_person(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Delete an enrolled person"""
     person = db.query(Person).filter(Person.id == person_id).first()
 
@@ -685,7 +698,12 @@ async def delete_person(person_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/image/{cnic}/{image_type}")
-async def get_person_image(cnic: str, image_type: str, db: Session = Depends(get_db)):
+async def get_person_image(
+    cnic: str,
+    image_type: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Serve person images (original, SD, ControlNet, img2img, or LivePortrait generated)"""
     import os
     from fastapi.responses import FileResponse
@@ -716,6 +734,7 @@ async def enroll_person_multiple_images(
     cnic: str = Form(...),
     files: List[UploadFile] = File(...),
     use_augmentation: bool = Form(True),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -843,6 +862,7 @@ async def enroll_from_camera(
     cnic: str = Form(...),
     num_captures: int = Form(5),
     use_augmentation: bool = Form(True),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -1389,7 +1409,11 @@ async def preview_stream():
 
 
 @router.get("/access-logs")
-async def get_access_logs(limit: int = 50, db: Session = Depends(get_db)):
+async def get_access_logs(
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get recent access logs (door entry events).
     Shows last 50 recognition events by default.
