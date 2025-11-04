@@ -857,6 +857,26 @@
             window.location.href = '/login';
         }
 
+        // Helper function to load images with auth headers
+        async function loadImageWithAuth(imageUrl) {
+            try {
+                const response = await fetch(imageUrl, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    return URL.createObjectURL(blob);
+                } else {
+                    console.error('Failed to load image:', imageUrl, response.status);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error loading image:', error);
+                return null;
+            }
+        }
+
         // ===== END AUTHENTICATION =====
 
         // File input handling
@@ -1666,23 +1686,37 @@
                     const imagesGrid = document.getElementById('detailsImagesGrid');
                     imagesGrid.innerHTML = '';
 
-                    data.images.forEach((img, index) => {
+                    // Load images with authentication
+                    data.images.forEach(async (img, index) => {
                         const imageCard = document.createElement('div');
                         imageCard.style.cssText = 'background: #1e293b; border-radius: 12px; overflow: hidden; border: 2px solid #334155; transition: transform 0.2s;';
-                        // Add cache-busting timestamp to image URLs
-                        const imageUrlWithTimestamp = `${img.url}?t=${Date.now()}`;
-                        imageCard.innerHTML = `
-                            <img src="${imageUrlWithTimestamp}" alt="${img.source}" style="width: 100%; height: 180px; object-fit: cover;">
-                            <div style="padding: 10px;">
-                                <p style="margin: 0; font-size: 0.9em; color: #60a5fa;">
-                                    ${img.source === 'original' ? '📷 Original' : '✨ AI Generated #' + img.source.split('_').pop()}
-                                </p>
-                                ${img.confidence ? `<p style="margin: 5px 0 0 0; font-size: 0.8em; color: #94a3b8;">Confidence: ${(img.confidence * 100).toFixed(1)}%</p>` : ''}
-                            </div>
+
+                        // Create image element with loading placeholder
+                        const imgElement = document.createElement('img');
+                        imgElement.alt = img.source;
+                        imgElement.style.cssText = 'width: 100%; height: 180px; object-fit: cover; background: #0f172a;';
+                        imgElement.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Ctext x="50%25" y="50%25" font-size="14" text-anchor="middle" fill="%2394a3b8"%3ELoading...%3C/text%3E%3C/svg%3E';
+
+                        const infoDiv = document.createElement('div');
+                        infoDiv.style.cssText = 'padding: 10px;';
+                        infoDiv.innerHTML = `
+                            <p style="margin: 0; font-size: 0.9em; color: #60a5fa;">
+                                ${img.source === 'original' ? '📷 Original' : '✨ AI Generated #' + img.source.split('_').pop()}
+                            </p>
+                            ${img.confidence ? `<p style="margin: 5px 0 0 0; font-size: 0.8em; color: #94a3b8;">Confidence: ${(img.confidence * 100).toFixed(1)}%</p>` : ''}
                         `;
+
+                        imageCard.appendChild(imgElement);
+                        imageCard.appendChild(infoDiv);
                         imageCard.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
                         imageCard.onmouseout = function() { this.style.transform = 'scale(1)'; };
                         imagesGrid.appendChild(imageCard);
+
+                        // Load actual image with auth
+                        const blobUrl = await loadImageWithAuth(img.url);
+                        if (blobUrl) {
+                            imgElement.src = blobUrl;
+                        }
                     });
 
                     // Populate embeddings list
