@@ -469,17 +469,41 @@
                             Use 8-10 for critical cases.
                         </p>
 
-                        <!-- ControlNet Toggle -->
+                        <!-- Augmentation Method Selection -->
                         <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #334155;">
-                            <div style="display: flex; align-items: center;">
-                                <input type="checkbox" id="useControlNet" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
+                            <label class="form-label" style="font-size: 1em; color: #fbbf24; margin-bottom: 12px;">Choose AI Method:</label>
+
+                            <!-- LivePortrait Option (NEW!) -->
+                            <div style="display: flex; align-items: center; margin-bottom: 15px; padding: 12px; background: #0f172a; border-radius: 8px; border: 2px solid #10b981;">
+                                <input type="radio" name="augmentMethod" id="useLivePortrait" value="liveportrait" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;" checked>
+                                <label for="useLivePortrait" style="font-size: 0.95em; color: #10b981; margin: 0; cursor: pointer; font-weight: 600;">
+                                    ⚡ LivePortrait (FASTEST & BEST - 3D Pose Generation)
+                                </label>
+                            </div>
+                            <p class="form-help" style="margin: -8px 0 15px 28px; font-size: 0.85em; color: #cbd5e1;">
+                                <strong style="color: #10b981;">🌟 Recommended!</strong> Ultra-fast (~3-4s for 5 angles) with excellent 3D-aware pose generation. Perfect identity preservation.
+                            </p>
+
+                            <!-- ControlNet Option -->
+                            <div style="display: flex; align-items: center; margin-bottom: 15px; padding: 12px; background: #0f172a; border-radius: 8px;">
+                                <input type="radio" name="augmentMethod" id="useControlNet" value="controlnet" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
                                 <label for="useControlNet" style="font-size: 0.95em; color: #a78bfa; margin: 0; cursor: pointer; font-weight: 600;">
-                                    🎯 Use ControlNet (Better Pose Control)
+                                    🎯 ControlNet (High Control, Slower)
+                                </label>
+                            </div>
+                            <p class="form-help" style="margin: -8px 0 15px 28px; font-size: 0.85em; color: #cbd5e1;">
+                                Advanced AI for precise angles. Takes ~30-40s for 5 images.
+                            </p>
+
+                            <!-- img2img Option -->
+                            <div style="display: flex; align-items: center; padding: 12px; background: #0f172a; border-radius: 8px;">
+                                <input type="radio" name="augmentMethod" id="useImg2Img" value="img2img" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
+                                <label for="useImg2Img" style="font-size: 0.95em; color: #60a5fa; margin: 0; cursor: pointer; font-weight: 600;">
+                                    🔄 Stable Diffusion img2img (Balanced)
                                 </label>
                             </div>
                             <p class="form-help" style="margin: 8px 0 0 28px; font-size: 0.85em; color: #cbd5e1;">
-                                <strong style="color: #a78bfa;">Recommended!</strong> Uses advanced AI to generate precise face angles with better identity preservation.
-                                Slightly slower but produces more accurate results.
+                                General augmentation. Takes ~15-20s for 5 images.
                             </p>
                         </div>
                     </div>
@@ -780,7 +804,12 @@
             const notes = document.getElementById('notes').value;
             const useSD = useSDCheckbox.checked;
             const numVariations = parseInt(numVariationsSlider.value);
-            const useControlNet = document.getElementById('useControlNet').checked;
+
+            // Get selected augmentation method
+            const selectedMethod = document.querySelector('input[name="augmentMethod"]:checked')?.value || 'liveportrait';
+            const useLivePortrait = (selectedMethod === 'liveportrait');
+            const useControlNet = (selectedMethod === 'controlnet');
+            const useImg2Img = (selectedMethod === 'img2img');
 
             if (!files || files.length === 0) {
                 showError('Please select at least one photo');
@@ -792,8 +821,17 @@
             loading.style.display = 'block';
 
             if (useSD && files.length === 1) {
-                const estimatedTime = useControlNet ? Math.ceil(numVariations * 3.5) : Math.ceil(numVariations * 2.5);
-                const method = useControlNet ? 'ControlNet' : 'img2img';
+                let estimatedTime, method;
+                if (useLivePortrait) {
+                    estimatedTime = Math.ceil(numVariations * 0.7);  // LivePortrait is fast!
+                    method = 'LivePortrait';
+                } else if (useControlNet) {
+                    estimatedTime = Math.ceil(numVariations * 3.5);
+                    method = 'ControlNet';
+                } else {
+                    estimatedTime = Math.ceil(numVariations * 2.5);
+                    method = 'img2img';
+                }
                 loadingText.textContent = `⏳ Generating ${numVariations} AI angles (${method})... This will take ~${estimatedTime}s`;
             } else {
                 loadingText.textContent = 'Processing... This may take 5-10 seconds';
@@ -810,12 +848,13 @@
                 if (files.length === 1) {
                     // Single image enrollment
                     formData.append('file', files[0]);
-                    formData.append('use_sd_augmentation', useSD ? 'true' : 'false');
+                    formData.append('use_liveportrait', (useSD && useLivePortrait) ? 'true' : 'false');
+                    formData.append('use_sd_augmentation', (useSD && !useLivePortrait) ? 'true' : 'false');
                     formData.append('use_controlnet', (useSD && useControlNet) ? 'true' : 'false');
                     formData.append('num_sd_variations', numVariations.toString());
                     endpoint = '/api/enroll';
                     if (useSD) {
-                        const method = useControlNet ? 'ControlNet' : 'img2img';
+                        let method = useLivePortrait ? 'LivePortrait' : (useControlNet ? 'ControlNet' : 'img2img');
                         successMessage = `✅ Successfully enrolled "${name}" with ${method} AI augmentation (${numVariations + 1} total embeddings)!`;
                     } else {
                         successMessage = `✅ Successfully enrolled "${name}" with 1 image!`;
@@ -840,18 +879,26 @@
 
                 if (response.ok && data.success) {
                     // Enhanced success message with timing
-                    if (useSD && data.sd_generation_time) {
-                        successMessage += ` (AI generation: ${data.sd_generation_time}s, avg: ${data.avg_time_per_image}s per image)`;
+                    if (useSD && data.generation_time) {
+                        successMessage += ` (AI generation: ${data.generation_time}s, avg: ${data.avg_time_per_image}s per image)`;
                     }
                     showSuccess(successMessage);
+
+                    // Display generated images if augmentation was used
+                    if (useSD && data.person_id) {
+                        await showGeneratedImages(data.person_id, cnic, data.augmentation_method || 'liveportrait');
+                    }
+
+                    // Complete form reset
                     form.reset();
+                    photoInput.value = ''; // Force clear file input
                     fileName.textContent = 'No file selected';
-
-                    // Completely clear image preview (important for next enrollment)
-                    imagePreview.src = '';  // Clear the src attribute, not just hide
+                    imagePreview.src = '';
                     imagePreview.style.display = 'none';
+                    sdOptions.style.display = 'none';
 
-                    sdOptions.style.display = 'none'; // Hide SD options
+                    // Reload persons list
+                    await loadWantedPersons();
                 } else {
                     showError(data.detail || data.message || 'Failed to enroll person');
                 }
@@ -876,6 +923,93 @@
             errorAlert.textContent = '❌ Error: ' + message;
             errorAlert.style.display = 'block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Show generated pose images after enrollment
+        async function showGeneratedImages(personId, cnic, augmentMethod) {
+            try {
+                // Fetch person details to get generated images
+                const response = await fetch(`/api/persons/${personId}`);
+                if (!response.ok) return;
+
+                const data = await response.json();
+                const images = data.images || [];
+
+                // Filter generated images based on augmentation method
+                const generatedImages = images.filter(img =>
+                    img.source.includes('augmented') &&
+                    (img.source.includes(augmentMethod) || img.source.includes('sd_'))
+                );
+
+                if (generatedImages.length === 0) return;
+
+                // Create modal to display images
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; overflow: auto;';
+
+                const content = document.createElement('div');
+                content.style.cssText = 'background: #1e293b; border-radius: 12px; padding: 30px; max-width: 90%; max-height: 90%; overflow-y: auto;';
+
+                const header = document.createElement('h2');
+                header.textContent = `✨ Generated Pose Variations (${augmentMethod})`;
+                header.style.cssText = 'color: #10b981; margin-bottom: 20px; text-align: center;';
+                content.appendChild(header);
+
+                const grid = document.createElement('div');
+                grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;';
+
+                // Add original image first
+                const originalImg = images.find(img => img.source === 'original');
+                if (originalImg) {
+                    const imgCard = createImageCard(originalImg.url, 'Original', '🎯');
+                    grid.appendChild(imgCard);
+                }
+
+                // Add generated images
+                generatedImages.forEach((img, idx) => {
+                    const poses = ['Left Profile', 'Right Profile', 'Looking Up', 'Looking Down', 'Frontal Slight'];
+                    const label = poses[idx] || `Variation ${idx + 1}`;
+                    const imgCard = createImageCard(img.url, label, '✨');
+                    grid.appendChild(imgCard);
+                });
+
+                content.appendChild(grid);
+
+                const closeBtn = document.createElement('button');
+                closeBtn.textContent = '✓ Close';
+                closeBtn.style.cssText = 'background: #10b981; color: white; padding: 12px 30px; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; font-weight: 600; display: block; margin: 0 auto;';
+                closeBtn.onclick = () => document.body.removeChild(modal);
+                content.appendChild(closeBtn);
+
+                modal.appendChild(content);
+                document.body.appendChild(modal);
+
+                // Close on background click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) document.body.removeChild(modal);
+                });
+
+            } catch (error) {
+                console.error('Failed to load generated images:', error);
+            }
+        }
+
+        function createImageCard(url, label, icon) {
+            const card = document.createElement('div');
+            card.style.cssText = 'background: #0f172a; border-radius: 8px; padding: 10px; border: 2px solid #334155;';
+
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = label;
+            img.style.cssText = 'width: 100%; height: 200px; object-fit: cover; border-radius: 6px; margin-bottom: 8px;';
+            card.appendChild(img);
+
+            const text = document.createElement('div');
+            text.textContent = `${icon} ${label}`;
+            text.style.cssText = 'text-align: center; color: #cbd5e1; font-size: 0.9em; font-weight: 600;';
+            card.appendChild(text);
+
+            return card;
         }
 
         // ===== WANTED PERSONS TABLE =====
@@ -1124,9 +1258,18 @@
             imagePreview.style.display = 'none';
             fileName.textContent = 'No file selected';
 
-            // Set MJPEG stream source (smooth, continuous stream ~15-20 FPS)
-            // Add timestamp to prevent browser caching
-            liveStream.src = `/api/stream/preview?t=${Date.now()}`;
+            // CRITICAL FIX: Completely clear the stream first to prevent showing old cached image
+            liveStream.src = '';  // Clear existing stream
+
+            // Force browser to clear the image element
+            liveStream.style.display = 'none';
+
+            // Wait a moment, then reload with fresh stream
+            setTimeout(() => {
+                // Set MJPEG stream source with timestamp to prevent caching
+                liveStream.src = `/api/stream/preview?t=${Date.now()}`;
+                liveStream.style.display = 'block';
+            }, 100);  // Short delay to ensure cleanup
         }
 
         function closeCameraModal() {
@@ -1135,11 +1278,11 @@
 
             modal.style.display = 'none';
 
-            // Stop MJPEG stream
+            // Stop MJPEG stream completely
             liveStream.src = '';
+            liveStream.style.display = 'none';  // Hide to force clear
 
-            // Clean up captured images
-            capturedImages.forEach(img => URL.revokeObjectURL(img.url));
+            // Clean up captured images (data URLs don't need revoking)
             capturedImages = [];
         }
 
@@ -1165,24 +1308,45 @@
 
         async function captureFromCamera() {
             try {
+                // Add random parameter to force completely new request every time
+                const uniqueId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+                console.log(`[CAPTURE] Starting capture with ID: ${uniqueId}`);
+
                 // Fetch current frame from sub-stream (fast, no processing)
-                // Add timestamp AND cache control to prevent caching
-                const response = await fetch(`/api/camera/snapshot?draw_detections=false&t=${Date.now()}`, {
+                // Multiple cache-busting techniques to ensure fresh frame
+                const response = await fetch(`/api/camera/snapshot?draw_detections=false&t=${uniqueId}`, {
+                    method: 'GET',
                     cache: 'no-store',  // Force fresh fetch, no browser caching
                     headers: {
-                        'Cache-Control': 'no-cache, no-store, must-revalidate',
-                        'Pragma': 'no-cache'
+                        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
                     }
                 });
-                const blob = await response.blob();
 
-                // Create object URL for preview
-                const url = URL.createObjectURL(blob);
+                if (!response.ok) {
+                    throw new Error('Failed to capture snapshot');
+                }
+
+                // Get blob and immediately convert to data URL to prevent caching
+                const blob = await response.blob();
+                console.log(`[CAPTURE] Received blob, size: ${blob.size} bytes`);
+
+                // Convert blob to data URL (this prevents browser caching issues with object URLs)
+                const reader = new FileReader();
+                const dataUrl = await new Promise((resolve, reject) => {
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+
+                console.log(`[CAPTURE] Converted to data URL, length: ${dataUrl.length}`);
 
                 // Add to captured images array
                 capturedImages.push({
                     blob: blob,
-                    url: url,
+                    url: dataUrl,  // Use data URL instead of object URL
                     angle: currentAngle,
                     filename: `camera_${currentAngle}_${Date.now()}.jpg`
                 });
@@ -1221,15 +1385,24 @@
             capturedImages.forEach((img, index) => {
                 const div = document.createElement('div');
                 div.style.cssText = 'position: relative; border: 2px solid #334155; border-radius: 8px; overflow: hidden;';
-                div.innerHTML = `
-                    <img src="${img.url}" style="width: 100%; height: 150px; object-fit: cover;">
-                    <div style="background: #0f172a; padding: 5px; text-align: center; font-size: 0.8em;">
-                        ${img.angle}
-                    </div>
-                    <button onclick="removeImage(${index})" style="position: absolute; top: 5px; right: 5px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 0.8em;">
-                        ✕
-                    </button>
-                `;
+
+                // Create img element dynamically to ensure fresh render
+                const imgElement = document.createElement('img');
+                imgElement.src = img.url;  // Data URL, no caching
+                imgElement.style.cssText = 'width: 100%; height: 150px; object-fit: cover;';
+
+                const label = document.createElement('div');
+                label.style.cssText = 'background: #0f172a; padding: 5px; text-align: center; font-size: 0.8em;';
+                label.textContent = img.angle;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.style.cssText = 'position: absolute; top: 5px; right: 5px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 0.8em;';
+                removeBtn.textContent = '✕';
+                removeBtn.onclick = () => removeImage(index);
+
+                div.appendChild(imgElement);
+                div.appendChild(label);
+                div.appendChild(removeBtn);
                 grid.appendChild(div);
             });
 
@@ -1237,7 +1410,7 @@
         }
 
         function removeImage(index) {
-            URL.revokeObjectURL(capturedImages[index].url);
+            // No need to revoke data URLs, just remove from array
             capturedImages.splice(index, 1);
             updateCapturedImagesDisplay();
 

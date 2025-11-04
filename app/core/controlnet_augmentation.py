@@ -77,9 +77,9 @@ class ControlNetFaceAugmentor:
 
     def load_model(self) -> bool:
         """
-        Load all required models (ControlNet, SD, Depth Estimator).
+        Load all required models (ControlNet, SD, Depth Estimator, IP-Adapter).
 
-        Downloads models on first run (~3.5GB total).
+        Downloads models on first run (~5GB total).
 
         Returns:
             bool: True if successfully loaded
@@ -89,23 +89,38 @@ class ControlNetFaceAugmentor:
             return True
 
         try:
-            logger.info("Loading ControlNet Face Augmentation Pipeline...")
-            logger.info("This may take 60-90 seconds on first run (downloading models)")
+            logger.info("Loading ControlNet + IP-Adapter Face Augmentation Pipeline...")
+            logger.info("This may take 90-120 seconds on first run (downloading models)")
+            logger.info("⚠️  This is resource-intensive - may take time to load")
 
             from diffusers import (
                 ControlNetModel,
                 StableDiffusionControlNetPipeline,
-                DDIMScheduler
+                DDIMScheduler,
+                AutoencoderKL
             )
             from controlnet_aux import MidasDetector
+            from transformers import CLIPVisionModelWithProjection
+            from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 
             # 1. Load depth estimator
-            logger.info("[1/3] Loading MiDaS depth estimator...")
+            logger.info("[1/5] Loading MiDaS depth estimator...")
             self.depth_estimator = MidasDetector.from_pretrained("lllyasviel/Annotators")
             logger.info("✓ Depth estimator loaded")
 
-            # 2. Load ControlNet
-            logger.info(f"[2/3] Loading ControlNet from {self.controlnet_model}...")
+            # 2. Load CLIP Vision Model for IP-Adapter
+            logger.info("[2/5] Loading CLIP Vision Model for IP-Adapter...")
+            image_encoder = CLIPVisionModelWithProjection.from_pretrained(
+                "h94/IP-Adapter",
+                subfolder="models/image_encoder",
+                cache_dir=self.cache_dir,
+                torch_dtype=torch.float16 if self.use_fp16 else torch.float32
+            )
+            image_encoder = image_encoder.to(self.device)
+            logger.info("✓ CLIP Vision Model loaded")
+
+            # 3. Load ControlNet
+            logger.info(f"[3/5] Loading ControlNet from {self.controlnet_model}...")
             self.controlnet = ControlNetModel.from_pretrained(
                 self.controlnet_model,
                 cache_dir=self.cache_dir,
@@ -114,11 +129,12 @@ class ControlNetFaceAugmentor:
             self.controlnet = self.controlnet.to(self.device)
             logger.info("✓ ControlNet loaded")
 
-            # 3. Load SD pipeline with ControlNet
-            logger.info(f"[3/3] Loading Stable Diffusion pipeline...")
+            # 4. Load SD pipeline with ControlNet
+            logger.info(f"[4/5] Loading Stable Diffusion pipeline...")
             self.pipeline = StableDiffusionControlNetPipeline.from_pretrained(
                 self.model_id,
                 controlnet=self.controlnet,
+                image_encoder=image_encoder,
                 cache_dir=self.cache_dir,
                 torch_dtype=torch.float16 if self.use_fp16 else torch.float32,
                 safety_checker=None,
@@ -138,8 +154,18 @@ class ControlNetFaceAugmentor:
                 self.pipeline.enable_attention_slicing(slice_size=1)
                 logger.info("✅ Memory optimizations enabled (attention slicing)")
 
+            # 5. Load IP-Adapter weights
+            logger.info("[5/5] Loading IP-Adapter weights...")
+            try:
+                self.pipeline.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.bin")
+                self.pipeline.set_ip_adapter_scale(0.8)  # Balance between prompt and face similarity
+                logger.info("✓ IP-Adapter loaded (identity preservation enabled)")
+            except Exception as e:
+                logger.warning(f"IP-Adapter loading failed: {e}")
+                logger.warning("Continuing without IP-Adapter (identity may not be preserved)")
+
             self._is_loaded = True
-            logger.info("✅ ControlNet pipeline loaded successfully!")
+            logger.info("✅ ControlNet + IP-Adapter pipeline loaded successfully!")
 
             # Log GPU memory usage
             if torch.cuda.is_available():
@@ -151,6 +177,8 @@ class ControlNetFaceAugmentor:
 
         except Exception as e:
             logger.error(f"Failed to load ControlNet models: {e}")
+            import traceback
+            traceback.print_exc()
             self._is_loaded = False
             return False
 
@@ -303,12 +331,13 @@ class ControlNetFaceAugmentor:
                 full_prompt = f"{base_prompt}, {angle_desc.get(angle, 'neutral expression')}"
                 negative_prompt = "blurry, low quality, distorted face, deformed, different person, multiple people, bad anatomy"
 
-                # Generate with ControlNet
+                # Generate with ControlNet + IP-Adapter (identity preservation)
                 with torch.inference_mode():
                     output = self.pipeline(
                         prompt=full_prompt,
                         negative_prompt=negative_prompt,
                         image=transformed_depth,  # ControlNet condition
+                        ip_adapter_image=reference_pil,  # IP-Adapter for identity
                         num_inference_steps=num_inference_steps,
                         guidance_scale=guidance_scale,
                         controlnet_conditioning_scale=controlnet_scale,

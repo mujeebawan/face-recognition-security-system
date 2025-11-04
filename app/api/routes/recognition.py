@@ -89,6 +89,7 @@ async def enroll_person(
     file: UploadFile = File(...),
     use_sd_augmentation: bool = Form(False),
     use_controlnet: bool = Form(False),
+    use_liveportrait: bool = Form(False),
     num_sd_variations: int = Form(5),
     db: Session = Depends(get_db)
 ):
@@ -101,7 +102,8 @@ async def enroll_person(
         file: Face image file
         use_sd_augmentation: Use Stable Diffusion to generate additional angles (default: False)
         use_controlnet: Use ControlNet for better pose control (default: False, requires use_sd_augmentation=True)
-        num_sd_variations: Number of SD variations to generate if enabled (default: 5, max: 10)
+        use_liveportrait: Use LivePortrait for 3D-aware pose generation (default: False)
+        num_sd_variations: Number of variations to generate if augmentation enabled (default: 5, max: 10)
         db: Database session
 
     Returns:
@@ -153,10 +155,70 @@ async def enroll_person(
         cv2.imwrite(person.reference_image_path, image)
 
         total_embeddings = 1
-        sd_generation_time = 0
+        augmentation_time = 0
 
-        # Generate SD augmented faces if requested
-        if use_sd_augmentation:
+        # Generate LivePortrait augmented faces if requested (takes priority over SD)
+        if use_liveportrait:
+            try:
+                import time
+                from app.core.liveportrait_augmentation import LivePortraitAugmentor
+
+                # Limit variations
+                num_variations = min(max(1, num_sd_variations), 10)
+
+                logger.info(f"Generating {num_variations} LivePortrait pose variations for {name}...")
+
+                # Initialize LivePortrait augmentor
+                augmentor = LivePortraitAugmentor(
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                    use_fp16=True
+                )
+                augmentation_type = "liveportrait"
+
+                # Generate variations
+                start_time = time.time()
+                generated_images = augmentor.generate_face_angles(
+                    reference_image=image,
+                    num_variations=num_variations
+                )
+                augmentation_time = time.time() - start_time
+
+                logger.info(f"LivePortrait generation completed in {augmentation_time:.2f}s ({len(generated_images)} images)")
+
+                # Process each generated image
+                for idx, gen_img in enumerate(generated_images):
+                    # Extract embedding from generated image
+                    gen_result = recognizer.extract_embedding(gen_img)
+
+                    if gen_result is not None:
+                        # Store embedding
+                        gen_embedding_data = FaceRecognizer.serialize_embedding(gen_result.embedding)
+                        gen_face_embedding = FaceEmbedding(
+                            person_id=person.id,
+                            embedding=gen_embedding_data,
+                            source=f'liveportrait_augmented_{idx+1}',
+                            confidence=gen_result.confidence
+                        )
+                        db.add(gen_face_embedding)
+                        total_embeddings += 1
+
+                        # Save generated image
+                        gen_img_path = f"data/images/{cnic}_liveportrait_gen_{idx+1}.jpg"
+                        cv2.imwrite(gen_img_path, gen_img)
+
+                # Cleanup
+                del augmentor
+
+                logger.info(f"✅ LivePortrait augmentation complete: {total_embeddings} total embeddings")
+
+            except Exception as aug_e:
+                logger.error(f"LivePortrait augmentation failed: {aug_e}, continuing with original only")
+                import traceback
+                traceback.print_exc()
+                # Continue with enrollment even if augmentation fails
+
+        # Generate SD augmented faces if requested (only if LivePortrait not used)
+        elif use_sd_augmentation:
             try:
                 import time
 
@@ -252,14 +314,19 @@ async def enroll_person(
             "cnic": cnic,
             "confidence": result.confidence,
             "total_embeddings": total_embeddings,
+            "liveportrait_used": use_liveportrait,
             "sd_augmentation_used": use_sd_augmentation,
             "controlnet_used": use_controlnet if use_sd_augmentation else False
         }
 
-        if use_sd_augmentation and sd_generation_time > 0:
-            response["generation_time"] = round(sd_generation_time, 2)
-            response["avg_time_per_image"] = round(sd_generation_time / num_variations, 2)
-            response["augmentation_method"] = "ControlNet" if use_controlnet else "img2img"
+        if augmentation_time > 0:
+            response["generation_time"] = round(augmentation_time, 2)
+            if use_liveportrait:
+                response["avg_time_per_image"] = round(augmentation_time / num_sd_variations, 2)
+                response["augmentation_method"] = "LivePortrait"
+            elif use_sd_augmentation:
+                response["avg_time_per_image"] = round(augmentation_time / num_sd_variations, 2)
+                response["augmentation_method"] = "ControlNet" if use_controlnet else "img2img"
 
         return response
 
@@ -523,10 +590,10 @@ async def get_person_details(person_id: int, db: Session = Depends(get_db)):
             "url": f"/api/image/{person.cnic}/original"
         })
 
-    # Add AI-generated images (both ControlNet and img2img)
+    # Add AI-generated images (ControlNet, img2img, and LivePortrait)
     for emb in embeddings:
-        # Handle both sd_augmented and controlnet_augmented and img2img_augmented
-        if any(emb.source.startswith(prefix) for prefix in ['sd_augmented_', 'controlnet_augmented_', 'img2img_augmented_']):
+        # Handle all augmentation types
+        if any(emb.source.startswith(prefix) for prefix in ['sd_augmented_', 'controlnet_augmented_', 'img2img_augmented_', 'liveportrait_augmented_']):
             idx = emb.source.split('_')[-1]
 
             # Determine augmentation type
@@ -534,6 +601,8 @@ async def get_person_details(person_id: int, db: Session = Depends(get_db)):
                 aug_type = 'controlnet'
             elif emb.source.startswith('img2img_augmented_'):
                 aug_type = 'img2img'
+            elif emb.source.startswith('liveportrait_augmented_'):
+                aug_type = 'liveportrait'
             else:  # sd_augmented (legacy)
                 aug_type = 'sd'
 
@@ -605,7 +674,7 @@ async def delete_person(person_id: int, db: Session = Depends(get_db)):
 
 @router.get("/image/{cnic}/{image_type}")
 async def get_person_image(cnic: str, image_type: str, db: Session = Depends(get_db)):
-    """Serve person images (original, SD, ControlNet, or img2img generated)"""
+    """Serve person images (original, SD, ControlNet, img2img, or LivePortrait generated)"""
     import os
     from fastapi.responses import FileResponse
 
@@ -616,7 +685,7 @@ async def get_person_image(cnic: str, image_type: str, db: Session = Depends(get
         if not person or not person.reference_image_path:
             raise HTTPException(status_code=404, detail="Person or original image not found")
         image_path = person.reference_image_path
-    elif any(image_type.startswith(prefix) for prefix in ["sd_gen_", "controlnet_gen_", "img2img_gen_"]):
+    elif any(image_type.startswith(prefix) for prefix in ["sd_gen_", "controlnet_gen_", "img2img_gen_", "liveportrait_gen_"]):
         # AI-generated images (all types)
         image_path = f"data/images/{cnic}_{image_type}.jpg"
     else:
@@ -1267,12 +1336,10 @@ async def preview_stream():
     def generate_preview_stream():
         """Generate raw camera frames without any processing"""
         import time
-        # Use separate camera instance for preview to avoid conflicts with main stream
-        camera = CameraHandler(use_main_stream=False)
+        # Use the SAME camera instance as snapshot to ensure sync
+        camera = get_camera()  # Use singleton camera handler
 
-        if not camera.connect():
-            logger.error("Preview stream: Failed to connect to camera")
-            return
+        # Camera is already connected via get_camera(), no need to connect again
 
         try:
             while True:

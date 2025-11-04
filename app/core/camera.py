@@ -7,6 +7,7 @@ import cv2
 import logging
 from typing import Optional, Tuple
 import numpy as np
+import threading
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class CameraHandler:
         self.capture: Optional[cv2.VideoCapture] = None
         self.is_connected = False
         self.frame_count = 0
+        self.read_lock = threading.Lock()  # Thread-safe access to camera
 
         logger.info(f"Camera handler initialized with {'main' if use_main_stream else 'sub'} stream")
 
@@ -79,6 +81,7 @@ class CameraHandler:
     def read_frame(self, crop_osd: bool = True, flush_buffer: bool = False, max_retries: int = 3) -> Tuple[bool, Optional[np.ndarray]]:
         """
         Read a single frame from the camera with automatic reconnection on failure.
+        Thread-safe with locking to prevent simultaneous access.
 
         Args:
             crop_osd: If True, crop top region to remove camera OSD text overlay
@@ -88,49 +91,50 @@ class CameraHandler:
         Returns:
             Tuple of (success, frame)
         """
-        if not self.is_connected or self.capture is None:
-            logger.warning("Camera not connected, attempting to connect...")
-            if not self.connect():
-                return False, None
+        with self.read_lock:  # Ensure only one thread reads at a time
+            if not self.is_connected or self.capture is None:
+                logger.warning("Camera not connected, attempting to connect...")
+                if not self.connect():
+                    return False, None
 
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                # Flush old buffered frames to get the latest frame (reduces delay)
-                # Grab and discard buffered frames to get the most recent one
-                if flush_buffer:
-                    # Grab 2 frames to clear buffer without being too aggressive
-                    for _ in range(2):
-                        self.capture.grab()
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    # Flush old buffered frames to get the latest frame (reduces delay)
+                    # Grab and discard buffered frames to get the most recent one
+                    if flush_buffer:
+                        # Grab 3 frames for better responsiveness
+                        for _ in range(3):
+                            self.capture.grab()
 
-                ret, frame = self.capture.read()
-                if ret and frame is not None:
-                    self.frame_count += 1
+                    ret, frame = self.capture.read()
+                    if ret and frame is not None:
+                        self.frame_count += 1
 
-                    # Crop OSD overlay from top
-                    if crop_osd:
-                        # Crop 65 pixels from top to remove camera OSD text
-                        frame = frame[65:, :]
+                        # Crop OSD overlay from top
+                        if crop_osd:
+                            # Crop 65 pixels from top to remove camera OSD text
+                            frame = frame[65:, :]
 
-                    return True, frame
-                else:
-                    # Frame read failed - attempt reconnection
-                    logger.warning(f"Frame read failed (attempt {retry_count + 1}/{max_retries}), reconnecting...")
-                    self.disconnect()
-                    if self.connect():
-                        retry_count += 1
-                        continue
+                        return True, frame
                     else:
-                        return False, None
+                        # Frame read failed - attempt reconnection
+                        logger.warning(f"Frame read failed (attempt {retry_count + 1}/{max_retries}), reconnecting...")
+                        self.disconnect()
+                        if self.connect():
+                            retry_count += 1
+                            continue
+                        else:
+                            return False, None
 
-            except Exception as e:
-                logger.error(f"Error reading frame: {str(e)}, reconnecting...")
-                self.disconnect()
-                if retry_count < max_retries - 1:
-                    if self.connect():
-                        retry_count += 1
-                        continue
-                return False, None
+                except Exception as e:
+                    logger.error(f"Error reading frame: {str(e)}, reconnecting...")
+                    self.disconnect()
+                    if retry_count < max_retries - 1:
+                        if self.connect():
+                            retry_count += 1
+                            continue
+                    return False, None
 
         logger.error(f"Failed to read frame after {max_retries} reconnection attempts")
         return False, None

@@ -109,10 +109,10 @@ async def get_camera_snapshot(draw_detections: bool = True):
         # Import get_camera from recognition routes to use singleton
         from app.api.routes.recognition import get_camera
 
-        camera = get_camera()  # Use singleton camera handler
+        camera = get_camera()  # Use SAME singleton camera as preview stream
 
         # Read frame from the already-connected camera
-        # Flush buffer to get the LATEST frame (important for snapshot capture!)
+        # Light flush (3 frames) for responsiveness while staying in sync
         ret, frame = camera.read_frame(crop_osd=False, flush_buffer=True)
 
         if not ret or frame is None:
