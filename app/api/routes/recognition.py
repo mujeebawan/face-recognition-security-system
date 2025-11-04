@@ -225,6 +225,18 @@ async def enroll_person(
                 # Limit variations
                 num_variations = min(max(1, num_sd_variations), 10)
 
+                # Check GPU memory before loading SD models
+                if torch.cuda.is_available():
+                    free_mem = torch.cuda.mem_get_info()[0] / 1024**3  # Free memory in GB
+                    logger.info(f"Available GPU memory: {free_mem:.2f} GB")
+
+                    # SD models need ~6-8GB minimum
+                    if free_mem < 6.0:
+                        raise HTTPException(
+                            status_code=507,
+                            detail=f"Insufficient GPU memory for Stable Diffusion. Available: {free_mem:.1f}GB, Required: ~6GB. Please use LivePortrait instead (requires only ~2GB) or free up GPU memory."
+                        )
+
                 # Choose augmentation method: ControlNet or img2img
                 if use_controlnet:
                     from app.core.controlnet_augmentation import ControlNetFaceAugmentor
