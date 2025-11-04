@@ -69,7 +69,7 @@ def get_camera() -> CameraHandler:
     global camera_handler
     if camera_handler is None:
         logger.info("Initializing camera handler (singleton)...")
-        camera_handler = CameraHandler(use_main_stream=False)  # Use sub-stream for better performance
+        camera_handler = CameraHandler(use_main_stream=True)  # Use main stream for high quality
         if not camera_handler.connect():
             logger.error("Failed to connect to camera on startup")
             camera_handler = None
@@ -465,7 +465,7 @@ async def recognize_from_camera(db: Session = Depends(get_db)):
     """
     try:
         # Capture from camera
-        camera = CameraHandler(use_main_stream=False)
+        camera = CameraHandler(use_main_stream=True)
 
         if not camera.connect():
             raise HTTPException(status_code=503, detail="Failed to connect to camera")
@@ -889,7 +889,7 @@ async def enroll_from_camera(
 
         recognizer = get_recognizer()
         augmentor = FaceAugmentation()
-        camera = CameraHandler(use_main_stream=False)
+        camera = CameraHandler(use_main_stream=True)
 
         if not camera.connect():
             raise HTTPException(status_code=503, detail="Failed to connect to camera")
