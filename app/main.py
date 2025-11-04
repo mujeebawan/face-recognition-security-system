@@ -6,7 +6,7 @@ FastAPI server for face detection and recognition.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 import logging
 import os
 from app.config import settings
@@ -70,19 +70,15 @@ async def shutdown_event():
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
-    return {
-        "message": "Face Recognition Security System API",
-        "version": "0.1.0",
-        "status": "running",
-        "endpoints": {
-            "api_docs": "/docs",
-            "live_stream": "/live",
-            "dashboard": "/dashboard",
-            "admin_panel": "/admin",
-            "websocket": "/ws/alerts"
-        }
-    }
+    """Root endpoint - redirects to login page"""
+    return RedirectResponse(url="/login", status_code=302)
+
+
+@app.get("/login")
+async def login_page():
+    """Serve login page"""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "login.html")
+    return FileResponse(html_path)
 
 
 @app.get("/live")
