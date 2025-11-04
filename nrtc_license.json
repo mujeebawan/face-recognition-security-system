@@ -1,0 +1,12 @@
+{
+  "licensee": "Development",
+  "organization": "NRTC",
+  "hardware_id": "*",
+  "issue_date": "2025-11-04T13:47:41.735743",
+  "expiry_date": "2026-11-04",
+  "license_type": "development",
+  "features": [
+    "*"
+  ],
+  "signature": "7a59472764895350feb9a15241a3b7f61ad7d7921cc6b5d4f2dbb202c7ed1109"
+}
