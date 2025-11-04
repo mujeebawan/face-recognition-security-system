@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 import logging
 import os
 from app.config import settings
-from app.api.routes import detection, recognition, alerts, websocket
+from app.api.routes import detection, recognition, alerts, websocket, auth
 
 # Configure logging
 logging.basicConfig(
@@ -46,6 +46,7 @@ app.include_router(detection.router)
 app.include_router(recognition.router)
 app.include_router(alerts.router)
 app.include_router(websocket.router)
+app.include_router(auth.router)
 
 
 @app.on_event("startup")

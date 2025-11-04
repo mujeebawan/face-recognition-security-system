@@ -484,7 +484,8 @@
                                 <strong style="color: #10b981;">🌟 Recommended!</strong> Ultra-fast (~3-4s for 5 angles) with excellent 3D-aware pose generation. Perfect identity preservation.
                             </p>
 
-                            <!-- ControlNet Option -->
+                            <!-- ControlNet Option - DISABLED (Causes OOM crashes on Jetson) -->
+                            <!--
                             <div style="display: flex; align-items: center; margin-bottom: 15px; padding: 12px; background: #0f172a; border-radius: 8px;">
                                 <input type="radio" name="augmentMethod" id="useControlNet" value="controlnet" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
                                 <label for="useControlNet" style="font-size: 0.95em; color: #a78bfa; margin: 0; cursor: pointer; font-weight: 600;">
@@ -494,8 +495,10 @@
                             <p class="form-help" style="margin: -8px 0 15px 28px; font-size: 0.85em; color: #cbd5e1;">
                                 Advanced AI for precise angles. Takes ~30-40s for 5 images.
                             </p>
+                            -->
 
-                            <!-- img2img Option -->
+                            <!-- img2img Option - DISABLED (Causes OOM crashes on Jetson) -->
+                            <!--
                             <div style="display: flex; align-items: center; padding: 12px; background: #0f172a; border-radius: 8px;">
                                 <input type="radio" name="augmentMethod" id="useImg2Img" value="img2img" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
                                 <label for="useImg2Img" style="font-size: 0.95em; color: #60a5fa; margin: 0; cursor: pointer; font-weight: 600;">
@@ -505,6 +508,7 @@
                             <p class="form-help" style="margin: 8px 0 0 28px; font-size: 0.85em; color: #cbd5e1;">
                                 General augmentation. Takes ~15-20s for 5 images.
                             </p>
+                            -->
                         </div>
                     </div>
                 </div>

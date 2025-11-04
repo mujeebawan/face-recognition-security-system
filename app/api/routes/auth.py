@@ -21,7 +21,7 @@ from app.core.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from app.models.database import User
-from app.database import get_db
+from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
 

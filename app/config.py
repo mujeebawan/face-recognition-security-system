@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     enable_augmentation: bool = True
     augmentation_count: int = 5
     use_diffusion: bool = False
+    liveportrait_path: str = "/home/mujeeb/Downloads/LivePortrait"
 
     # Alert System
     alert_webhook_url: str = ""
