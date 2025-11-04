@@ -19,18 +19,21 @@
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, #124877 0%, #124877 35%, #0F518B 100%);
             padding: 20px 30px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-bottom: 3px solid #cc9933;
         }
 
         .header h1 {
             font-size: 2em;
             margin-bottom: 5px;
+            color: #cc9933;
         }
 
         .header p {
             opacity: 0.9;
+            color: #e2e8f0;
         }
 
         .container {
@@ -59,12 +62,13 @@
             align-items: center;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid #334155;
+            border-bottom: 2px solid #cc9933;
         }
 
         .card-title {
             font-size: 1.3em;
             font-weight: 600;
+            color: #cc9933;
         }
 
         .badge {
@@ -75,17 +79,17 @@
         }
 
         .badge-success {
-            background: #10b981;
+            background: #124877;
             color: white;
         }
 
         .badge-warning {
-            background: #f59e0b;
+            background: #cc9933;
             color: white;
         }
 
         .badge-danger {
-            background: #ef4444;
+            background: #860505;
             color: white;
         }
 
@@ -95,6 +99,7 @@
             overflow: hidden;
             position: relative;
             min-height: 400px;
+            border: 2px solid #cc9933;
         }
 
         #videoStream {
@@ -110,12 +115,13 @@
 
         .alert-item {
             background: #334155;
-            border-left: 4px solid #ef4444;
+            border-left: 4px solid #860505;
             padding: 15px;
             margin-bottom: 10px;
             border-radius: 6px;
             transition: all 0.3s ease;
             animation: slideIn 0.3s ease;
+            border: 1px solid #860505;
         }
 
         @keyframes slideIn {
@@ -134,7 +140,8 @@
         }
 
         .alert-item.known {
-            border-left-color: #10b981;
+            border-left-color: #124877;
+            border-color: #124877;
         }
 
         .alert-header {
@@ -172,12 +179,12 @@
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: #10b981;
+            background: #124877;
             animation: pulse 2s ease-in-out infinite;
         }
 
         .ws-indicator.disconnected {
-            background: #ef4444;
+            background: #860505;
             animation: none;
         }
 
@@ -198,12 +205,13 @@
             padding: 15px;
             border-radius: 8px;
             text-align: center;
+            border: 2px solid #cc9933;
         }
 
         .stat-value {
             font-size: 2em;
             font-weight: 700;
-            color: #667eea;
+            color: #cc9933;
         }
 
         .stat-label {
@@ -257,7 +265,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>🔒 Security Dashboard</h1>
+        <h1>Security Dashboard</h1>
         <p>Real-time Face Recognition & Alert Monitoring</p>
     </div>
 
@@ -288,7 +296,7 @@
         <div class="grid">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">📹 Live Stream</h2>
+                    <h2 class="card-title">Live Stream</h2>
                     <div style="display: flex; gap: 15px;">
                         <div class="ws-status">
                             <div class="ws-indicator" id="streamIndicator"></div>
@@ -307,7 +315,7 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">🚨 Real-time Alerts</h2>
+                    <h2 class="card-title">Real-time Alerts</h2>
                     <span class="badge badge-danger" id="alertBadge">0</span>
                 </div>
                 <div class="alerts-container" id="alertsContainer">

@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0f172a;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -24,27 +24,31 @@
         .container {
             max-width: 1200px;
             width: 100%;
-            background: white;
+            background: #1e293b;
             border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             overflow: hidden;
+            border: 2px solid #cc9933;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, #124877 0%, #124877 35%, #0F518B 100%);
             color: white;
             padding: 30px;
             text-align: center;
+            border-bottom: 3px solid #cc9933;
         }
 
         .header h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
+            color: #cc9933;
         }
 
         .header p {
             font-size: 1.1em;
             opacity: 0.9;
+            color: #e2e8f0;
         }
 
         .stream-container {
@@ -83,12 +87,13 @@
 
         .controls {
             padding: 20px 30px;
-            background: #f5f5f5;
+            background: #0f172a;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 15px;
+            border-top: 1px solid #334155;
         }
 
         .status {
@@ -101,7 +106,7 @@
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background: #4ade80;
+            background: #124877;
             animation: pulse 2s ease-in-out infinite;
         }
 
@@ -111,7 +116,7 @@
         }
 
         .status-text {
-            color: #333;
+            color: #e2e8f0;
             font-weight: 600;
         }
 
@@ -126,29 +131,32 @@
         }
 
         .button-primary {
-            background: #667eea;
+            background: linear-gradient(90deg, #124877 0%, #0F518B 100%);
             color: white;
+            border: 1px solid #cc9933;
         }
 
         .button-primary:hover {
-            background: #5568d3;
+            background: linear-gradient(90deg, #0F518B 0%, #124877 100%);
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 5px 15px rgba(18, 72, 119, 0.4);
         }
 
         .button-secondary {
-            background: #e5e7eb;
-            color: #333;
+            background: #334155;
+            color: #e2e8f0;
+            border: 1px solid #475569;
         }
 
         .button-secondary:hover {
-            background: #d1d5db;
+            background: #475569;
+            border-color: #cc9933;
         }
 
         .info-panel {
             padding: 20px 30px;
-            background: white;
-            border-top: 1px solid #e5e7eb;
+            background: #1e293b;
+            border-top: 1px solid #334155;
         }
 
         .info-grid {
@@ -159,32 +167,34 @@
 
         .info-card {
             padding: 15px;
-            background: #f9fafb;
+            background: #0f172a;
             border-radius: 8px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #cc9933;
+            border: 2px solid #cc9933;
         }
 
         .info-label {
             font-size: 0.9em;
-            color: #6b7280;
+            color: #cbd5e1;
             margin-bottom: 5px;
         }
 
         .info-value {
             font-size: 1.3em;
             font-weight: 700;
-            color: #111827;
+            color: #cc9933;
         }
 
         .legend {
             padding: 20px 30px;
-            background: #fafafa;
-            border-top: 1px solid #e5e7eb;
+            background: #0f172a;
+            border-top: 1px solid #334155;
         }
 
         .legend h3 {
             margin-bottom: 15px;
-            color: #333;
+            color: #cc9933;
+            font-weight: 600;
         }
 
         .legend-items {
@@ -197,6 +207,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            color: #e2e8f0;
         }
 
         .legend-box {
@@ -207,13 +218,13 @@
         }
 
         .legend-box.known {
-            border-color: #22c55e;
-            background: rgba(34, 197, 94, 0.1);
+            border-color: #124877;
+            background: rgba(18, 72, 119, 0.2);
         }
 
         .legend-box.unknown {
-            border-color: #ef4444;
-            background: rgba(239, 68, 68, 0.1);
+            border-color: #860505;
+            background: rgba(134, 5, 5, 0.2);
         }
 
         @media (max-width: 768px) {
@@ -234,7 +245,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔒 Face Recognition System</h1>
+            <h1>Live Face Recognition Stream</h1>
             <p>Real-time Person Detection & Recognition</p>
         </div>
 
@@ -249,8 +260,8 @@
                 <span class="status-text" id="statusText">Live</span>
             </div>
             <div>
-                <button class="button button-primary" onclick="reloadStream()">🔄 Reload Stream</button>
-                <button class="button button-secondary" onclick="window.location.href='/docs'">📋 API Docs</button>
+                <button class="button button-primary" onclick="reloadStream()">Reload Stream</button>
+                <button class="button button-secondary" onclick="window.location.href='/docs'">API Docs</button>
             </div>
         </div>
 
@@ -276,7 +287,7 @@
             <div class="legend-items">
                 <div class="legend-item">
                     <div class="legend-box known"></div>
-                    <span><strong>Green Box:</strong> Known Person (Recognized)</span>
+                    <span><strong>Blue Box:</strong> Known Person (Recognized)</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-box unknown"></div>
@@ -299,13 +310,13 @@
                 loadingText.style.display = 'none';
                 streamImg.style.display = 'block';
                 statusText.textContent = 'Live';
-                statusIndicator.style.background = '#4ade80';
+                statusIndicator.style.background = '#124877';
             };
 
             streamImg.onerror = function() {
                 loadingText.textContent = 'Stream error. Click reload to retry.';
                 statusText.textContent = 'Error';
-                statusIndicator.style.background = '#ef4444';
+                statusIndicator.style.background = '#860505';
             };
 
             streamImg.src = streamUrl;
@@ -334,7 +345,7 @@
             const timeSinceUpdate = Date.now() - lastUpdate;
             if (timeSinceUpdate > 5000) {
                 statusText.textContent = 'Disconnected';
-                statusIndicator.style.background = '#f59e0b';
+                statusIndicator.style.background = '#cc9933';
             }
         }, 1000);
     </script>
