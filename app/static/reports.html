@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Analytics - Security System</title>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(90deg, #124877 0%, #124877 35%, #0F518B 100%);
+            padding: 15px 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-bottom: 3px solid #cc9933;
+        }
+
+        .header-content {
+            max-width: 1920px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h1 {
+            font-size: 1.8em;
+            margin-bottom: 3px;
+            color: #cc9933;
+        }
+
+        .header-left p {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-info .user-name {
+            font-weight: 600;
+            color: #cc9933;
+            font-size: 0.95em;
+        }
+
+        .user-info .user-role {
+            font-size: 0.85em;
+            color: #cbd5e1;
+            opacity: 0.8;
+        }
+
+        .btn-logout {
+            background: #860505;
+            color: white;
+            padding: 8px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-logout:hover {
+            background: #a00606;
+        }
+
+        /* Navigation */
+        .nav-bar {
+            background: #1e293b;
+            padding: 0;
+            border-bottom: 2px solid #334155;
+        }
+
+        .nav-container {
+            max-width: 1920px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0;
+        }
+
+        .nav-link {
+            padding: 15px 25px;
+            text-decoration: none;
+            color: #94a3b8;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .nav-link:hover {
+            background: #334155;
+            color: #e2e8f0;
+        }
+
+        .nav-link.active {
+            background: #0f172a;
+            color: #cc9933;
+            border-bottom-color: #cc9933;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1920px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+
+        /* Controls */
+        .controls {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 0.9em;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .control-group select {
+            padding: 10px 15px;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 0.95em;
+            cursor: pointer;
+            min-width: 150px;
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: #cc9933;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 0.95em;
+        }
+
+        .btn-primary {
+            background: #cc9933;
+            color: #0f172a;
+        }
+
+        .btn-primary:hover {
+            background: #e6b84d;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #334155;
+            color: #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #475569;
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #334155;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-5px);
+            border-color: #cc9933;
+        }
+
+        .summary-card .title {
+            font-size: 0.9em;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .summary-card .value {
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #cc9933;
+            margin-bottom: 5px;
+        }
+
+        .summary-card .subtitle {
+            font-size: 0.85em;
+            color: #64748b;
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #334155;
+        }
+
+        .chart-container h3 {
+            color: #cc9933;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+        }
+
+        /* Table */
+        .table-container {
+            background: #1e293b;
+            border-radius: 12px;
+            border: 2px solid #334155;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .table-header {
+            background: linear-gradient(90deg, #124877 0%, #0F518B 100%);
+            padding: 20px 25px;
+            border-bottom: 2px solid #cc9933;
+        }
+
+        .table-header h3 {
+            color: #cc9933;
+            font-size: 1.3em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px 20px;
+            text-align: left;
+        }
+
+        th {
+            background: #0f172a;
+            color: #cc9933;
+            font-weight: 600;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #334155;
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #0f172a;
+        }
+
+        tbody td {
+            color: #cbd5e1;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-high {
+            background: #10b981;
+            color: #0f172a;
+        }
+
+        .badge-medium {
+            background: #f59e0b;
+            color: #0f172a;
+        }
+
+        .badge-low {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #94a3b8;
+        }
+
+        .spinner {
+            border: 4px solid #334155;
+            border-top: 4px solid #cc9933;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-group select {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1>📊 Reports & Analytics</h1>
+                <p>System Performance Insights</p>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <div class="user-name" id="userName">Loading...</div>
+                    <div class="user-role" id="userRole">...</div>
+                </div>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-bar">
+        <div class="nav-container">
+            <a href="/dashboard" class="nav-link">Dashboard</a>
+            <a href="/admin" class="nav-link">Admin</a>
+            <a href="/alerts" class="nav-link">Alerts</a>
+            <a href="/reports" class="nav-link active">Reports</a>
+            <a href="/live" class="nav-link">Live Stream</a>
+            <a href="/docs" class="nav-link">API Docs</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-group">
+                <label>Time Period</label>
+                <select id="timePeriod" onchange="loadAllData()">
+                    <option value="7">Last 7 Days</option>
+                    <option value="30" selected>Last 30 Days</option>
+                    <option value="60">Last 60 Days</option>
+                    <option value="90">Last 90 Days</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Chart Interval</label>
+                <select id="chartInterval" onchange="loadAllData()">
+                    <option value="hour">Hourly</option>
+                    <option value="day" selected>Daily</option>
+                    <option value="week">Weekly</option>
+                </select>
+            </div>
+
+            <button class="btn btn-primary" onclick="loadAllData()">🔄 Refresh Data</button>
+            <button class="btn btn-secondary" onclick="exportReport()">📥 Export Report</button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading analytics data...</p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-grid" id="summaryCards" style="display: none;">
+            <!-- Will be populated by JavaScript -->
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid" id="chartsContainer" style="display: none;">
+            <div class="chart-container">
+                <h3>📈 Alerts Over Time</h3>
+                <div class="chart-wrapper">
+                    <canvas id="alertsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>✅ Recognition Success Rate</h3>
+                <div class="chart-wrapper">
+                    <canvas id="recognitionChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>🕐 Alerts by Hour of Day</h3>
+                <div class="chart-wrapper">
+                    <canvas id="hourDistributionChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>📊 Alert Types Distribution</h3>
+                <div class="chart-wrapper">
+                    <canvas id="alertTypesChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Person Statistics Table -->
+        <div class="table-container" id="personStatsTable" style="display: none;">
+            <div class="table-header">
+                <h3>👥 Person-Wise Statistics</h3>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Person Name</th>
+                        <th>CNIC</th>
+                        <th>Detections</th>
+                        <th>Alerts</th>
+                        <th>Avg Confidence</th>
+                        <th>Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody id="personStatsBody">
+                    <!-- Will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+
+        // Authentication check
+        (async function checkAuth() {
+            const token = localStorage.getItem('auth_token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.ok) {
+                    const user = await response.json();
+                    document.getElementById('userName').textContent = user.username || 'User';
+                    document.getElementById('userRole').textContent = user.role?.toUpperCase() || 'USER';
+
+                    // Load data
+                    await loadAllData();
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+                window.location.href = '/login';
+            }
+        })();
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('auth_token');
+            return {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function logout() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('user_role');
+            window.location.href = '/login';
+        }
+
+        async function loadAllData() {
+            const days = parseInt(document.getElementById('timePeriod').value);
+            const interval = document.getElementById('chartInterval').value;
+
+            // Show loading
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('summaryCards').style.display = 'none';
+            document.getElementById('chartsContainer').style.display = 'none';
+            document.getElementById('personStatsTable').style.display = 'none';
+
+            try {
+                // Load all data in parallel
+                const [summary, alertsTS, recognitionTS, distribution, personStats] = await Promise.all([
+                    fetch(`/api/analytics/summary?days=${days}`, { headers: getAuthHeaders() }).then(r => r.json()),
+                    fetch(`/api/analytics/alerts/timeseries?days=${days}&interval=${interval}`, { headers: getAuthHeaders() }).then(r => r.json()),
+                    fetch(`/api/analytics/recognition/timeseries?days=${days}&interval=${interval}`, { headers: getAuthHeaders() }).then(r => r.json()),
+                    fetch(`/api/analytics/alerts/distribution?days=${days}`, { headers: getAuthHeaders() }).then(r => r.json()),
+                    fetch(`/api/analytics/persons/statistics?days=${days}&limit=20`, { headers: getAuthHeaders() }).then(r => r.json())
+                ]);
+
+                // Update UI
+                updateSummaryCards(summary);
+                updateAlertsChart(alertsTS);
+                updateRecognitionChart(recognitionTS);
+                updateDistributionCharts(distribution);
+                updatePersonStatsTable(personStats);
+
+                // Hide loading, show content
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('summaryCards').style.display = 'grid';
+                document.getElementById('chartsContainer').style.display = 'grid';
+                document.getElementById('personStatsTable').style.display = 'block';
+
+            } catch (error) {
+                console.error('Failed to load analytics:', error);
+                document.getElementById('loadingState').innerHTML = '<p style="color: #ef4444;">❌ Failed to load analytics data</p>';
+            }
+        }
+
+        function updateSummaryCards(data) {
+            const html = `
+                <div class="summary-card">
+                    <div class="title">Total Alerts</div>
+                    <div class="value">${data.alerts.recent.toLocaleString()}</div>
+                    <div class="subtitle">in last ${data.period_days} days</div>
+                </div>
+                <div class="summary-card">
+                    <div class="title">Known Persons</div>
+                    <div class="value">${data.alerts.known_persons.toLocaleString()}</div>
+                    <div class="subtitle">alerts generated</div>
+                </div>
+                <div class="summary-card">
+                    <div class="title">Recognition Success</div>
+                    <div class="value">${data.recognition.success_rate}%</div>
+                    <div class="subtitle">${data.recognition.successful_matches} of ${data.recognition.total_attempts} attempts</div>
+                </div>
+                <div class="summary-card">
+                    <div class="title">Avg Confidence</div>
+                    <div class="value">${(data.recognition.average_confidence * 100).toFixed(1)}%</div>
+                    <div class="subtitle">for successful matches</div>
+                </div>
+                <div class="summary-card">
+                    <div class="title">Enrolled Persons</div>
+                    <div class="value">${data.persons.total_enrolled}</div>
+                    <div class="subtitle">in database</div>
+                </div>
+                <div class="summary-card">
+                    <div class="title">Unknown Persons</div>
+                    <div class="value">${data.alerts.unknown_persons.toLocaleString()}</div>
+                    <div class="subtitle">alerts generated</div>
+                </div>
+            `;
+            document.getElementById('summaryCards').innerHTML = html;
+        }
+
+        function updateAlertsChart(data) {
+            const ctx = document.getElementById('alertsChart');
+
+            // Destroy existing chart
+            if (charts.alerts) charts.alerts.destroy();
+
+            charts.alerts = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.data.map(d => d.timestamp),
+                    datasets: [
+                        {
+                            label: 'Known Persons',
+                            data: data.data.map(d => d.known_person),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Unknown Persons',
+                            data: data.data.map(d => d.unknown_person),
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Total',
+                            data: data.data.map(d => d.total),
+                            borderColor: '#cc9933',
+                            backgroundColor: 'rgba(204, 153, 51, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e2e8f0' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        },
+                        y: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateRecognitionChart(data) {
+            const ctx = document.getElementById('recognitionChart');
+
+            if (charts.recognition) charts.recognition.destroy();
+
+            charts.recognition = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.data.map(d => d.timestamp),
+                    datasets: [
+                        {
+                            label: 'Matched',
+                            data: data.data.map(d => d.matched),
+                            backgroundColor: '#10b981',
+                        },
+                        {
+                            label: 'Unmatched',
+                            data: data.data.map(d => d.unmatched),
+                            backgroundColor: '#ef4444',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e2e8f0' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        },
+                        y: {
+                            stacked: true,
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDistributionCharts(data) {
+            // Hour distribution
+            const hourCtx = document.getElementById('hourDistributionChart');
+            if (charts.hourDist) charts.hourDist.destroy();
+
+            const hourLabels = Object.keys(data.by_hour).sort((a, b) => parseInt(a) - parseInt(b));
+            const hourValues = hourLabels.map(h => data.by_hour[h]);
+
+            charts.hourDist = new Chart(hourCtx, {
+                type: 'bar',
+                data: {
+                    labels: hourLabels.map(h => `${h}:00`),
+                    datasets: [{
+                        label: 'Alerts',
+                        data: hourValues,
+                        backgroundColor: '#cc9933',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e2e8f0' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        },
+                        y: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Type distribution
+            const typeCtx = document.getElementById('alertTypesChart');
+            if (charts.typeDist) charts.typeDist.destroy();
+
+            const typeLabels = Object.keys(data.by_type);
+            const typeValues = Object.values(data.by_type);
+
+            charts.typeDist = new Chart(typeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: typeLabels.map(t => t.replace('_', ' ').toUpperCase()),
+                    datasets: [{
+                        data: typeValues,
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6'],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e2e8f0' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updatePersonStatsTable(data) {
+            const tbody = document.getElementById('personStatsBody');
+
+            if (data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #64748b;">No data available</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.data.map(person => {
+                const confidenceBadge = person.avg_confidence >= 0.8 ? 'badge-high' :
+                                       person.avg_confidence >= 0.6 ? 'badge-medium' : 'badge-low';
+
+                const lastSeen = person.last_seen ?
+                    new Date(person.last_seen).toLocaleString() : 'Never';
+
+                return `
+                    <tr>
+                        <td><strong>${person.person_name}</strong></td>
+                        <td>${person.person_cnic}</td>
+                        <td>${person.recognition_count}</td>
+                        <td>${person.alert_count}</td>
+                        <td><span class="badge ${confidenceBadge}">${(person.avg_confidence * 100).toFixed(1)}%</span></td>
+                        <td>${lastSeen}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function exportReport() {
+            const days = document.getElementById('timePeriod').value;
+
+            // Simple CSV export of summary
+            const csvContent = `Face Recognition Security System - Analytics Report
+Generated: ${new Date().toLocaleString()}
+Period: Last ${days} days
+
+Summary Statistics:
+${document.getElementById('summaryCards').innerText}
+
+Person Statistics:
+${document.getElementById('personStatsTable').innerText}
+`;
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `analytics_report_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 import logging
 import os
 from app.config import settings
-from app.api.routes import detection, recognition, alerts, websocket, auth
+from app.api.routes import detection, recognition, alerts, websocket, auth, analytics
 
 # Configure logging
 logging.basicConfig(
@@ -45,6 +45,7 @@ if os.path.exists(static_path):
 app.include_router(detection.router)
 app.include_router(recognition.router)
 app.include_router(alerts.router)
+app.include_router(analytics.router)
 app.include_router(websocket.router)
 app.include_router(auth.router)
 
@@ -106,6 +107,13 @@ async def admin_panel():
 async def alerts_management():
     """Serve alert management page"""
     html_path = os.path.join(os.path.dirname(__file__), "static", "alerts.html")
+    return FileResponse(html_path)
+
+
+@app.get("/reports")
+async def reports_analytics():
+    """Serve reports and analytics page"""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "reports.html")
     return FileResponse(html_path)
 
 
