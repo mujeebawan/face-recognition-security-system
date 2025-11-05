@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Settings - Face Recognition Security System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        nav h1 {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-links a.active {
+            background: rgba(255, 255, 255, 0.3);
+            font-weight: 600;
+        }
+
+        /* Header */
+        .header {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .header h2 {
+            color: #2c3e50;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #6c757d;
+            font-size: 1rem;
+        }
+
+        /* Settings Container */
+        .settings-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+        }
+
+        @media (max-width: 1200px) {
+            .settings-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Settings Section */
+        .settings-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            border: 1px solid #dee2e6;
+        }
+
+        .settings-section h3 {
+            color: #495057;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #667eea;
+        }
+
+        /* Setting Item */
+        .setting-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .setting-item label {
+            display: block;
+            color: #495057;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .setting-item .description {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-bottom: 0.5rem;
+        }
+
+        .setting-item input[type="text"],
+        .setting-item input[type="number"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .setting-item input[type="text"]:focus,
+        .setting-item input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Slider */
+        .slider-container {
+            position: relative;
+        }
+
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-value {
+            display: inline-block;
+            min-width: 60px;
+            padding: 0.25rem 0.5rem;
+            background: #667eea;
+            color: white;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: 600;
+            margin-left: 1rem;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 30px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+
+        /* Action Buttons */
+        .actions-container {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        /* Status Message */
+        .status-message {
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 2rem;
+            display: none;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Last Updated */
+        .last-updated {
+            font-size: 0.875rem;
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 0.5rem;
+        }
+
+        /* File input for backup import */
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav>
+            <h1>⚙️ System Settings</h1>
+            <div class="nav-links">
+                <a href="/dashboard">📊 Dashboard</a>
+                <a href="/admin">👥 Admin</a>
+                <a href="/alerts">🚨 Alerts</a>
+                <a href="/reports">📈 Reports</a>
+                <a href="/live">📹 Live</a>
+                <a href="/settings" class="active">⚙️ Settings</a>
+                <a href="/docs">📚 API Docs</a>
+                <a href="#" onclick="logout()">🚪 Logout</a>
+            </div>
+        </nav>
+
+        <!-- Header -->
+        <div class="header">
+            <h2>System Configuration</h2>
+            <p>Manage recognition thresholds, alert settings, camera configuration, and more</p>
+        </div>
+
+        <!-- Status Message -->
+        <div id="statusMessage" class="status-message"></div>
+
+        <!-- Loading -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading settings...</p>
+        </div>
+
+        <!-- Settings Container -->
+        <div id="settingsContainer" class="settings-container" style="display: none;">
+
+            <!-- Recognition Settings -->
+            <div class="settings-section">
+                <h3>🎯 Recognition Settings</h3>
+
+                <div class="setting-item">
+                    <label for="recognition_threshold">Recognition Threshold</label>
+                    <div class="description">Lower values = stricter matching (recommended: 0.30 - 0.40)</div>
+                    <div class="slider-container">
+                        <input type="range" id="recognition_threshold" class="slider"
+                               min="0" max="1" step="0.01" value="0.35">
+                        <span class="slider-value" id="recognition_threshold_value">0.35</span>
+                    </div>
+                    <div class="last-updated" id="recognition_threshold_updated"></div>
+                </div>
+
+                <div class="setting-item">
+                    <label for="detection_confidence">Detection Confidence</label>
+                    <div class="description">Minimum confidence for face detection</div>
+                    <div class="slider-container">
+                        <input type="range" id="detection_confidence" class="slider"
+                               min="0" max="1" step="0.01" value="0.5">
+                        <span class="slider-value" id="detection_confidence_value">0.5</span>
+                    </div>
+                    <div class="last-updated" id="detection_confidence_updated"></div>
+                </div>
+
+                <div class="setting-item">
+                    <label for="max_faces_per_frame">Max Faces Per Frame</label>
+                    <div class="description">Maximum number of faces to process (1-50)</div>
+                    <input type="number" id="max_faces_per_frame" min="1" max="50" value="10">
+                    <div class="last-updated" id="max_faces_per_frame_updated"></div>
+                </div>
+            </div>
+
+            <!-- Alert Settings -->
+            <div class="settings-section">
+                <h3>🚨 Alert Settings</h3>
+
+                <div class="setting-item">
+                    <label for="alert_cooldown_seconds">Alert Cooldown (seconds)</label>
+                    <div class="description">Minimum time between alerts for the same person</div>
+                    <input type="number" id="alert_cooldown_seconds" min="0" value="60">
+                    <div class="last-updated" id="alert_cooldown_seconds_updated"></div>
+                </div>
+
+                <div class="setting-item">
+                    <label>Alert on Unknown Persons</label>
+                    <div class="description">Generate alerts when unknown persons are detected</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="alert_on_unknown" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div class="last-updated" id="alert_on_unknown_updated"></div>
+                </div>
+
+                <div class="setting-item">
+                    <label>Alert on Known Persons</label>
+                    <div class="description">Generate alerts when known persons are detected</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="alert_on_known" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div class="last-updated" id="alert_on_known_updated"></div>
+                </div>
+
+                <div class="setting-item">
+                    <label>Save Alert Snapshots</label>
+                    <div class="description">Automatically save snapshots when alerts are triggered</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="alert_save_snapshot" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div class="last-updated" id="alert_save_snapshot_updated"></div>
+                </div>
+            </div>
+
+            <!-- Camera Settings -->
+            <div class="settings-section">
+                <h3>📹 Camera Settings</h3>
+
+                <div class="setting-item">
+                    <label for="camera_rtsp_url">RTSP Stream URL</label>
+                    <div class="description">Full RTSP URL including credentials (format: rtsp://user:pass@ip:port/path)</div>
+                    <input type="text" id="camera_rtsp_url"
+                           placeholder="rtsp://admin:password@192.168.1.64:554/Streaming/Channels/101">
+                    <div class="last-updated" id="camera_rtsp_url_updated"></div>
+                </div>
+            </div>
+
+            <!-- Performance Settings -->
+            <div class="settings-section">
+                <h3>⚡ Performance Settings</h3>
+
+                <div class="setting-item">
+                    <label for="frame_skip">Frame Skip</label>
+                    <div class="description">Process every Nth frame for recognition (higher = faster but less frequent)</div>
+                    <input type="number" id="frame_skip" min="1" value="5">
+                    <div class="last-updated" id="frame_skip_updated"></div>
+                </div>
+
+                <div class="setting-item">
+                    <label>Enable GPU Acceleration</label>
+                    <div class="description">Use GPU for face detection (requires CUDA)</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="enable_gpu" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div class="last-updated" id="enable_gpu_updated"></div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="actions-container">
+                <button class="btn btn-primary" onclick="saveAllSettings()">
+                    💾 Save All Settings
+                </button>
+                <button class="btn btn-secondary" onclick="reloadSettings()">
+                    🔄 Reload Settings
+                </button>
+                <button class="btn btn-warning" onclick="resetToDefaults()">
+                    ⚠️ Reset to Defaults
+                </button>
+                <button class="btn btn-success" onclick="exportBackup()">
+                    📥 Export Backup
+                </button>
+                <div class="file-input-wrapper">
+                    <button class="btn btn-success">
+                        📤 Import Backup
+                    </button>
+                    <input type="file" id="backupFile" accept=".json" onchange="importBackup(event)">
+                </div>
+                <button class="btn btn-danger" onclick="initializeDefaults()">
+                    🔧 Initialize Defaults
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Authentication
+        function checkAuth() {
+            const token = localStorage.getItem('auth_token');
+            if (!token) {
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        }
+
+        function logout() {
+            localStorage.removeItem('auth_token');
+            window.location.href = '/';
+        }
+
+        // API helper
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const token = localStorage.getItem('auth_token');
+            const options = {
+                method: method,
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                }
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            const response = await fetch(endpoint, options);
+            if (response.status === 401) {
+                logout();
+                return null;
+            }
+
+            return await response.json();
+        }
+
+        // Status message
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message ${type}`;
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusDiv.className = 'status-message';
+            }, 5000);
+        }
+
+        // Load all settings
+        async function loadSettings() {
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('settingsContainer').style.display = 'none';
+
+            const data = await apiCall('/api/settings/');
+
+            if (data && data.success) {
+                const settings = data.settings;
+
+                // Populate form fields
+                for (const [key, config] of Object.entries(settings)) {
+                    const element = document.getElementById(key);
+                    if (!element) continue;
+
+                    if (config.type === 'bool') {
+                        element.checked = config.value;
+                    } else {
+                        element.value = config.value;
+                    }
+
+                    // Update slider value display
+                    if (element.classList.contains('slider')) {
+                        document.getElementById(key + '_value').textContent = config.value;
+                    }
+
+                    // Update "last updated" text
+                    const updatedDiv = document.getElementById(key + '_updated');
+                    if (updatedDiv && config.updated_at) {
+                        const date = new Date(config.updated_at);
+                        updatedDiv.textContent = `Last updated: ${date.toLocaleString()}`;
+                    }
+                }
+
+                showStatus('Settings loaded successfully', 'success');
+            } else {
+                showStatus('Failed to load settings', 'error');
+            }
+
+            document.getElementById('loading').classList.remove('active');
+            document.getElementById('settingsContainer').style.display = 'grid';
+        }
+
+        // Save all settings
+        async function saveAllSettings() {
+            const settingsToUpdate = {
+                recognition_threshold: parseFloat(document.getElementById('recognition_threshold').value),
+                detection_confidence: parseFloat(document.getElementById('detection_confidence').value),
+                max_faces_per_frame: parseInt(document.getElementById('max_faces_per_frame').value),
+                alert_cooldown_seconds: parseInt(document.getElementById('alert_cooldown_seconds').value),
+                alert_on_unknown: document.getElementById('alert_on_unknown').checked,
+                alert_on_known: document.getElementById('alert_on_known').checked,
+                alert_save_snapshot: document.getElementById('alert_save_snapshot').checked,
+                camera_rtsp_url: document.getElementById('camera_rtsp_url').value,
+                frame_skip: parseInt(document.getElementById('frame_skip').value),
+                enable_gpu: document.getElementById('enable_gpu').checked
+            };
+
+            const data = await apiCall('/api/settings/bulk', 'POST', { settings: settingsToUpdate });
+
+            if (data && data.success) {
+                showStatus(`Successfully updated ${data.updated_count} settings`, 'success');
+                await loadSettings();  // Reload to show updated timestamps
+            } else {
+                showStatus('Failed to save settings: ' + (data?.errors?.join(', ') || 'Unknown error'), 'error');
+            }
+        }
+
+        // Reload settings
+        async function reloadSettings() {
+            await loadSettings();
+        }
+
+        // Reset to defaults
+        async function resetToDefaults() {
+            if (!confirm('Are you sure you want to reset ALL settings to default values? This cannot be undone.')) {
+                return;
+            }
+
+            const data = await apiCall('/api/settings/reset', 'POST');
+
+            if (data && data.success) {
+                showStatus(`Reset ${data.reset_count} settings to defaults`, 'success');
+                await loadSettings();
+            } else {
+                showStatus('Failed to reset settings', 'error');
+            }
+        }
+
+        // Export backup
+        async function exportBackup() {
+            const data = await apiCall('/api/settings/export/backup');
+
+            if (data) {
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `settings_backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showStatus('Settings backup exported successfully', 'success');
+            } else {
+                showStatus('Failed to export backup', 'error');
+            }
+        }
+
+        // Import backup
+        async function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    const data = await apiCall('/api/settings/import/backup', 'POST', backup);
+
+                    if (data && data.success) {
+                        showStatus(`Successfully imported ${data.imported_count} settings`, 'success');
+                        await loadSettings();
+                    } else {
+                        showStatus('Failed to import backup: ' + (data?.errors?.join(', ') || 'Unknown error'), 'error');
+                    }
+                } catch (error) {
+                    showStatus('Invalid backup file format', 'error');
+                }
+            };
+            reader.readAsText(file);
+
+            // Reset file input
+            event.target.value = '';
+        }
+
+        // Initialize defaults
+        async function initializeDefaults() {
+            const data = await apiCall('/api/settings/initialize', 'POST');
+
+            if (data && data.success) {
+                showStatus(`Initialized ${data.initialized.length} default settings`, 'success');
+                await loadSettings();
+            } else {
+                showStatus('Failed to initialize defaults', 'error');
+            }
+        }
+
+        // Update slider value displays in real-time
+        document.getElementById('recognition_threshold').addEventListener('input', function() {
+            document.getElementById('recognition_threshold_value').textContent = this.value;
+        });
+
+        document.getElementById('detection_confidence').addEventListener('input', function() {
+            document.getElementById('detection_confidence_value').textContent = this.value;
+        });
+
+        // Initialize
+        if (checkAuth()) {
+            loadSettings();
+        }
+    </script>
+</body>
+</html>

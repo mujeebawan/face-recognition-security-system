@@ -11,6 +11,7 @@ import logging
 import os
 from app.config import settings
 from app.api.routes import detection, recognition, alerts, websocket, auth, analytics
+from app.api.routes import settings as settings_router
 
 # Configure logging
 logging.basicConfig(
@@ -46,6 +47,7 @@ app.include_router(detection.router)
 app.include_router(recognition.router)
 app.include_router(alerts.router)
 app.include_router(analytics.router)
+app.include_router(settings_router.router)
 app.include_router(websocket.router)
 app.include_router(auth.router)
 
@@ -114,6 +116,13 @@ async def alerts_management():
 async def reports_analytics():
     """Serve reports and analytics page"""
     html_path = os.path.join(os.path.dirname(__file__), "static", "reports.html")
+    return FileResponse(html_path)
+
+
+@app.get("/settings")
+async def system_settings():
+    """Serve system settings page"""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "settings.html")
     return FileResponse(html_path)
 
 
