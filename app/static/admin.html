@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NRTC Admin - Wanted Persons Management</title>
+    <title>Admin Panel - Wanted Persons Management</title>
     <style>
         * {
             margin: 0;
@@ -15,26 +15,32 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #0f172a;
             color: #e2e8f0;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
             background: linear-gradient(90deg, #124877 0%, #124877 35%, #0F518B 100%);
-            padding: 20px 30px;
+            padding: 15px 30px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
+            border-bottom: 3px solid #cc9933;
         }
 
         .header-left h1 {
-            font-size: 2em;
-            margin-bottom: 5px;
+            font-size: 1.8em;
+            margin-bottom: 3px;
+            color: #cc9933;
         }
 
         .header-left p {
             opacity: 0.9;
-            font-size: 0.95em;
+            font-size: 0.9em;
         }
 
         .header-right {
@@ -62,7 +68,7 @@
         .btn-logout {
             background: #860505;
             color: white;
-            padding: 10px 20px;
+            padding: 8px 18px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
@@ -75,31 +81,56 @@
             background: #a00606;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 40px auto;
+        /* Main Layout - Side by Side */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            gap: 0;
+            max-width: 1920px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .left-panel {
+            flex: 1;
+            background: #1e293b;
+            overflow-y: auto;
+            padding: 20px;
+            border-right: 3px solid #cc9933;
+        }
+
+        .right-panel {
+            flex: 1;
+            background: #0f172a;
+            overflow-y: auto;
             padding: 20px;
         }
 
-        .card {
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            margin-bottom: 20px;
-        }
-
-        .card-title {
+        .panel-title {
             font-size: 1.5em;
             font-weight: 600;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             color: #cc9933;
             border-bottom: 2px solid #cc9933;
             padding-bottom: 10px;
         }
 
-        .form-group {
+        .warning-box {
+            background: #78350f;
+            border-left: 4px solid #f59e0b;
+            padding: 12px;
+            border-radius: 6px;
             margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .warning-box strong {
+            color: #fbbf24;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
         }
 
         .form-label {
@@ -167,7 +198,8 @@
 
         .image-preview {
             margin-top: 15px;
-            max-width: 300px;
+            max-width: 100%;
+            max-height: 200px;
             border-radius: 8px;
             border: 2px solid #334155;
             display: none;
@@ -188,6 +220,7 @@
             background: linear-gradient(90deg, #124877 0%, #0F518B 100%);
             color: white;
             border: 1px solid #cc9933;
+            width: 100%;
         }
 
         .btn-primary:hover {
@@ -203,10 +236,11 @@
         }
 
         .alert {
-            padding: 15px 20px;
+            padding: 12px 15px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             display: none;
+            font-size: 0.95em;
         }
 
         .alert-success {
@@ -219,23 +253,18 @@
             color: white;
         }
 
-        .alert-info {
-            background: #3b82f6;
-            color: white;
-        }
-
         .loading {
             display: none;
             text-align: center;
-            padding: 20px;
+            padding: 15px;
         }
 
         .spinner {
             border: 4px solid #334155;
             border-top: 4px solid #124877;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             animation: spin 1s linear infinite;
             margin: 0 auto;
         }
@@ -245,38 +274,10 @@
             100% { transform: rotate(360deg); }
         }
 
-        .nav-links {
-            margin-top: 20px;
-            text-align: center;
-        }
-
-        .nav-links a {
-            color: #60a5fa;
-            text-decoration: none;
-            margin: 0 15px;
-            font-size: 0.95em;
-        }
-
-        .nav-links a:hover {
-            text-decoration: underline;
-        }
-
-        .warning-box {
-            background: #78350f;
-            border-left: 4px solid #f59e0b;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        .warning-box strong {
-            color: #fbbf24;
-        }
-
         /* Table styles */
         .table-container {
             overflow-x: auto;
-            margin-top: 20px;
+            margin-top: 15px;
         }
 
         table {
@@ -292,17 +293,19 @@
         }
 
         th {
-            padding: 15px;
+            padding: 12px;
             text-align: left;
             font-weight: 600;
             color: #cc9933;
             border-bottom: 2px solid #cc9933;
+            font-size: 0.9em;
         }
 
         td {
-            padding: 15px;
+            padding: 12px;
             border-bottom: 1px solid #334155;
             color: #e2e8f0;
+            font-size: 0.9em;
         }
 
         tr:hover {
@@ -314,8 +317,8 @@
         }
 
         .person-photo {
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             border-radius: 8px;
             object-fit: cover;
             border: 2px solid #334155;
@@ -324,11 +327,11 @@
         .btn-danger {
             background: #860505;
             color: white;
-            padding: 8px 16px;
+            padding: 6px 12px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 0.85em;
             transition: background 0.3s;
         }
 
@@ -341,15 +344,29 @@
             cursor: not-allowed;
         }
 
+        .btn-secondary {
+            background: #475569;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+
+        .btn-secondary:hover {
+            background: #334155;
+        }
+
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 40px 20px;
             color: #64748b;
         }
 
         .empty-state-icon {
-            font-size: 4em;
-            margin-bottom: 20px;
+            font-size: 3em;
+            margin-bottom: 15px;
         }
 
         /* Modal styles */
@@ -397,18 +414,77 @@
             justify-content: flex-end;
         }
 
-        .btn-secondary {
-            background: #475569;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.95em;
+        /* Search Box */
+        .search-box {
+            margin-bottom: 15px;
         }
 
-        .btn-secondary:hover {
+        /* Scrollbar styling */
+        .left-panel::-webkit-scrollbar,
+        .right-panel::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .left-panel::-webkit-scrollbar-track,
+        .right-panel::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        .left-panel::-webkit-scrollbar-thumb,
+        .right-panel::-webkit-scrollbar-thumb {
             background: #334155;
+            border-radius: 5px;
+        }
+
+        .left-panel::-webkit-scrollbar-thumb:hover,
+        .right-panel::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Augmentation toggle */
+        .augmentation-box {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #334155;
+            margin-bottom: 18px;
+        }
+
+        .augmentation-box input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        /* Nav links at bottom of left panel */
+        .nav-links {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #334155;
+            text-align: center;
+        }
+
+        .nav-links a {
+            color: #60a5fa;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 0.9em;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main-container {
+                flex-direction: column;
+            }
+
+            .left-panel,
+            .right-panel {
+                border: none;
+            }
         }
     </style>
 </head>
@@ -427,16 +503,17 @@
         </div>
     </div>
 
-    <div class="container">
-        <div class="warning-box">
-            <strong>⚠️ Important:</strong> Only authorized personnel should have access to this panel.
-        </div>
+    <div class="main-container">
+        <!-- Left Panel: Enrollment Form -->
+        <div class="left-panel">
+            <h2 class="panel-title">Add Wanted Person</h2>
 
-        <div class="alert alert-success" id="successAlert"></div>
-        <div class="alert alert-error" id="errorAlert"></div>
+            <div class="warning-box">
+                <strong>⚠ Important:</strong> Only authorized personnel should have access to this panel.
+            </div>
 
-        <div class="card">
-            <h2 class="card-title">➕ Add Wanted Person</h2>
+            <div class="alert alert-success" id="successAlert"></div>
+            <div class="alert alert-error" id="errorAlert"></div>
 
             <form id="addPersonForm">
                 <div class="form-group">
@@ -449,11 +526,11 @@
                     </div>
                     <div class="file-name" id="fileName">No file selected</div>
                     <img id="imagePreview" class="image-preview" alt="Preview">
-                    <p class="form-help">Upload clear face photo (JPG, PNG) - You can select multiple images for better accuracy</p>
+                    <p class="form-help">Upload clear face photo (JPG, PNG) - Multiple images for better accuracy</p>
 
                     <!-- Camera Capture Button -->
-                    <div style="margin-top: 15px; text-align: center;">
-                        <button type="button" class="btn-secondary" onclick="openCameraModal()" style="padding: 10px 20px; background: #475569; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95em;">
+                    <div style="margin-top: 12px; text-align: center;">
+                        <button type="button" class="btn-secondary" onclick="openCameraModal()" style="padding: 10px 20px; width: 100%;">
                             📷 OR Capture from Camera
                         </button>
                     </div>
@@ -481,7 +558,6 @@
                         placeholder="e.g., Abdul Rasheed Khan"
                         required
                     >
-                    <p class="form-help">Enter full name</p>
                 </div>
 
                 <div class="form-group">
@@ -490,94 +566,87 @@
                         id="notes"
                         class="form-input"
                         rows="3"
-                        placeholder="e.g., Wanted for theft case #12345, high priority"
+                        placeholder="e.g., Wanted for theft case #12345"
                     ></textarea>
-                    <p class="form-help">Add any relevant case information</p>
                 </div>
 
                 <!-- AI Augmentation Toggle -->
-                <div class="form-group" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 12px; border: 2px solid #334155;">
-                    <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                        <input type="checkbox" id="useSDaugmentation" style="width: 20px; height: 20px; margin-right: 12px; cursor: pointer;">
-                        <label for="useSDaugmentation" style="font-size: 1.1em; color: #fbbf24; margin: 0; cursor: pointer; font-weight: 600;">
+                <div class="form-group augmentation-box">
+                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <input type="checkbox" id="useSDaugmentation" style="margin-right: 10px;">
+                        <label for="useSDaugmentation" style="font-size: 1em; color: #fbbf24; margin: 0; cursor: pointer; font-weight: 600;">
                             ✨ Use AI Augmentation (Recommended for Single Photo)
                         </label>
                     </div>
-                    <p class="form-help" style="margin: 0 0 15px 32px; color: #94a3b8;">
-                        Generates 5-10 synthetic face angles using Stable Diffusion AI to improve recognition accuracy.
+                    <p class="form-help" style="margin: 0 0 12px 28px; color: #94a3b8; font-size: 0.85em;">
+                        Generates 5-10 synthetic face angles using AI to improve recognition accuracy.
                         <strong style="color: #60a5fa;">Takes 10-15 seconds but significantly improves accuracy!</strong>
                     </p>
 
-                    <div id="sdOptions" style="display: none; margin-left: 32px;">
-                        <label class="form-label" for="numVariations" style="font-size: 0.95em;">Number of AI-generated angles:</label>
+                    <div id="sdOptions" style="display: none; margin-left: 28px;">
+                        <label class="form-label" for="numVariations" style="font-size: 0.9em;">Number of AI-generated angles:</label>
                         <input type="range" id="numVariations" min="3" max="10" value="5" style="width: 100%; margin-bottom: 8px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #94a3b8; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #94a3b8; margin-bottom: 12px;">
                             <span>3 (Faster ~6s)</span>
                             <span id="numVariationsValue" style="color: #fbbf24; font-weight: 600;">5 variations</span>
                             <span>10 (Best ~20s)</span>
                         </div>
-                        <p class="form-help" style="margin: 0; font-size: 0.85em; color: #cbd5e1;">
-                            💡 <strong>Tip:</strong> 5 variations provides excellent balance between speed and accuracy.
-                            Use 8-10 for critical cases.
-                        </p>
 
                         <!-- Augmentation Method Selection -->
-                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #334155;">
-                            <label class="form-label" style="font-size: 1em; color: #fbbf24; margin-bottom: 12px;">Choose AI Method:</label>
+                        <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid #334155;">
+                            <label class="form-label" style="font-size: 0.95em; color: #fbbf24; margin-bottom: 10px;">Choose AI Method:</label>
 
-                            <!-- LivePortrait Option (NEW!) -->
-                            <div style="display: flex; align-items: center; margin-bottom: 15px; padding: 12px; background: #0f172a; border-radius: 8px; border: 2px solid #10b981;">
-                                <input type="radio" name="augmentMethod" id="useLivePortrait" value="liveportrait" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;" checked>
-                                <label for="useLivePortrait" style="font-size: 0.95em; color: #10b981; margin: 0; cursor: pointer; font-weight: 600;">
-                                    ⚡ LivePortrait (FASTEST & BEST - 3D Pose Generation)
+                            <!-- LivePortrait Option -->
+                            <div style="display: flex; align-items: center; margin-bottom: 12px; padding: 10px; background: #0f172a; border-radius: 8px; border: 2px solid #10b981;">
+                                <input type="radio" name="augmentMethod" id="useLivePortrait" value="liveportrait" style="width: 16px; height: 16px; margin-right: 8px; cursor: pointer;" checked>
+                                <label for="useLivePortrait" style="font-size: 0.9em; color: #10b981; margin: 0; cursor: pointer; font-weight: 600;">
+                                    ⚡ LivePortrait (FASTEST - 3D Pose Generation)
                                 </label>
                             </div>
-                            <p class="form-help" style="margin: -8px 0 15px 28px; font-size: 0.85em; color: #cbd5e1;">
-                                <strong style="color: #10b981;">🌟 Recommended!</strong> Ultra-fast (~3-4s for 5 angles) with excellent 3D-aware pose generation. Perfect identity preservation.
-                            </p>
 
                             <!-- ControlNet Option -->
-                            <div style="display: flex; align-items: center; margin-bottom: 15px; padding: 12px; background: #0f172a; border-radius: 8px;">
-                                <input type="radio" name="augmentMethod" id="useControlNet" value="controlnet" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
-                                <label for="useControlNet" style="font-size: 0.95em; color: #a78bfa; margin: 0; cursor: pointer; font-weight: 600;">
+                            <div style="display: flex; align-items: center; margin-bottom: 12px; padding: 10px; background: #0f172a; border-radius: 8px;">
+                                <input type="radio" name="augmentMethod" id="useControlNet" value="controlnet" style="width: 16px; height: 16px; margin-right: 8px; cursor: pointer;">
+                                <label for="useControlNet" style="font-size: 0.9em; color: #a78bfa; margin: 0; cursor: pointer; font-weight: 600;">
                                     🎯 ControlNet (High Control, Slower)
                                 </label>
                             </div>
-                            <p class="form-help" style="margin: -8px 0 15px 28px; font-size: 0.85em; color: #cbd5e1;">
-                                Advanced AI for precise angles. Takes ~30-40s for 5 images. ⚠️ High memory usage
-                            </p>
 
                             <!-- img2img Option -->
-                            <div style="display: flex; align-items: center; padding: 12px; background: #0f172a; border-radius: 8px;">
-                                <input type="radio" name="augmentMethod" id="useImg2Img" value="img2img" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
-                                <label for="useImg2Img" style="font-size: 0.95em; color: #60a5fa; margin: 0; cursor: pointer; font-weight: 600;">
+                            <div style="display: flex; align-items: center; padding: 10px; background: #0f172a; border-radius: 8px;">
+                                <input type="radio" name="augmentMethod" id="useImg2Img" value="img2img" style="width: 16px; height: 16px; margin-right: 8px; cursor: pointer;">
+                                <label for="useImg2Img" style="font-size: 0.9em; color: #60a5fa; margin: 0; cursor: pointer; font-weight: 600;">
                                     🔄 Stable Diffusion img2img (Balanced)
                                 </label>
                             </div>
-                            <p class="form-help" style="margin: 8px 0 0 28px; font-size: 0.85em; color: #cbd5e1;">
-                                General augmentation. Takes ~15-20s for 5 images. ⚠️ High memory usage
-                            </p>
                         </div>
                     </div>
                 </div>
 
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
-                    <p id="loadingText" style="margin-top: 10px;">Processing... This may take 5-10 seconds</p>
+                    <p id="loadingText" style="margin-top: 10px;">Processing...</p>
                 </div>
 
                 <button type="submit" class="btn btn-primary" id="submitBtn">
                     ➕ Add Wanted Person
                 </button>
             </form>
+
+            <div class="nav-links">
+                <a href="/dashboard">📊 Dashboard</a>
+                <a href="/alerts">🚨 Alerts</a>
+                <a href="/live">📹 Live</a>
+                <a href="/docs">📖 Docs</a>
+            </div>
         </div>
 
-        <!-- Wanted Persons List -->
-        <div class="card">
-            <h2 class="card-title">👥 Wanted Persons List</h2>
+        <!-- Right Panel: Wanted Persons List -->
+        <div class="right-panel">
+            <h2 class="panel-title">Wanted Persons List</h2>
 
             <!-- Search Box -->
-            <div class="form-group" style="margin-bottom: 20px;">
+            <div class="search-box">
                 <label class="form-label" for="searchCNIC">🔍 Search by ID Number (CNIC)</label>
                 <input
                     type="text"
@@ -586,7 +655,7 @@
                     placeholder="e.g., 12345-6789012-3"
                     onkeyup="searchPersons()"
                 >
-                <p class="form-help">Type ID number to search - matching person will appear at top</p>
+                <p class="form-help">Type ID number to search</p>
             </div>
 
             <div id="personsTableContainer">
@@ -601,7 +670,7 @@
                             <tr>
                                 <th>Photo</th>
                                 <th>Name</th>
-                                <th>ID Number (CNIC)</th>
+                                <th>ID Number</th>
                                 <th>Added On</th>
                                 <th>Actions</th>
                             </tr>
@@ -615,22 +684,16 @@
                 <div class="empty-state" id="emptyState" style="display: none;">
                     <div class="empty-state-icon">📭</div>
                     <h3>No Wanted Persons</h3>
-                    <p>Add a wanted person using the form above to get started.</p>
+                    <p>Add a wanted person using the form to get started.</p>
                 </div>
             </div>
-        </div>
-
-        <div class="nav-links">
-            <a href="/dashboard">📊 View Dashboard</a>
-            <a href="/live">📹 Live Stream</a>
-            <a href="/docs">📖 API Documentation</a>
         </div>
     </div>
 
     <!-- Confirmation Modal -->
     <div class="modal" id="confirmModal">
         <div class="modal-content">
-            <div class="modal-header">⚠️ Confirm Removal</div>
+            <div class="modal-header">⚠ Confirm Removal</div>
             <div class="modal-body" id="modalBody">
                 Are you sure you want to remove this person from the wanted list?
             </div>
@@ -650,7 +713,7 @@
                 <div style="text-align: center; position: relative;">
                     <img id="liveStream" style="max-width: 100%; border-radius: 8px; border: 2px solid #334155; margin-bottom: 15px;" alt="Live Camera Preview">
                     <p style="color: #94a3b8; font-size: 0.9em; margin-top: 10px;">
-                        📹 Live camera preview (raw sub-stream, ~15-20 FPS) - Position the person in the frame
+                        📹 Live camera preview - Position the person in the frame
                     </p>
                 </div>
 
@@ -664,7 +727,7 @@
 
                 <!-- Angle Selection (shown after first capture) -->
                 <div id="angleSelection" style="display: none; margin-top: 20px; padding: 15px; background: #0f172a; border-radius: 8px; border: 2px solid #334155;">
-                    <h3 style="color: #fbbf24; font-size: 1em; margin-bottom: 10px;">📐 Capture more angles? (Recommended for better accuracy)</h3>
+                    <h3 style="color: #fbbf24; font-size: 1em; margin-bottom: 10px;">📐 Capture more angles? (Recommended)</h3>
                     <p style="color: #94a3b8; font-size: 0.85em; margin-bottom: 10px;">
                         Multiple angles significantly improve recognition accuracy
                     </p>
@@ -1072,20 +1135,22 @@
             } finally {
                 submitBtn.disabled = false;
                 loading.style.display = 'none';
-                loadingText.textContent = 'Processing... This may take 5-10 seconds';
+                loadingText.textContent = 'Processing...';
             }
         });
 
         function showSuccess(message) {
             successAlert.textContent = message;
             successAlert.style.display = 'block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Scroll left panel to top to see alert
+            document.querySelector('.left-panel').scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function showError(message) {
             errorAlert.textContent = '❌ Error: ' + message;
             errorAlert.style.display = 'block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Scroll left panel to top to see alert
+            document.querySelector('.left-panel').scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Show generated pose images after enrollment
@@ -1272,7 +1337,7 @@
                 emptyState.innerHTML = `
                     <div class="empty-state-icon">📭</div>
                     <h3>No Wanted Persons</h3>
-                    <p>Add a wanted person using the form above to get started.</p>
+                    <p>Add a wanted person using the form to get started.</p>
                 `;
                 return;
             }
@@ -1289,14 +1354,28 @@
                     day: 'numeric'
                 });
 
-                // Show actual original photo with cache-busting timestamp
+                // Show actual original photo with unique ID for async loading
+                const photoId = `photo_${person.id}_${Date.now()}`;
                 const photoHTML = person.reference_image_path
-                    ? `<img src="/api/image/${person.cnic}/original?t=${Date.now()}" class="person-photo" alt="${person.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid #334155;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22%3E%3Crect fill=%22%23334155%22 width=%2260%22 height=%2260%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%23cbd5e1%22 text-anchor=%22middle%22 dy=%22.3em%22%3E${person.name.charAt(0)}%3C/text%3E%3C/svg%3E'">`
-                    : `<div style="width: 60px; height: 60px; background: #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #cbd5e1;">${person.name.charAt(0)}</div>`;
+                    ? `<img id="${photoId}" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22%3E%3Crect fill=%22%23334155%22 width=%2250%22 height=%2250%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2212%22 fill=%22%23cbd5e1%22 text-anchor=%22middle%22 dy=%22.3em%22%3E${person.name.charAt(0)}%3C/text%3E%3C/svg%3E" class="person-photo" alt="${person.name}" data-cnic="${person.cnic}">`
+                    : `<div style="width: 50px; height: 50px; background: #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #cbd5e1;">${person.name.charAt(0)}</div>`;
 
                 // Highlight matching CNIC
                 const isMatch = searchInput && person.cnic.toLowerCase().includes(searchInput);
                 const rowStyle = isMatch && index === 0 ? 'background: #1e40af;' : '';
+
+                // Load image with auth headers after rendering
+                if (person.reference_image_path) {
+                    setTimeout(async () => {
+                        const imgElement = document.getElementById(photoId);
+                        if (imgElement) {
+                            const blobUrl = await loadImageWithAuth(`/api/image/${person.cnic}/original`);
+                            if (blobUrl) {
+                                imgElement.src = blobUrl;
+                            }
+                        }
+                    }, 10);
+                }
 
                 return `
                     <tr data-person-id="${person.id}" style="${rowStyle}">
@@ -1305,10 +1384,10 @@
                         <td>${person.cnic}</td>
                         <td>${enrolledDate}</td>
                         <td style="white-space: nowrap;">
-                            <button class="btn-secondary" onclick="viewPersonDetails(${person.id})" style="padding: 8px 12px; background: #475569; border-radius: 6px; border: none; color: white; cursor: pointer; font-size: 0.9em; margin-right: 8px;">
+                            <button class="btn-secondary" onclick="viewPersonDetails(${person.id})" style="margin-right: 5px;">
                                 👁️ View
                             </button>
-                            <button class="btn-danger" onclick="confirmRemovePerson(${person.id}, '${person.name}')" style="padding: 8px 12px; background: #860505; border-radius: 6px; border: none; color: white; cursor: pointer; font-size: 0.9em;">
+                            <button class="btn-danger" onclick="confirmRemovePerson(${person.id}, '${person.name}')">
                                 🗑️ Remove
                             </button>
                         </td>
@@ -1796,23 +1875,6 @@
         // Wrapper function for viewing person details from the View button
         function viewPersonDetails(personId) {
             showPersonDetails(personId);
-        }
-
-        // Make person rows in search results clickable
-        function makePersonRowsClickable() {
-            const personRows = document.querySelectorAll('#enrolledPersonsTable tbody tr');
-            personRows.forEach(row => {
-                row.style.cursor = 'pointer';
-                row.addEventListener('click', function(e) {
-                    // Don't trigger if clicking remove button
-                    if (!e.target.classList.contains('btn-danger')) {
-                        const personId = this.dataset.personId;
-                        if (personId) {
-                            showPersonDetails(personId);
-                        }
-                    }
-                });
-            });
         }
 
     </script>

@@ -3,7 +3,9 @@ API routes for alert management.
 """
 
 import logging
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -15,7 +17,8 @@ from app.models.schemas import (
     AlertAcknowledgeRequest,
     SystemStatus,
 )
-from app.models.database import Alert, Person
+from app.models.database import Alert, Person, User
+from app.api.routes.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -277,4 +280,53 @@ async def update_alert_config(config: dict):
 
     except Exception as e:
         logger.error(f"Failed to update alert config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/snapshot/{alert_id}")
+async def get_alert_snapshot(
+    alert_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Serve alert snapshot image with authentication.
+
+    Args:
+        alert_id: The alert ID
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        FileResponse with the snapshot image
+    """
+    try:
+        # Get alert from database
+        alert = db.query(Alert).filter(Alert.id == alert_id).first()
+
+        if not alert:
+            raise HTTPException(status_code=404, detail="Alert not found")
+
+        if not alert.snapshot_path:
+            raise HTTPException(status_code=404, detail="No snapshot available for this alert")
+
+        # Check if file exists
+        if not os.path.exists(alert.snapshot_path):
+            logger.error(f"Snapshot file not found: {alert.snapshot_path}")
+            raise HTTPException(status_code=404, detail="Snapshot file not found")
+
+        # Return the image file
+        return FileResponse(
+            alert.snapshot_path,
+            media_type="image/jpeg",
+            headers={
+                "Cache-Control": "max-age=3600",  # Cache for 1 hour
+                "Content-Disposition": f'inline; filename="alert_{alert_id}_snapshot.jpg"'
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error serving snapshot for alert {alert_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

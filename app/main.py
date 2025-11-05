@@ -102,6 +102,13 @@ async def admin_panel():
     return FileResponse(html_path)
 
 
+@app.get("/alerts")
+async def alerts_management():
+    """Serve alert management page"""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "alerts.html")
+    return FileResponse(html_path)
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""

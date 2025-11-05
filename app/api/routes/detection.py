@@ -155,7 +155,7 @@ async def detect_faces_from_camera():
         Detection results
     """
     try:
-        camera = CameraHandler(use_main_stream=True)  # Use main stream for high quality
+        camera = CameraHandler(use_main_stream=False)  # Use sub-stream as requested
 
         if not camera.connect():
             return CameraFrameResponse(

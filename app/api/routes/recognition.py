@@ -69,7 +69,7 @@ def get_camera() -> CameraHandler:
     global camera_handler
     if camera_handler is None:
         logger.info("Initializing camera handler (singleton)...")
-        camera_handler = CameraHandler(use_main_stream=True)  # Use main stream for high quality
+        camera_handler = CameraHandler(use_main_stream=False)  # Use sub-stream as requested
         if not camera_handler.connect():
             logger.error("Failed to connect to camera on startup")
             camera_handler = None
@@ -465,7 +465,7 @@ async def recognize_from_camera(db: Session = Depends(get_db)):
     """
     try:
         # Capture from camera
-        camera = CameraHandler(use_main_stream=True)
+        camera = CameraHandler(use_main_stream=False)  # Use sub-stream as requested
 
         if not camera.connect():
             raise HTTPException(status_code=503, detail="Failed to connect to camera")
@@ -889,7 +889,7 @@ async def enroll_from_camera(
 
         recognizer = get_recognizer()
         augmentor = FaceAugmentation()
-        camera = CameraHandler(use_main_stream=True)
+        camera = CameraHandler(use_main_stream=False)  # Use sub-stream as requested
 
         if not camera.connect():
             raise HTTPException(status_code=503, detail="Failed to connect to camera")
@@ -1237,7 +1237,7 @@ def generate_video_stream(db: Session):
                                 cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
                                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-                    # Encode and yield with optimized quality for smooth streaming
+                    # Encode and yield with balanced quality for smooth streaming
                     _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                     yield (b'--frame\r\n'
                            b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
@@ -1320,8 +1320,8 @@ def generate_video_stream(db: Session):
                     last_recognitions = {}
                     last_detections = []
 
-                # Encode frame to JPEG with balanced quality (75 = good quality + good speed)
-                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                # Encode frame to JPEG with balanced quality for smooth streaming
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
 
                 # Yield frame in MJPEG format
                 yield (b'--frame\r\n'
@@ -1383,8 +1383,8 @@ async def preview_stream():
                     time.sleep(0.1)
                     continue
 
-                # Encode frame as JPEG with balanced quality for faster streaming
-                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                # Encode frame as JPEG with balanced quality for smooth preview
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 frame_bytes = buffer.tobytes()
 
                 # Yield frame in MJPEG format
