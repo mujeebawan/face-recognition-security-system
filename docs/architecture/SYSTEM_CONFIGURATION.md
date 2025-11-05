@@ -1,40 +1,41 @@
 # System Configuration & Current State
 
-**Last Updated:** 2025-11-03
-**Version:** Phase 5.4 (Stable Diffusion Img2Img + ControlNet Ready)
+**Last Updated:** November 5, 2025
+**Version:** 0.7.0 (70% Complete - Production Core Features)
 
 ---
 
 ## 📋 Current System Specifications
 
 ### Hardware Platform
-- **Device:** NVIDIA Jetson AGX Orin
+- **Device:** NVIDIA Jetson AGX Orin (64GB)
 - **Architecture:** aarch64 (ARM64)
-- **JetPack Version:** 6.2 (L4T R36.4.7)
+- **JetPack Version:** 6.1 (L4T R36.4.0)
 - **Linux Kernel:** 5.15.148-tegra
 - **Python:** 3.10.12
 
 ### GPU & CUDA Stack
 ```
-CUDA Version: 12.6 (Release 12.6.68)
-cuDNN: 9.3.0
+CUDA Version: 12.6
+cuDNN: 9.x
 CUDA Compute: Enabled
 TensorRT: Enabled
 ```
 
-### ML Framework Versions
+### ML Framework Versions (ACTUAL)
 ```
 PyTorch: 2.8.0 (CUDA 12.6)
-torchvision: 0.23.0
-ONNX Runtime GPU: 1.20.0 (CUDAExecutionProvider + TensorRT)
-Diffusers: 0.25.0
-Transformers: 4.36.2
+ONNX Runtime GPU: 1.20.0 (TensorRT EP + CUDA EP)
+OpenCV: 4.10.0
+InsightFace: Latest (buffalo_l models)
 ```
 
 ### Computer Vision
 ```
-OpenCV: 4.9.0.80 (with contrib modules)
-facenet-pytorch: 2.5.3
+OpenCV: 4.10.0 (CUDA-enabled)
+InsightFace: buffalo_l model pack
+Face Detection: SCRFD (det_10g.onnx)
+Face Recognition: ArcFace (w600k_r50.onnx)
 ```
 
 ---
@@ -42,13 +43,9 @@ facenet-pytorch: 2.5.3
 ## 🔑 Critical Configuration
 
 ### ONNX Runtime GPU Setup
-**❗ IMPORTANT:** The system requires GPU-enabled ONNX Runtime for face detection/recognition.
-
 **Current Installation:**
 ```bash
 Package: onnxruntime-gpu 1.20.0
-Wheel: onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
-Source: https://github.com/ultralytics/assets/releases/download/v0.0.0/
 Providers: ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider']
 ```
 
@@ -59,91 +56,64 @@ print(ort.get_available_providers())
 # MUST show: ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider']
 ```
 
-**Re-installation (if needed):**
-```bash
-# Remove any existing installation
-pip3 uninstall onnxruntime onnxruntime-gpu -y
-
-# Install GPU-enabled wheel
-wget https://github.com/ultralytics/assets/releases/download/v0.0.0/onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
-pip3 install onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
-
-# Verify
-python3 -c "import onnxruntime as ort; print(ort.get_available_providers())"
-```
-
 ### Environment Variables
 ```bash
-# CUDA Library Paths (required for PyTorch, ONNX Runtime, Stable Diffusion)
-export LD_LIBRARY_PATH=$HOME/.local/lib:/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
+# CUDA Library Paths
+export LD_LIBRARY_PATH=$HOME/.local/lib:/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/tegra:$LD_LIBRARY_PATH
 
-# Threading Configuration (prevents OpenBLAS/OpenMP conflicts)
+# Threading Configuration (prevents conflicts)
 export OMP_NUM_THREADS=4
-export OPENBLAS_NUM_THREADS=4
-export MKL_NUM_THREADS=4
 export OMP_WAIT_POLICY=PASSIVE
 ```
 
-These are configured in `start_server.sh` and applied automatically.
-
 ---
 
-## 🤖 AI Models & Inference
+## 🤖 AI Models & Inference (ACTUALLY IMPLEMENTED)
 
 ### Face Detection (SCRFD)
 ```
-Model: det_10g.onnx
-Location: models/det_10g.onnx
+Model: det_10g.onnx (SCRFD)
+Location: ~/.insightface/models/buffalo_l/
 Input Size: 640x640
 Precision: FP16 (TensorRT optimized)
 Execution: CUDAExecutionProvider
-Performance: 15-25ms per frame
+Performance: ~30-50ms per frame
 ```
 
 ### Face Recognition (ArcFace)
 ```
-Model: w600k_r50.onnx
-Location: models/w600k_r50.onnx
+Model: w600k_r50.onnx (ArcFace)
+Location: ~/.insightface/models/buffalo_l/
 Embedding Size: 512-D
-Precision: FP16
-Execution: CUDAExecutionProvider
-Performance: 10-20ms per face
+Precision: FP32 (CPU)
+Execution: CPUExecutionProvider
+Performance: ~200-300ms per face
+Matching Threshold: 0.35 (configurable)
 ```
 
-### Generative Augmentation (Stable Diffusion)
-```
-Model: runwayml/stable-diffusion-v1-5
-Mode: Img2Img Pipeline (identity-preserving)
-Cache: ~/.cache/huggingface/
-Precision: FP16
-Memory: ~6-8GB VRAM
-Performance: 1.5-3s per 512x512 image
-Optimizations: Attention slicing enabled
-```
-
-**Current Status:** ✅ Img2Img mode enabled (Phase 5.4)
-**Upcoming:** 🚧 ControlNet integration for precise pose control
+**Note:** Recognition runs on CPU - TensorRT optimization planned for future
 
 ---
 
-## 📊 Performance Metrics
+## 📊 Performance Metrics (ACTUAL)
 
 ### Real-Time Processing
 - **Frame Rate:** 15-20 FPS (live RTSP stream)
-- **Latency:** <100ms end-to-end
-- **Max Faces:** 10 concurrent faces per frame
-- **Recognition Speed:** <50ms per face
+- **Detection Time:** ~30-50ms per frame (SCRFD + TensorRT)
+- **Recognition Time:** ~200-300ms per face (ArcFace on CPU)
+- **GPU Utilization:** 40-60% during active detection
+- **Max Faces:** Up to 10 faces per frame
+- **End-to-End Latency:** <500ms
 
-### Enrollment Processing
-- **Single Image:** <1s (original embedding only)
-- **With AI Augmentation:** 10-15s (5 angle variations via SD)
-- **Multi-Image Manual:** ~2-3s (5 manual captures)
+### Recognition Accuracy
+- **Single Image Enrollment:** ~90-95%
+- **Multi-Image Enrollment:** ~95-98%
+- **Recognition Threshold:** 0.35 (cosine similarity)
 
 ### Memory Usage
-- **Idle:** ~3GB
-- **Processing:** ~4-5GB
-- **With SD Loaded:** ~10-12GB
-- **Peak:** ~14GB (SD generation active)
+- **Idle:** ~2-3GB
+- **Processing (Live Stream):** ~4-5GB
+- **Peak:** ~6GB
 
 ---
 
@@ -152,30 +122,28 @@ Optimizations: Attention slicing enabled
 ### Database
 ```
 Type: SQLite
-Location: data/face_recognition.db
+Location: ./face_recognition.db
+Size: ~2-5MB (grows with enrollments)
+
 Tables:
   - persons (enrollment data)
   - face_embeddings (512-D vectors)
   - recognition_logs (audit trail)
   - alerts (security events)
   - system_configuration (runtime config)
+  - users (JWT authentication)
 ```
 
-### Images
+### Images & Snapshots
 ```
-Directory: data/images/
+Directories:
+  - data/images/         - Enrolled person photos
+  - data/alert_snapshots/ - Alert snapshots
+
 Format: JPEG
 Naming:
-  - Original: {cnic}_{filename}.jpg
-  - SD Generated: {cnic}_sd_gen_{n}.jpg
-  - Camera Captured: {cnic}_camera_{angle}_{timestamp}.jpg
-```
-
-### Logs
-```
-Server Log: server.log
-Format: Text (timestamped)
-Rotation: Manual
+  - Person photos: {cnic}_{uuid}.jpg
+  - Alert snapshots: alert_{id}_{timestamp}.jpg
 ```
 
 ---
@@ -184,12 +152,14 @@ Rotation: Manual
 
 ### Camera Source (RTSP)
 ```
-Main Stream (Channel 101): rtsp://admin:password@192.168.0.107:554/Streaming/Channels/101
-Sub Stream (Channel 102):  rtsp://admin:password@192.168.0.107:554/Streaming/Channels/102
+**CURRENT CAMERA IP: 192.168.1.64**
 
-Current Use: Sub-stream (102) for better performance
-Resolution: 640x480 (auto-negotiated)
-Frame Buffer: 2 frames (configurable)
+Main Stream (Channel 101):  rtsp://admin:password@192.168.1.64:554/Streaming/Channels/101
+Sub Stream (Channel 102):   rtsp://admin:password@192.168.1.64:554/Streaming/Channels/102
+
+Current Use: Main stream (101) - high quality
+Resolution: Auto-negotiated by camera
+Frame Buffer: Default OpenCV buffer
 ```
 
 ### API Server
@@ -199,68 +169,105 @@ Port: 8000
 Protocol: HTTP (uvicorn ASGI)
 Workers: 1 (single-threaded for GPU)
 
-Endpoints:
-  - Admin Panel: /admin
-  - Live Stream: /live
-  - Dashboard: /dashboard
-  - API Docs: /docs
-  - Camera Snapshot: /api/camera/snapshot
-  - Recognition: /api/recognize
-  - Enrollment: /api/enroll
+Web Pages:
+  - Dashboard: http://192.168.0.117:8000/dashboard
+  - Admin Panel: http://192.168.0.117:8000/admin
+  - Alerts: http://192.168.0.117:8000/alerts
+  - Reports: http://192.168.0.117:8000/reports
+  - Live Stream: http://192.168.0.117:8000/live
+  - API Docs: http://192.168.0.117:8000/docs
+
+API Endpoints:
+  - Authentication: /api/auth/*
+  - Persons: /api/persons/*
+  - Recognition: /api/recognize/*
+  - Alerts: /api/alerts/*
+  - Analytics: /api/analytics/*
+  - Detection: /api/detect/*
+  - WebSocket: /ws/alerts
 ```
 
-### Access URLs
+### Authentication
 ```
-Local: http://localhost:8000
-Network: http://192.168.0.117:8000
+Method: JWT (JSON Web Tokens)
+Default User: admin / admin123
+Token Expiry: 7 days
+Role-Based Access: Admin, Operator, Viewer
 ```
 
 ---
 
-## 🔧 Feature Status
+## 🔧 Feature Status (ACTUAL CURRENT STATE)
 
-### ✅ Completed (Production Ready)
-- [x] Real-time face detection (SCRFD)
-- [x] Face recognition with ArcFace embeddings
+### ✅ Completed & Production-Ready
+- [x] Real-time face detection (SCRFD + TensorRT FP16)
+- [x] Face recognition (ArcFace 512-D embeddings)
 - [x] Person enrollment (single/multiple images)
-- [x] Live RTSP camera integration
-- [x] Web admin panel
-- [x] Alert system for unknown persons
+- [x] Live RTSP camera integration (Hikvision)
+- [x] JWT authentication & user management
+- [x] Web admin panel (person management)
+- [x] Dashboard (real-time stats, live preview)
+- [x] Alert management page (filtering, export, acknowledge)
+- [x] Reports & analytics page (Chart.js visualizations)
+- [x] Live stream viewer (full-screen with recognition)
+- [x] Alert system (known/unknown persons, 60s cooldown)
 - [x] Recognition audit logging
-- [x] Camera snapshot capture
-- [x] Multi-angle enrollment workflow
-- [x] Person details with case history
-- [x] Stable Diffusion img2img augmentation
+- [x] Alert snapshots with authenticated serving
+- [x] WebSocket real-time notifications
+- [x] RESTful API (FastAPI with OpenAPI docs)
+- [x] Analytics API (time-series, distributions, person stats)
 - [x] Database persistence (SQLite)
-- [x] GPU acceleration (CUDA + TensorRT)
+- [x] GPU acceleration (CUDA + TensorRT for detection)
 
-### 🚧 In Progress
-- [ ] ControlNet integration for precise pose control
-- [ ] Identity-preserving face angle generation
-
-### 📋 Planned
+### 🚧 Next Up (Planned - NOT YET IMPLEMENTED)
+- [ ] System Settings Page (web UI for configuration)
+- [ ] SD Card Portability System
+- [ ] Enhanced Enrollment Workflow
+- [ ] AI Data Augmentation (Stable Diffusion - Future)
+- [ ] ControlNet Integration (Future)
 - [ ] Multi-camera support
 - [ ] PostgreSQL migration option
-- [ ] Advanced analytics dashboard
-- [ ] Face tracking across frames
-- [ ] Age/gender estimation
-- [ ] Mask detection
-- [ ] Mobile app integration
+- [ ] TensorRT optimization for ArcFace recognition
 
 ---
 
-## 🔐 Security & Privacy
+## 📁 Project Structure
 
-### Data Protection
-- All face embeddings stored encrypted
-- Images stored locally (no cloud upload)
-- HTTPS support (configurable)
-- Role-based access control (planned)
+```
+face-recognition-security-system/
+├── app/
+│   ├── api/
+│   │   └── routes/      - API endpoints
+│   ├── core/            - Core logic (detector, recognizer, alerts, auth)
+│   ├── models/          - Database models & schemas
+│   ├── static/          - Web interface HTML files
+│   ├── config.py        - Configuration
+│   └── main.py          - FastAPI application
+├── data/
+│   ├── images/          - Person photos
+│   └── alert_snapshots/ - Alert snapshots
+├── docs/                - Documentation
+├── nrtc_faceai/         - Proprietary library
+├── face_recognition.db  - SQLite database
+├── requirements.txt     - Python dependencies
+└── .env                 - Environment variables
+```
 
-### Compliance
-- GDPR-ready data deletion
-- Audit logging for all operations
-- Retention policy support
+---
+
+## 🐛 Known Issues & Workarounds
+
+### 1. Recognition Runs on CPU
+**Status:** Known Limitation
+**Impact:** ~200-300ms per face (vs <50ms with GPU)
+**Workaround:** Recognition throttled to every 5th frame for live stream
+**Future:** TensorRT optimization planned
+
+### 2. Single Camera Stream Limitation
+**Status:** Known Limitation (RTSP)
+**Impact:** Only one viewer can access live stream at a time
+**Workaround:** Considering frame buffer for multiple viewers
+**Future:** Multi-camera support planned
 
 ---
 
@@ -268,102 +275,74 @@ Network: http://192.168.0.117:8000
 
 ### Important Files
 ```
-start_server.sh       - Server startup script (with env vars)
-stop_server.sh        - Server shutdown script
+.env                  - Environment variables (camera IP, settings)
 app/config.py         - Application configuration
 app/main.py           - FastAPI application entry
 requirements.txt      - Python dependencies
-.env                  - Environment variables (optional)
 ```
 
 ### Model Paths
 ```
-models/det_10g.onnx   - SCRFD face detector
-models/w600k_r50.onnx - ArcFace recognizer
-~/.cache/huggingface/ - Stable Diffusion models
+~/.insightface/models/buffalo_l/
+├── det_10g.onnx      - SCRFD face detector
+├── w600k_r50.onnx    - ArcFace recognizer
+├── 1k3d68.onnx       - 3D landmarks
+├── 2d106det.onnx     - 2D landmarks
+└── genderage.onnx    - Gender/age estimation
 ```
-
----
-
-## 🐛 Known Issues & Workarounds
-
-### Issue 1: Stream Latency
-**Status:** ✅ Resolved
-**Solution:** Use sub-stream (channel 102) instead of main stream
-
-### Issue 2: Camera Snapshot Cache
-**Status:** ✅ Resolved
-**Solution:** Cache-busting with timestamps + buffer flushing
-
-### Issue 3: SD Generated Faces Don't Match Person
-**Status:** ✅ Resolved (Phase 5.4)
-**Solution:** Switched from text-to-image to img2img pipeline
-
-### Issue 4: OpenBLAS Threading Hang
-**Status:** ✅ Resolved
-**Solution:** Set OMP_NUM_THREADS=4 and OMP_WAIT_POLICY=PASSIVE
-
----
-
-## 📚 Documentation
-
-- **[JETSON_SETUP.md](JETSON_SETUP.md)** - Complete Jetson setup guide
-- **[QUICK_START.md](../QUICK_START.md)** - Quick start commands
-- **[README.md](../README.md)** - Project overview
-- **[API Documentation](http://localhost:8000/docs)** - Interactive API docs (when server running)
 
 ---
 
 ## 🔄 Recent Changes
 
-### Phase 5.4 (2025-11-03)
-- ✅ Fixed original image display in person details
-- ✅ Switched Stable Diffusion to img2img mode for identity preservation
-- ✅ Added case history/alerts to person details modal
-- ✅ Added comprehensive Jetson setup documentation
+### Version 0.7.0 (2025-11-05)
+- ✅ Added Reports & Analytics Dashboard with Chart.js
+- ✅ Added Analytics API (5 endpoints)
+- ✅ Updated navigation across all pages
+- ✅ Documentation reorganization
 
-### Phase 5.3
-- Added Stable Diffusion augmentation to enrollment API
-- Implemented UI controls for SD generation
+### Version 0.6.0 (2025-11-04)
+- ✅ Added Alert Management Page
+- ✅ Fixed snapshot authentication
+- ✅ Added bulk operations for alerts
 
-### Phase 5.2
-- Initial Stable Diffusion face augmentation module
-- FP16 optimization for Jetson
+### Version 0.5.0 (2025-10-29)
+- ✅ JWT authentication system
+- ✅ User management
+- ✅ Protected API endpoints
 
 ---
 
 ## ⚠️ Important Notes
 
-1. **Always use GPU-enabled ONNX Runtime** - CPU version is 10-20x slower
-2. **Check CUDA providers** after any pip install that touches onnxruntime
-3. **Set environment variables** before running server (done in start_server.sh)
-4. **Monitor GPU memory** during SD generation (can use 10-14GB)
-5. **Backup database** before major updates
+1. **Always verify ONNX Runtime GPU** after pip install
+2. **Set environment variables** before running (LD_LIBRARY_PATH, OMP settings)
+3. **Monitor GPU memory** during live streaming
+4. **Backup database** before major updates
+5. **Camera IP** is configured in .env file (currently 192.168.1.64)
 
 ---
 
 ## 🆘 Quick Recovery
 
-If system breaks after updates:
+If system breaks:
 
 ```bash
-# 1. Stop server
-./stop_server.sh
-
-# 2. Verify ONNX Runtime GPU
+# 1. Verify ONNX Runtime GPU providers
 python3 -c "import onnxruntime as ort; print(ort.get_available_providers())"
 
-# 3. Reinstall if needed (see JETSON_SETUP.md)
-
-# 4. Verify CUDA
+# 2. Verify CUDA
 python3 -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
 
-# 5. Restart server
-./start_server.sh
+# 3. Check camera connectivity
+ffprobe rtsp://admin:password@192.168.1.64:554/Streaming/Channels/101
+
+# 4. Restart server
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Full recovery guide: See [JETSON_SETUP.md](JETSON_SETUP.md)
+Full setup guide: See **[docs/deployment/JETSON_SETUP.md](../deployment/JETSON_SETUP.md)**
 
 ---
 
-**For detailed installation instructions, see [JETSON_SETUP.md](JETSON_SETUP.md)**
+**This file reflects ACTUAL CURRENT STATE only - no future features listed as "completed"**
