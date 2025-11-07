@@ -816,6 +816,13 @@
     </div>
 
     <script>
+        // Format timestamp for Pakistan time (already stored in local time)
+        function formatTime(timestamp) {
+            if (!timestamp) return 'N/A';
+            // Remove 'T', microseconds, and timezone info - display as-is
+            return timestamp.replace('T', ' ').split('.')[0];
+        }
+
         let allAlerts = [];
         let filteredAlerts = [];
 
@@ -948,7 +955,7 @@
 
             container.innerHTML = filteredAlerts.map(alert => {
                 const isKnown = alert.event_type === 'known_person';
-                const time = new Date(alert.timestamp).toLocaleString();
+                const time = formatTime(alert.timestamp);
                 const isAcknowledged = alert.acknowledged;
                 const isGuardVerified = alert.guard_verified;
                 const threatLevel = alert.threat_level || 'none';
@@ -1182,7 +1189,7 @@
             if (!alert) return;
 
             const isKnown = alert.event_type === 'known_person';
-            const time = new Date(alert.timestamp).toLocaleString();
+            const time = formatTime(alert.timestamp);
 
             // Prepare image comparison HTML if available
             let snapshotHTML = '';
@@ -1268,7 +1275,7 @@
                     <h4 style="margin: 0 0 10px 0; color: #10b981;">🛡️ Guard Verification</h4>
                     <p style="margin: 5px 0;"><strong>Action:</strong> ${actionLabels[alert.guard_action] || alert.guard_action}</p>
                     <p style="margin: 5px 0;"><strong>Verified By:</strong> ${alert.guard_verified_by || 'Unknown'}</p>
-                    <p style="margin: 5px 0;"><strong>Verified At:</strong> ${alert.guard_verified_at ? new Date(alert.guard_verified_at).toLocaleString() : 'N/A'}</p>
+                    <p style="margin: 5px 0;"><strong>Verified At:</strong> ${formatTime(alert.guard_verified_at)}</p>
                     ${alert.action_notes ? `<p style="margin: 10px 0 0 0;"><strong>Notes:</strong><br><span style="color: #cbd5e1;">${alert.action_notes}</span></p>` : ''}
                 </div>
                 `;
@@ -1301,7 +1308,7 @@
                 <div style="background: #1e293b; padding: 15px; border-radius: 8px;">
                     <h4 style="margin: 0 0 10px 0; color: #10b981;">✓ Acknowledgment</h4>
                     <p style="margin: 5px 0;"><strong>By:</strong> ${alert.acknowledged_by || 'Unknown'}</p>
-                    <p style="margin: 5px 0;"><strong>At:</strong> ${alert.acknowledged_at ? new Date(alert.acknowledged_at).toLocaleString() : 'N/A'}</p>
+                    <p style="margin: 5px 0;"><strong>At:</strong> ${formatTime(alert.acknowledged_at)}</p>
                     ${alert.notes ? `<p style="margin: 10px 0 0 0;"><strong>Notes:</strong><br><span style="color: #cbd5e1;">${alert.notes}</span></p>` : ''}
                 </div>
                 ` : ''}

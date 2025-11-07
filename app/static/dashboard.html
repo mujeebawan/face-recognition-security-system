@@ -377,11 +377,86 @@
         </div>
     </div>
 
+    <!-- Quick Action Alert Popup -->
+    <div id="alertPopup" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; align-items: center; justify-content: center;">
+        <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto; border-radius: 12px; border: 3px solid #cc9933; box-shadow: 0 0 50px rgba(204,153,51,0.5);">
+            <!-- Popup Header -->
+            <div id="popupHeader" style="background: linear-gradient(90deg, #dc2626 0%, #7f1d1d 100%); padding: 20px; border-bottom: 3px solid #cc9933;">
+                <h2 style="margin: 0; color: #fff; font-size: 1.8em; display: flex; align-items: center; gap: 15px;">
+                    <span id="popupIcon">🚨</span>
+                    <span id="popupTitle">ALERT: Person Detected</span>
+                </h2>
+                <p style="margin: 10px 0 0 0; color: #fbbf24; font-size: 1.1em;" id="popupSubtitle">Watchlist Match</p>
+            </div>
+
+            <!-- Popup Body -->
+            <div style="padding: 25px;">
+                <!-- Threat Info -->
+                <div id="threatInfo" style="background: linear-gradient(135deg, #2d1515 0%, #1e293b 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <p style="margin: 0; color: #94a3b8; font-size: 0.9em;">Person Name</p>
+                            <p id="popupPersonName" style="margin: 5px 0 0 0; color: #e2e8f0; font-size: 1.2em; font-weight: 600;">Unknown</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0; color: #94a3b8; font-size: 0.9em;">Threat Level</p>
+                            <p id="popupThreatLevel" style="margin: 5px 0 0 0; font-size: 1.2em; font-weight: 700;">🔴 CRITICAL</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0; color: #94a3b8; font-size: 0.9em;">Watchlist Status</p>
+                            <p id="popupWatchlistStatus" style="margin: 5px 0 0 0; color: #fbbf24; font-size: 1.1em; font-weight: 600;">Most Wanted</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0; color: #94a3b8; font-size: 0.9em;">Confidence</p>
+                            <p id="popupConfidence" style="margin: 5px 0 0 0; color: #10b981; font-size: 1.1em; font-weight: 600;">95%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Buttons -->
+                <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="margin: 0 0 15px 0; color: #fbbf24; font-size: 1.2em;">⚡ Quick Action - Take Immediate Decision:</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <button onclick="takeQuickAction('confirmed')" style="background: #10b981; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                            ✅ CONFIRM MATCH<br><span style="font-size: 0.85em; font-weight: 400; opacity: 0.9;">Person verified</span>
+                        </button>
+                        <button onclick="takeQuickAction('false_alarm')" style="background: #64748b; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748b'">
+                            ❌ FALSE ALARM<br><span style="font-size: 0.85em; font-weight: 400; opacity: 0.9;">Wrong person</span>
+                        </button>
+                        <button onclick="takeQuickAction('apprehended')" style="background: #10b981; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                            🚔 APPREHENDED<br><span style="font-size: 0.85em; font-weight: 400; opacity: 0.9;">Person detained</span>
+                        </button>
+                        <button onclick="takeQuickAction('escalated')" style="background: #dc2626; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='#991b1b'" onmouseout="this.style.background='#dc2626'">
+                            ⚠️ ESCALATE<br><span style="font-size: 0.85em; font-weight: 400; opacity: 0.9;">Need backup</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Close Button -->
+                <div style="text-align: center;">
+                    <button onclick="closeAlertPopup()" style="background: #475569; color: white; padding: 12px 40px; border: none; border-radius: 6px; font-size: 1em; font-weight: 600; cursor: pointer;">
+                        Close (Decide Later)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Format timestamp for Pakistan time (already stored in local time)
+        function formatTime(timestamp) {
+            if (!timestamp) return 'N/A';
+            // Remove 'T', microseconds, and timezone info - display as-is
+            const cleaned = timestamp.replace('T', ' ').split('.')[0];
+            // Extract just time part (HH:MM:SS)
+            return cleaned.split(' ')[1] || cleaned;
+        }
+
         // WebSocket connection
         let ws = null;
         let alerts = [];
         let reconnectInterval = null;
+        let currentAlertPopup = null; // Track current popup alert
 
         // Get WebSocket URL
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -459,8 +534,152 @@
 
             console.log(`✅ Alert displayed. Total alerts: ${alerts.length}`);
 
-            // Play sound (optional)
-            // new Audio('/static/alert.mp3').play();
+            // Show popup and play sound for watchlist persons
+            const threatLevel = alertData.threat_level || 'none';
+            const isWatchlist = threatLevel !== 'none' && threatLevel !== null;
+
+            if (alertData.event_type === 'known_person' && isWatchlist) {
+                console.log('⚠️ WATCHLIST PERSON DETECTED - Showing popup');
+                showAlertPopup(alertData);
+
+                // Play audio alert for critical/high threats
+                if (threatLevel === 'critical' || threatLevel === 'high') {
+                    playAlertSound(threatLevel);
+                }
+            }
+        }
+
+        // Play alert sound based on threat level
+        function playAlertSound(threatLevel) {
+            try {
+                // Create simple beep sound using Web Audio API
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // Critical: 3 quick high-pitched beeps
+                if (threatLevel === 'critical') {
+                    oscillator.frequency.value = 1000; // High pitch
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+
+                    for (let i = 0; i < 3; i++) {
+                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + i * 0.3);
+                        gainNode.gain.setValueAtTime(0, audioContext.currentTime + i * 0.3 + 0.1);
+                    }
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 1);
+                }
+                // High: 2 medium beeps
+                else if (threatLevel === 'high') {
+                    oscillator.frequency.value = 800;
+                    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+
+                    for (let i = 0; i < 2; i++) {
+                        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime + i * 0.4);
+                        gainNode.gain.setValueAtTime(0, audioContext.currentTime + i * 0.4 + 0.15);
+                    }
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.8);
+                }
+            } catch (e) {
+                console.log('Audio alert failed:', e);
+            }
+        }
+
+        // Show alert popup
+        function showAlertPopup(alertData) {
+            currentAlertPopup = alertData;
+
+            // Update popup content
+            const threatLabels = {
+                'critical': '🔴 CRITICAL',
+                'high': '🟠 HIGH',
+                'medium': '🟡 MEDIUM',
+                'low': '🔵 LOW',
+                'none': '⚪ None'
+            };
+
+            const watchlistLabels = {
+                'most_wanted': '🔴 MOST WANTED',
+                'suspect': '🟠 SUSPECT',
+                'person_of_interest': '🟡 PERSON OF INTEREST',
+                'banned': '🟣 BANNED FROM PREMISES',
+                'none': 'None'
+            };
+
+            // Update header color based on threat level
+            const headerColors = {
+                'critical': 'linear-gradient(90deg, #dc2626 0%, #7f1d1d 100%)',
+                'high': 'linear-gradient(90deg, #ea580c 0%, #9a3412 100%)',
+                'medium': 'linear-gradient(90deg, #f59e0b 0%, #b45309 100%)',
+                'low': 'linear-gradient(90deg, #3b82f6 0%, #1e40af 100%)'
+            };
+
+            document.getElementById('popupHeader').style.background =
+                headerColors[alertData.threat_level] || headerColors['critical'];
+
+            document.getElementById('popupPersonName').textContent = alertData.person_name || 'Unknown';
+            document.getElementById('popupThreatLevel').textContent =
+                threatLabels[alertData.threat_level] || 'Unknown';
+            document.getElementById('popupWatchlistStatus').textContent =
+                watchlistLabels[alertData.watchlist_status] || 'None';
+            document.getElementById('popupConfidence').textContent =
+                alertData.confidence ? `${(alertData.confidence * 100).toFixed(1)}%` : 'N/A';
+
+            // Show popup
+            const popup = document.getElementById('alertPopup');
+            popup.style.display = 'flex';
+        }
+
+        // Close alert popup
+        function closeAlertPopup() {
+            document.getElementById('alertPopup').style.display = 'none';
+            currentAlertPopup = null;
+        }
+
+        // Take quick action
+        async function takeQuickAction(action) {
+            if (!currentAlertPopup) {
+                alert('No alert selected');
+                return;
+            }
+
+            const alertId = currentAlertPopup.id;
+            const userName = 'Guard'; // You can get this from auth if needed
+
+            console.log(`Taking action "${action}" for alert ${alertId}`);
+
+            try {
+                const response = await fetch(`/api/alerts/${alertId}/verify?guard_action=${action}&guard_username=${encodeURIComponent(userName)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Show success message
+                    const actionLabels = {
+                        'confirmed': 'CONFIRMED',
+                        'false_alarm': 'MARKED AS FALSE ALARM',
+                        'apprehended': 'MARKED AS APPREHENDED',
+                        'escalated': 'ESCALATED TO SUPERVISOR'
+                    };
+
+                    alert(`✅ ${actionLabels[action] || 'ACTION RECORDED'}\n\nAlert ${alertId} has been processed.`);
+                    closeAlertPopup();
+                } else {
+                    alert(`❌ Failed: ${data.detail || data.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`❌ Network error: ${error.message}`);
+            }
         }
 
         // Update alerts display
@@ -474,7 +693,7 @@
 
             container.innerHTML = alerts.map(alert => {
                 const isKnown = alert.event_type === 'known_person';
-                const time = new Date(alert.timestamp).toLocaleTimeString();
+                const time = formatTime(alert.timestamp);
 
                 return `
                     <div class="alert-item ${isKnown ? 'known' : ''}">
