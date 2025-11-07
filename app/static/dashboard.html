@@ -570,10 +570,11 @@
                 console.log('⚠️ WATCHLIST PERSON DETECTED - Showing popup');
                 showAlertPopup(alertData);
 
-                // Play audio alert for critical/high threats
-                if (threatLevel === 'critical' || threatLevel === 'high') {
-                    playAlertSound(threatLevel);
-                }
+                // Audio alert disabled for local setup
+                // Uncomment below to enable beep sounds:
+                // if (threatLevel === 'critical' || threatLevel === 'high') {
+                //     playAlertSound(threatLevel);
+                // }
             }
         }
 
