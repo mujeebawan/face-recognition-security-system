@@ -402,15 +402,14 @@ async def update_alert_config(config: dict):
 @router.get("/snapshot/{alert_id}")
 async def get_alert_snapshot(
     alert_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Serve alert snapshot image (captured image) with authentication.
+    Serve alert snapshot image (captured image) for dashboard display.
+    No authentication required for real-time alert viewing.
 
     Args:
         alert_id: The alert ID
-        current_user: Current authenticated user
         db: Database session
 
     Returns:
@@ -453,15 +452,14 @@ async def get_alert_snapshot(
 @router.get("/original-image/{alert_id}")
 async def get_alert_original_image(
     alert_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Serve original enrolled person image for alert comparison with authentication.
+    Serve original enrolled person image for alert comparison on dashboard.
+    No authentication required for real-time alert viewing.
 
     Args:
         alert_id: The alert ID
-        current_user: Current authenticated user
         db: Database session
 
     Returns:

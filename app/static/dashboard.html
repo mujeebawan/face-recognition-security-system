@@ -674,14 +674,28 @@
             if (alertData.id && alertData.snapshot_path) {
                 try {
                     const snapshotUrl = `/api/alerts/snapshot/${alertData.id}`;
-                    const snapshotBlob = await fetch(snapshotUrl).then(r => r.blob());
-                    snapshotImg.src = URL.createObjectURL(snapshotBlob);
-                    snapshotLoading.style.display = 'none';
+                    console.log('Loading snapshot from:', snapshotUrl);
+
+                    // Fetch with auth token if available
+                    const token = localStorage.getItem('auth_token');
+                    const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+                    const response = await fetch(snapshotUrl, { headers });
+                    if (response.ok) {
+                        const snapshotBlob = await response.blob();
+                        snapshotImg.src = URL.createObjectURL(snapshotBlob);
+                        snapshotLoading.style.display = 'none';
+                        console.log('✅ Snapshot loaded');
+                    } else {
+                        console.error('Snapshot fetch failed:', response.status);
+                        snapshotLoading.textContent = 'Failed to load (' + response.status + ')';
+                    }
                 } catch (e) {
                     console.error('Failed to load snapshot:', e);
                     snapshotLoading.textContent = 'Failed to load';
                 }
             } else {
+                console.log('No snapshot available for alert', alertData.id);
                 snapshotLoading.textContent = 'No snapshot available';
             }
 
@@ -689,14 +703,28 @@
             if (alertData.id && alertData.person_id) {
                 try {
                     const originalUrl = `/api/alerts/original-image/${alertData.id}`;
-                    const originalBlob = await fetch(originalUrl).then(r => r.blob());
-                    originalImg.src = URL.createObjectURL(originalBlob);
-                    originalLoading.style.display = 'none';
+                    console.log('Loading original image from:', originalUrl);
+
+                    // Fetch with auth token if available
+                    const token = localStorage.getItem('auth_token');
+                    const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+                    const response = await fetch(originalUrl, { headers });
+                    if (response.ok) {
+                        const originalBlob = await response.blob();
+                        originalImg.src = URL.createObjectURL(originalBlob);
+                        originalLoading.style.display = 'none';
+                        console.log('✅ Original image loaded');
+                    } else {
+                        console.error('Original image fetch failed:', response.status);
+                        originalLoading.textContent = 'Failed to load (' + response.status + ')';
+                    }
                 } catch (e) {
                     console.error('Failed to load original image:', e);
                     originalLoading.textContent = 'Failed to load';
                 }
             } else {
+                console.log('No original image available for alert', alertData.id);
                 originalLoading.textContent = 'No original image';
             }
 
