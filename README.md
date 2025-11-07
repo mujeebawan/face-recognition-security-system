@@ -24,7 +24,7 @@ http://192.168.0.117:8000
 
 ## ✨ Current Features
 
-### 🎯 Core Capabilities
+###  Core Capabilities
 - ✅ **Real-Time Face Detection** - GPU-accelerated SCRFD with TensorRT FP16 optimization (~15-20 FPS)
 - ✅ **Face Recognition** - InsightFace ArcFace with 512-D embeddings
 - ✅ **Multi-Face Processing** - Detect and track up to 10 faces simultaneously
