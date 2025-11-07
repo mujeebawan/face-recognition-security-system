@@ -485,6 +485,7 @@
         let alerts = [];
         let reconnectInterval = null;
         let currentAlertPopup = null; // Track current popup alert
+        let shownAlertIds = new Set(); // Track which alerts we've already shown popup for
 
         // Get WebSocket URL
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -554,6 +555,8 @@
         // Handle incoming alert
         function handleAlert(alertData) {
             console.log('🚨 NEW ALERT RECEIVED:', alertData);
+
+            // Add to alerts list
             alerts.unshift(alertData);  // Add to beginning
             if (alerts.length > 20) alerts.pop();  // Keep only 20 most recent
 
@@ -562,12 +565,15 @@
 
             console.log(`✅ Alert displayed. Total alerts: ${alerts.length}`);
 
-            // Show popup and play sound for watchlist persons
+            // Show popup and play sound for watchlist persons (only if not shown before)
             const threatLevel = alertData.threat_level || 'none';
             const isWatchlist = threatLevel !== 'none' && threatLevel !== null;
+            const alertId = alertData.id;
 
-            if (alertData.event_type === 'known_person' && isWatchlist) {
-                console.log('⚠️ WATCHLIST PERSON DETECTED - Showing popup');
+            // Only show popup if this alert hasn't been shown before
+            if (alertData.event_type === 'known_person' && isWatchlist && !shownAlertIds.has(alertId)) {
+                console.log('⚠️ WATCHLIST PERSON DETECTED - Showing popup for alert', alertId);
+                shownAlertIds.add(alertId); // Mark as shown
                 showAlertPopup(alertData);
 
                 // Audio alert disabled for local setup
@@ -575,6 +581,8 @@
                 // if (threatLevel === 'critical' || threatLevel === 'high') {
                 //     playAlertSound(threatLevel);
                 // }
+            } else if (shownAlertIds.has(alertId)) {
+                console.log('⏭️ Alert', alertId, 'already shown, skipping popup');
             }
         }
 
@@ -830,8 +838,17 @@
 
                 if (data.success && data.alerts.length > 0) {
                     alerts = data.alerts.slice(0, 20);  // Take first 20
+
+                    // Mark all historical alerts as already shown (don't popup on page load)
+                    alerts.forEach(alert => {
+                        if (alert.id) {
+                            shownAlertIds.add(alert.id);
+                        }
+                    });
+
                     updateAlertsDisplay();
                     updateStats();
+                    console.log(`📋 Loaded ${alerts.length} historical alerts (marked as shown)`);
                 }
             } catch (error) {
                 console.error('Failed to load existing alerts:', error);
