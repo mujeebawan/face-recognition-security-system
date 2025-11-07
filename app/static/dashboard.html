@@ -413,6 +413,34 @@
                     </div>
                 </div>
 
+                <!-- Image Comparison -->
+                <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="margin: 0 0 15px 0; color: #a78bfa; text-align: center; font-size: 1.2em;">📸 Compare Photos - Verify Match</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <!-- Original Enrolled Photo -->
+                        <div>
+                            <h4 style="margin: 0 0 10px 0; color: #10b981; text-align: center; font-size: 1em;">✓ Enrolled Photo</h4>
+                            <div style="position: relative; background: #0f172a; border-radius: 8px; overflow: hidden; border: 3px solid #10b981;">
+                                <img id="popupOriginalImg" src="" alt="Loading..." style="width: 100%; height: 300px; object-fit: cover; display: block;">
+                                <div id="popupOriginalLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8;">Loading...</div>
+                            </div>
+                            <p style="margin: 10px 0 0 0; text-align: center; color: #94a3b8; font-size: 0.85em;">Original enrolled image</p>
+                        </div>
+                        <!-- Captured Snapshot -->
+                        <div>
+                            <h4 style="margin: 0 0 10px 0; color: #fbbf24; text-align: center; font-size: 1em;">📷 Captured Now</h4>
+                            <div style="position: relative; background: #0f172a; border-radius: 8px; overflow: hidden; border: 3px solid #fbbf24;">
+                                <img id="popupSnapshotImg" src="" alt="Loading..." style="width: 100%; height: 300px; object-fit: cover; display: block;">
+                                <div id="popupSnapshotLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8;">Loading...</div>
+                            </div>
+                            <p style="margin: 10px 0 0 0; text-align: center; color: #94a3b8; font-size: 0.85em;">Just captured snapshot</p>
+                        </div>
+                    </div>
+                    <p style="margin: 15px 0 0 0; text-align: center; color: #fbbf24; font-size: 0.95em; font-weight: 600;">
+                        ⚠️ Compare both images carefully before taking action
+                    </p>
+                </div>
+
                 <!-- Quick Action Buttons -->
                 <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h3 style="margin: 0 0 15px 0; color: #fbbf24; font-size: 1.2em;">⚡ Quick Action - Take Immediate Decision:</h3>
@@ -590,7 +618,7 @@
         }
 
         // Show alert popup
-        function showAlertPopup(alertData) {
+        async function showAlertPopup(alertData) {
             currentAlertPopup = alertData;
 
             // Update popup content
@@ -628,6 +656,48 @@
                 watchlistLabels[alertData.watchlist_status] || 'None';
             document.getElementById('popupConfidence').textContent =
                 alertData.confidence ? `${(alertData.confidence * 100).toFixed(1)}%` : 'N/A';
+
+            // Load images
+            const originalImg = document.getElementById('popupOriginalImg');
+            const snapshotImg = document.getElementById('popupSnapshotImg');
+            const originalLoading = document.getElementById('popupOriginalLoading');
+            const snapshotLoading = document.getElementById('popupSnapshotLoading');
+
+            // Reset images
+            originalImg.src = '';
+            snapshotImg.src = '';
+            originalLoading.style.display = 'block';
+            snapshotLoading.style.display = 'block';
+
+            // Load snapshot (captured image)
+            if (alertData.id && alertData.snapshot_path) {
+                try {
+                    const snapshotUrl = `/api/alerts/snapshot/${alertData.id}`;
+                    const snapshotBlob = await fetch(snapshotUrl).then(r => r.blob());
+                    snapshotImg.src = URL.createObjectURL(snapshotBlob);
+                    snapshotLoading.style.display = 'none';
+                } catch (e) {
+                    console.error('Failed to load snapshot:', e);
+                    snapshotLoading.textContent = 'Failed to load';
+                }
+            } else {
+                snapshotLoading.textContent = 'No snapshot available';
+            }
+
+            // Load original enrolled image
+            if (alertData.id && alertData.person_id) {
+                try {
+                    const originalUrl = `/api/alerts/original-image/${alertData.id}`;
+                    const originalBlob = await fetch(originalUrl).then(r => r.blob());
+                    originalImg.src = URL.createObjectURL(originalBlob);
+                    originalLoading.style.display = 'none';
+                } catch (e) {
+                    console.error('Failed to load original image:', e);
+                    originalLoading.textContent = 'Failed to load';
+                }
+            } else {
+                originalLoading.textContent = 'No original image';
+            }
 
             // Show popup
             const popup = document.getElementById('alertPopup');
