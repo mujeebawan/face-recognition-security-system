@@ -69,6 +69,15 @@ async def get_active_alerts(
                     acknowledged_by=alert.acknowledged_by,
                     acknowledged_at=alert.acknowledged_at,
                     original_image_url=original_image_url,
+                    # Guard verification fields
+                    guard_verified=alert.guard_verified,
+                    guard_action=alert.guard_action,
+                    guard_verified_by=alert.guard_verified_by,
+                    guard_verified_at=alert.guard_verified_at,
+                    action_notes=alert.action_notes,
+                    # Watchlist fields
+                    threat_level=alert.threat_level,
+                    watchlist_status=alert.watchlist_status,
                 )
             )
 
@@ -126,6 +135,15 @@ async def get_recent_alerts(
                     acknowledged_by=alert.acknowledged_by,
                     acknowledged_at=alert.acknowledged_at,
                     original_image_url=original_image_url,
+                    # Guard verification fields
+                    guard_verified=alert.guard_verified,
+                    guard_action=alert.guard_action,
+                    guard_verified_by=alert.guard_verified_by,
+                    guard_verified_at=alert.guard_verified_at,
+                    action_notes=alert.action_notes,
+                    # Watchlist fields
+                    threat_level=alert.threat_level,
+                    watchlist_status=alert.watchlist_status,
                 )
             )
 
@@ -181,6 +199,15 @@ async def acknowledge_alert(
                 acknowledged=alert.acknowledged,
                 acknowledged_by=alert.acknowledged_by,
                 acknowledged_at=alert.acknowledged_at,
+                # Guard verification fields
+                guard_verified=alert.guard_verified,
+                guard_action=alert.guard_action,
+                guard_verified_by=alert.guard_verified_by,
+                guard_verified_at=alert.guard_verified_at,
+                action_notes=alert.action_notes,
+                # Watchlist fields
+                threat_level=alert.threat_level,
+                watchlist_status=alert.watchlist_status,
             )
         }
 
@@ -188,6 +215,77 @@ async def acknowledge_alert(
         raise
     except Exception as e:
         logger.error(f"Failed to acknowledge alert: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{alert_id}/verify")
+async def verify_alert(
+    alert_id: int,
+    guard_action: str,
+    guard_username: str,
+    action_notes: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Guard verification for an alert - marks alert with guard's decision.
+
+    Args:
+        alert_id: ID of alert to verify
+        guard_action: Action taken ('confirmed', 'false_alarm', 'investigating', 'apprehended', 'escalated')
+        guard_username: Username of guard
+        action_notes: Optional notes about the action
+        db: Database session
+
+    Returns:
+        Success message with updated alert
+    """
+    try:
+        from datetime import datetime
+
+        # Validate guard action
+        valid_actions = ['confirmed', 'false_alarm', 'investigating', 'apprehended', 'escalated']
+        if guard_action not in valid_actions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid guard action. Must be one of: {', '.join(valid_actions)}"
+            )
+
+        # Get alert
+        alert = db.query(Alert).filter(Alert.id == alert_id).first()
+
+        if not alert:
+            raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
+
+        # Update guard verification fields
+        alert.guard_verified = True
+        alert.guard_action = guard_action
+        alert.guard_verified_by = guard_username
+        alert.guard_verified_at = datetime.now()
+        alert.action_notes = action_notes
+
+        db.commit()
+        db.refresh(alert)
+
+        logger.info(f"Alert {alert_id} verified by {guard_username} with action: {guard_action}")
+
+        return {
+            "success": True,
+            "message": f"Alert {alert_id} verified with action: {guard_action}",
+            "alert": {
+                "id": alert.id,
+                "guard_verified": alert.guard_verified,
+                "guard_action": alert.guard_action,
+                "guard_verified_by": alert.guard_verified_by,
+                "guard_verified_at": alert.guard_verified_at.isoformat() if alert.guard_verified_at else None,
+                "action_notes": alert.action_notes,
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to verify alert: {e}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 

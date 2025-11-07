@@ -263,8 +263,65 @@
             border-left-color: #10b981;
         }
 
+        /* Threat level color coding */
+        .alert-card.threat-critical {
+            border-left-color: #dc2626;
+            border-color: #dc2626;
+            background: linear-gradient(135deg, #2d1515 0%, #1e293b 100%);
+        }
+
+        .alert-card.threat-high {
+            border-left-color: #ea580c;
+            border-color: #ea580c;
+            background: linear-gradient(135deg, #2d1f15 0%, #1e293b 100%);
+        }
+
+        .alert-card.threat-medium {
+            border-left-color: #f59e0b;
+            border-color: #f59e0b;
+            background: linear-gradient(135deg, #2d2615 0%, #1e293b 100%);
+        }
+
+        .alert-card.threat-low {
+            border-left-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
         .alert-card:hover {
             background: #334155;
+        }
+
+        /* Threat level badges */
+        .badge-threat-critical {
+            background: #dc2626;
+            color: white;
+            animation: pulse-critical 2s ease-in-out infinite;
+        }
+
+        .badge-threat-high {
+            background: #ea580c;
+            color: white;
+            animation: pulse-high 2s ease-in-out infinite;
+        }
+
+        .badge-threat-medium {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .badge-threat-low {
+            background: #3b82f6;
+            color: white;
+        }
+
+        @keyframes pulse-critical {
+            0%, 100% { opacity: 1; box-shadow: 0 0 10px #dc2626; }
+            50% { opacity: 0.8; box-shadow: 0 0 20px #dc2626; }
+        }
+
+        @keyframes pulse-high {
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px #ea580c; }
+            50% { opacity: 0.85; box-shadow: 0 0 16px #ea580c; }
         }
 
         .alert-header {
@@ -576,6 +633,30 @@
                 </div>
 
                 <div class="filter-group">
+                    <label class="filter-label">Threat Level</label>
+                    <select class="filter-select" id="threatFilter" onchange="filterAlerts()">
+                        <option value="all">All Threat Levels</option>
+                        <option value="critical" style="color: #dc2626; font-weight: bold;">🔴 CRITICAL</option>
+                        <option value="high" style="color: #ea580c; font-weight: bold;">🟠 HIGH</option>
+                        <option value="medium" style="color: #f59e0b;">🟡 MEDIUM</option>
+                        <option value="low" style="color: #3b82f6;">🔵 LOW</option>
+                        <option value="none">⚪ None</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Watchlist Status</label>
+                    <select class="filter-select" id="watchlistFilter" onchange="filterAlerts()">
+                        <option value="all">All Watchlist Status</option>
+                        <option value="most_wanted" style="color: #dc2626; font-weight: bold;">🔴 MOST WANTED</option>
+                        <option value="suspect" style="color: #ea580c; font-weight: bold;">🟠 SUSPECT</option>
+                        <option value="person_of_interest" style="color: #f59e0b;">🟡 POI</option>
+                        <option value="banned" style="color: #6366f1;">🟣 BANNED</option>
+                        <option value="none">⚪ None</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
                     <label class="filter-label">Search by Name</label>
                     <input type="text" class="filter-input" id="searchName" placeholder="Enter person name..." oninput="filterAlerts()">
                 </div>
@@ -666,6 +747,70 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeDetailsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guard Action Modal -->
+    <div class="modal" id="guardActionModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <span>🛡️ Guard Verification</span>
+                <button class="btn btn-secondary" onclick="closeGuardActionModal()" style="padding: 5px 15px;">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #cc9933;">
+                    <h3 style="margin: 0 0 10px 0; color: #fbbf24;" id="guardModalTitle">Alert Verification</h3>
+                    <p style="margin: 5px 0; color: #cbd5e1;"><strong>Alert ID:</strong> <span id="guardAlertId"></span></p>
+                    <p style="margin: 5px 0; color: #cbd5e1;"><strong>Person:</strong> <span id="guardPersonName"></span></p>
+                    <p style="margin: 5px 0; color: #cbd5e1;"><strong>Threat Level:</strong> <span id="guardThreatLevel"></span></p>
+                </div>
+
+                <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #fbbf24;">Select Guard Action</h4>
+                    <p style="color: #94a3b8; font-size: 0.9em; margin-bottom: 15px;">Choose the appropriate action based on your verification:</p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                        <button class="btn" style="background: #10b981; color: white; padding: 15px; text-align: left;" onclick="selectGuardAction('confirmed')">
+                            <div style="font-weight: 600; margin-bottom: 5px;">✅ Confirmed Match</div>
+                            <div style="font-size: 0.85em; opacity: 0.9;">Person identity verified</div>
+                        </button>
+
+                        <button class="btn" style="background: #64748b; color: white; padding: 15px; text-align: left;" onclick="selectGuardAction('false_alarm')">
+                            <div style="font-weight: 600; margin-bottom: 5px;">❌ False Alarm</div>
+                            <div style="font-size: 0.85em; opacity: 0.9;">Wrong person detected</div>
+                        </button>
+
+                        <button class="btn" style="background: #f59e0b; color: white; padding: 15px; text-align: left;" onclick="selectGuardAction('investigating')">
+                            <div style="font-weight: 600; margin-bottom: 5px;">🔍 Investigating</div>
+                            <div style="font-size: 0.85em; opacity: 0.9;">Further verification needed</div>
+                        </button>
+
+                        <button class="btn" style="background: #10b981; color: white; padding: 15px; text-align: left;" onclick="selectGuardAction('apprehended')">
+                            <div style="font-weight: 600; margin-bottom: 5px;">🚔 Apprehended</div>
+                            <div style="font-size: 0.85em; opacity: 0.9;">Person detained/arrested</div>
+                        </button>
+
+                        <button class="btn" style="background: #dc2626; color: white; padding: 15px; text-align: left; grid-column: 1 / -1;" onclick="selectGuardAction('escalated')">
+                            <div style="font-weight: 600; margin-bottom: 5px;">⚠️ Escalated</div>
+                            <div style="font-size: 0.85em; opacity: 0.9;">Situation requires supervisor/backup</div>
+                        </button>
+                    </div>
+
+                    <input type="hidden" id="selectedGuardAction" value="">
+                    <div id="selectedActionDisplay" style="display: none; background: #0f172a; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #10b981;">
+                        <strong style="color: #fbbf24;">Selected Action:</strong> <span id="selectedActionText" style="color: #e2e8f0;"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Action Notes (Optional)</label>
+                        <textarea class="form-textarea" id="guardActionNotes" placeholder="e.g., Person verified by photo ID, Supervisor contacted, Additional details..." rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeGuardActionModal()">Cancel</button>
+                <button class="btn btn-success" id="submitGuardActionBtn" onclick="submitGuardAction()" disabled>Submit Verification</button>
             </div>
         </div>
     </div>
@@ -770,12 +915,16 @@
         function filterAlerts() {
             const type = document.getElementById('alertType').value;
             const status = document.getElementById('statusFilter').value;
+            const threatLevel = document.getElementById('threatFilter').value;
+            const watchlistStatus = document.getElementById('watchlistFilter').value;
             const searchName = document.getElementById('searchName').value.toLowerCase();
 
             filteredAlerts = allAlerts.filter(alert => {
                 if (type !== 'all' && alert.event_type !== type) return false;
                 if (status === 'unacknowledged' && alert.acknowledged) return false;
                 if (status === 'acknowledged' && !alert.acknowledged) return false;
+                if (threatLevel !== 'all' && alert.threat_level !== threatLevel) return false;
+                if (watchlistStatus !== 'all' && alert.watchlist_status !== watchlistStatus) return false;
                 if (searchName && (!alert.person_name || !alert.person_name.toLowerCase().includes(searchName))) return false;
                 return true;
             });
@@ -801,15 +950,70 @@
                 const isKnown = alert.event_type === 'known_person';
                 const time = new Date(alert.timestamp).toLocaleString();
                 const isAcknowledged = alert.acknowledged;
+                const isGuardVerified = alert.guard_verified;
+                const threatLevel = alert.threat_level || 'none';
+                const watchlistStatus = alert.watchlist_status || 'none';
+
+                // Determine threat level badge and card class
+                let threatBadge = '';
+                let threatCardClass = '';
+                if (threatLevel === 'critical') {
+                    threatBadge = '<span class="badge badge-threat-critical" style="margin-left: 10px;">🔴 CRITICAL THREAT</span>';
+                    threatCardClass = 'threat-critical';
+                } else if (threatLevel === 'high') {
+                    threatBadge = '<span class="badge badge-threat-high" style="margin-left: 10px;">🟠 HIGH THREAT</span>';
+                    threatCardClass = 'threat-high';
+                } else if (threatLevel === 'medium') {
+                    threatBadge = '<span class="badge badge-threat-medium" style="margin-left: 10px;">🟡 MEDIUM THREAT</span>';
+                    threatCardClass = 'threat-medium';
+                } else if (threatLevel === 'low') {
+                    threatBadge = '<span class="badge badge-threat-low" style="margin-left: 10px;">🔵 LOW THREAT</span>';
+                    threatCardClass = 'threat-low';
+                }
+
+                // Watchlist status badge
+                let watchlistBadge = '';
+                if (watchlistStatus === 'most_wanted') {
+                    watchlistBadge = '<span class="badge" style="background: #dc2626; margin-left: 5px;">🔴 MOST WANTED</span>';
+                } else if (watchlistStatus === 'suspect') {
+                    watchlistBadge = '<span class="badge" style="background: #ea580c; margin-left: 5px;">🟠 SUSPECT</span>';
+                } else if (watchlistStatus === 'person_of_interest') {
+                    watchlistBadge = '<span class="badge" style="background: #f59e0b; margin-left: 5px;">🟡 POI</span>';
+                } else if (watchlistStatus === 'banned') {
+                    watchlistBadge = '<span class="badge" style="background: #6366f1; margin-left: 5px;">🟣 BANNED</span>';
+                }
+
+                // Guard verification badge
+                let guardBadge = '';
+                if (isGuardVerified && alert.guard_action) {
+                    const actionLabels = {
+                        'confirmed': '✅ Confirmed',
+                        'false_alarm': '❌ False Alarm',
+                        'investigating': '🔍 Investigating',
+                        'apprehended': '🚔 Apprehended',
+                        'escalated': '⚠️ Escalated'
+                    };
+                    const actionColors = {
+                        'confirmed': '#10b981',
+                        'false_alarm': '#64748b',
+                        'investigating': '#f59e0b',
+                        'apprehended': '#10b981',
+                        'escalated': '#dc2626'
+                    };
+                    guardBadge = `<span class="badge" style="background: ${actionColors[alert.guard_action]}; margin-left: 5px;">${actionLabels[alert.guard_action]}</span>`;
+                }
 
                 return `
-                    <div class="alert-card ${isKnown ? 'known' : ''} ${isAcknowledged ? 'acknowledged' : ''}">
+                    <div class="alert-card ${isKnown ? 'known' : ''} ${isAcknowledged ? 'acknowledged' : ''} ${threatCardClass}">
                         <div class="alert-header">
                             <div>
                                 <span class="alert-type ${isKnown ? 'known' : ''}">
                                     ${isKnown ? '✓ KNOWN PERSON' : '⚠ UNKNOWN PERSON'}
                                 </span>
+                                ${threatBadge}
+                                ${watchlistBadge}
                                 ${isAcknowledged ? '<span class="badge badge-success" style="margin-left: 10px;">Acknowledged</span>' : '<span class="badge badge-danger" style="margin-left: 10px;">Pending</span>'}
+                                ${guardBadge}
                             </div>
                             <div class="alert-id">#${alert.id}</div>
                         </div>
@@ -830,6 +1034,12 @@
                                 <span class="alert-detail-value">${(alert.confidence * 100).toFixed(1)}%</span>
                             </div>
                             ` : ''}
+                            ${isGuardVerified && alert.guard_verified_by ? `
+                            <div class="alert-detail-row">
+                                <span class="alert-detail-label">Guard Verified:</span>
+                                <span class="alert-detail-value">${alert.guard_verified_by} (${alert.guard_action})</span>
+                            </div>
+                            ` : ''}
                             ${isAcknowledged && alert.acknowledged_by ? `
                             <div class="alert-detail-row">
                                 <span class="alert-detail-label">Acknowledged by:</span>
@@ -838,6 +1048,7 @@
                             ` : ''}
                         </div>
                         <div class="alert-actions">
+                            ${!isGuardVerified && isKnown ? `<button class="btn btn-success" onclick="openGuardActionModal(${alert.id}, '${alert.person_name || 'Unknown'}', '${threatLevel}')">🛡️ Guard Verify</button>` : ''}
                             ${!isAcknowledged ? `<button class="btn btn-success" onclick="openAcknowledgeModal(${alert.id})">✓ Acknowledge</button>` : ''}
                             <button class="btn btn-secondary" onclick="viewDetails(${alert.id})">👁️ View</button>
                             <button class="btn btn-danger" onclick="deleteAlert(${alert.id})">🗑️</button>
@@ -1015,6 +1226,54 @@
                 }
             }
 
+            // Watchlist information
+            let watchlistHTML = '';
+            if (alert.threat_level && alert.threat_level !== 'none') {
+                const threatLabels = {
+                    'critical': '🔴 CRITICAL',
+                    'high': '🟠 HIGH',
+                    'medium': '🟡 MEDIUM',
+                    'low': '🔵 LOW'
+                };
+                const threatColors = {
+                    'critical': '#dc2626',
+                    'high': '#ea580c',
+                    'medium': '#f59e0b',
+                    'low': '#3b82f6'
+                };
+
+                watchlistHTML = `
+                <div style="background: linear-gradient(135deg, #2d1515 0%, #1e293b 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid ${threatColors[alert.threat_level]};">
+                    <h4 style="margin: 0 0 10px 0; color: ${threatColors[alert.threat_level]};">🚨 Watchlist Information</h4>
+                    <p style="margin: 5px 0;"><strong>Threat Level:</strong> <span style="color: ${threatColors[alert.threat_level]}; font-weight: bold;">${threatLabels[alert.threat_level]}</span></p>
+                    ${alert.watchlist_status && alert.watchlist_status !== 'none' ? `
+                    <p style="margin: 5px 0;"><strong>Watchlist Status:</strong> ${alert.watchlist_status.toUpperCase().replace('_', ' ')}</p>
+                    ` : ''}
+                </div>
+                `;
+            }
+
+            // Guard verification HTML
+            let guardVerificationHTML = '';
+            if (alert.guard_verified) {
+                const actionLabels = {
+                    'confirmed': '✅ Confirmed Match',
+                    'false_alarm': '❌ False Alarm',
+                    'investigating': '🔍 Investigating',
+                    'apprehended': '🚔 Apprehended',
+                    'escalated': '⚠️ Escalated'
+                };
+                guardVerificationHTML = `
+                <div style="background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #10b981;">
+                    <h4 style="margin: 0 0 10px 0; color: #10b981;">🛡️ Guard Verification</h4>
+                    <p style="margin: 5px 0;"><strong>Action:</strong> ${actionLabels[alert.guard_action] || alert.guard_action}</p>
+                    <p style="margin: 5px 0;"><strong>Verified By:</strong> ${alert.guard_verified_by || 'Unknown'}</p>
+                    <p style="margin: 5px 0;"><strong>Verified At:</strong> ${alert.guard_verified_at ? new Date(alert.guard_verified_at).toLocaleString() : 'N/A'}</p>
+                    ${alert.action_notes ? `<p style="margin: 10px 0 0 0;"><strong>Notes:</strong><br><span style="color: #cbd5e1;">${alert.action_notes}</span></p>` : ''}
+                </div>
+                `;
+            }
+
             document.getElementById('detailsModalBody').innerHTML = `
                 <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h3 style="margin: 0 0 10px 0; color: ${isKnown ? '#60a5fa' : '#ef4444'};">
@@ -1022,6 +1281,8 @@
                     </h3>
                     <p style="margin: 0; color: #94a3b8;"><strong>Alert ID:</strong> #${alert.id}</p>
                 </div>
+
+                ${watchlistHTML}
 
                 ${snapshotHTML}
 
@@ -1033,6 +1294,8 @@
                     <p style="margin: 5px 0;"><strong>Faces Detected:</strong> ${alert.num_faces || 1}</p>
                     <p style="margin: 5px 0;"><strong>Status:</strong> ${alert.acknowledged ? '<span class="badge badge-success">Acknowledged</span>' : '<span class="badge badge-danger">Pending</span>'}</p>
                 </div>
+
+                ${guardVerificationHTML}
 
                 ${alert.acknowledged ? `
                 <div style="background: #1e293b; padding: 15px; border-radius: 8px;">
@@ -1109,6 +1372,91 @@
             URL.revokeObjectURL(url);
 
             alert('✅ Alerts exported to CSV!');
+        }
+
+        // Guard Action Modal Functions
+        let currentGuardAlertId = null;
+
+        function openGuardActionModal(alertId, personName, threatLevel) {
+            currentGuardAlertId = alertId;
+            document.getElementById('guardAlertId').textContent = '#' + alertId;
+            document.getElementById('guardPersonName').textContent = personName;
+
+            // Format threat level display
+            const threatLabels = {
+                'critical': '🔴 CRITICAL',
+                'high': '🟠 HIGH',
+                'medium': '🟡 MEDIUM',
+                'low': '🔵 LOW',
+                'none': '⚪ None'
+            };
+            document.getElementById('guardThreatLevel').textContent = threatLabels[threatLevel] || threatLevel;
+
+            // Reset form
+            document.getElementById('selectedGuardAction').value = '';
+            document.getElementById('guardActionNotes').value = '';
+            document.getElementById('selectedActionDisplay').style.display = 'none';
+            document.getElementById('submitGuardActionBtn').disabled = true;
+
+            // Show modal
+            document.getElementById('guardActionModal').classList.add('active');
+        }
+
+        function closeGuardActionModal() {
+            document.getElementById('guardActionModal').classList.remove('active');
+            currentGuardAlertId = null;
+        }
+
+        function selectGuardAction(action) {
+            document.getElementById('selectedGuardAction').value = action;
+
+            const actionLabels = {
+                'confirmed': '✅ Confirmed Match',
+                'false_alarm': '❌ False Alarm',
+                'investigating': '🔍 Investigating',
+                'apprehended': '🚔 Apprehended',
+                'escalated': '⚠️ Escalated'
+            };
+
+            document.getElementById('selectedActionText').textContent = actionLabels[action];
+            document.getElementById('selectedActionDisplay').style.display = 'block';
+            document.getElementById('submitGuardActionBtn').disabled = false;
+        }
+
+        async function submitGuardAction() {
+            const action = document.getElementById('selectedGuardAction').value;
+            const notes = document.getElementById('guardActionNotes').value;
+            const userName = document.getElementById('userName').textContent;
+
+            if (!action) {
+                alert('Please select an action first');
+                return;
+            }
+
+            if (!currentGuardAlertId) {
+                alert('Error: No alert ID selected');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/alerts/${currentGuardAlertId}/verify?guard_action=${action}&guard_username=${encodeURIComponent(userName)}&action_notes=${encodeURIComponent(notes || '')}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    closeGuardActionModal();
+                    loadAlerts();
+                    alert('✅ Alert verified successfully!');
+                } else {
+                    alert('❌ Failed to verify alert: ' + (data.detail || data.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Network error: ' + error.message);
+            }
         }
 
         // Load on page load
