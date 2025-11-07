@@ -42,6 +42,23 @@ static_path = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_path):
     app.mount("/static", StaticFiles(directory=static_path), name="static")
 
+# Global exception handler
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler to catch all unhandled exceptions"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "Internal server error",
+            "detail": str(exc) if settings.debug else "An unexpected error occurred"
+        }
+    )
+
 # Include routers
 app.include_router(detection.router)
 app.include_router(recognition.router)
@@ -55,6 +72,10 @@ app.include_router(auth.router)
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""
+    global startup_time
+    from datetime import datetime
+    startup_time = datetime.now()
+
     logger.info("=" * 60)
     logger.info("Face Recognition Security System Starting...")
     logger.info("=" * 60)
@@ -128,13 +149,56 @@ async def system_settings():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
+    """
+    Enhanced health check endpoint for production monitoring.
+    Returns system status, database connectivity, and resource usage.
+    """
+    import psutil
+    from datetime import datetime
+    from app.core.database import get_db
+    from sqlalchemy import text
+
+    health_status = {
         "status": "healthy",
-        "camera_configured": bool(settings.camera_ip),
-        "database": settings.database_url.split("///")[-1] if "sqlite" in settings.database_url else "configured",
-        "gpu_enabled": settings.enable_gpu
+        "timestamp": datetime.now().isoformat(),
+        "uptime_seconds": int((datetime.now() - startup_time).total_seconds()) if 'startup_time' in globals() else 0
     }
+
+    try:
+        # Check database connectivity
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        health_status["database"] = {
+            "status": "connected",
+            "url": settings.database_url.split("///")[-1] if "sqlite" in settings.database_url else "configured"
+        }
+    except Exception as e:
+        health_status["status"] = "degraded"
+        health_status["database"] = {
+            "status": "error",
+            "error": str(e)
+        }
+
+    # System resources
+    try:
+        memory = psutil.virtual_memory()
+        health_status["resources"] = {
+            "memory_used_mb": int(memory.used / 1024 / 1024),
+            "memory_percent": memory.percent,
+            "cpu_percent": psutil.cpu_percent(interval=0.1),
+            "disk_percent": psutil.disk_usage('/').percent
+        }
+    except Exception as e:
+        logger.warning(f"Failed to get system resources: {e}")
+
+    # Configuration status
+    health_status["config"] = {
+        "camera_configured": bool(settings.camera_ip),
+        "gpu_enabled": settings.enable_gpu,
+        "debug_mode": settings.debug
+    }
+
+    return health_status
 
 
 if __name__ == "__main__":

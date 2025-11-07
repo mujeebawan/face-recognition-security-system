@@ -23,22 +23,22 @@
 
         .header {
             background: linear-gradient(90deg, #124877 0%, #124877 35%, #0F518B 100%);
-            padding: 15px 30px;
+            padding: 12px 30px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             border-bottom: 3px solid #cc9933;
             flex-shrink: 0;
         }
 
         .header h1 {
-            font-size: 1.8em;
-            margin-bottom: 3px;
+            font-size: 1.6em;
+            margin-bottom: 2px;
             color: #cc9933;
         }
 
         .header p {
             opacity: 0.9;
             color: #e2e8f0;
-            font-size: 0.9em;
+            font-size: 0.85em;
         }
 
         /* Main Layout - Side by Side */
@@ -56,7 +56,7 @@
             flex: 2;
             background: #1e293b;
             overflow-y: auto;
-            padding: 20px;
+            padding: 15px;
             border-right: 3px solid #cc9933;
             display: flex;
             flex-direction: column;
@@ -66,49 +66,51 @@
             flex: 1;
             background: #0f172a;
             overflow-y: auto;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
         }
 
         .panel-title {
-            font-size: 1.3em;
+            font-size: 1.2em;
             font-weight: 600;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             color: #cc9933;
             border-bottom: 2px solid #cc9933;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
         }
 
         /* Stats Grid at Top of Right Panel */
         .stats {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-shrink: 0;
         }
 
         .stat-card {
             background: #334155;
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
             text-align: center;
             border: 2px solid #cc9933;
         }
 
         .stat-value {
-            font-size: 2em;
+            font-size: 1.8em;
             font-weight: 700;
             color: #cc9933;
         }
 
         .stat-label {
-            font-size: 0.85em;
+            font-size: 0.8em;
             color: #94a3b8;
-            margin-top: 5px;
+            margin-top: 4px;
             cursor: help;
         }
 
@@ -123,7 +125,9 @@
             align-items: center;
             justify-content: center;
             border: 2px solid #cc9933;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+            min-height: 400px;
+            max-height: calc(100vh - 250px);
         }
 
         #videoStream {
@@ -131,6 +135,7 @@
             height: 100%;
             object-fit: contain;
             display: block;
+            max-height: 100%;
         }
 
         /* Status Indicators */
@@ -171,8 +176,8 @@
         .alert-item {
             background: #334155;
             border-left: 4px solid #860505;
-            padding: 12px;
-            margin-bottom: 10px;
+            padding: 10px;
+            margin-bottom: 8px;
             border-radius: 6px;
             transition: all 0.3s ease;
             animation: slideIn 0.3s ease;
@@ -217,8 +222,9 @@
         }
 
         .alert-details {
-            font-size: 0.9em;
+            font-size: 0.85em;
             color: #cbd5e1;
+            line-height: 1.4;
         }
 
         .badge {
@@ -236,6 +242,37 @@
         .badge-danger {
             background: #860505;
             color: white;
+        }
+
+        /* Threat level colors */
+        .text-red {
+            color: #ef4444;
+            font-weight: 700;
+        }
+
+        .text-orange {
+            color: #f97316;
+            font-weight: 700;
+        }
+
+        .text-yellow {
+            color: #eab308;
+            font-weight: 700;
+        }
+
+        .text-blue {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .text-green {
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .text-gray {
+            color: #94a3b8;
+            font-weight: 500;
         }
 
         .no-alerts {
@@ -272,21 +309,24 @@
 
         /* Nav Links */
         .nav-links {
-            margin-top: 15px;
-            padding-top: 12px;
+            margin-top: 8px;
+            padding: 8px 0;
             border-top: 1px solid #334155;
             text-align: center;
+            flex-shrink: 0;
         }
 
         .nav-links a {
             color: #60a5fa;
             text-decoration: none;
-            margin: 0 10px;
-            font-size: 0.9em;
+            margin: 0 8px;
+            font-size: 0.8em;
+            white-space: nowrap;
         }
 
         .nav-links a:hover {
             text-decoration: underline;
+            color: #cc9933;
         }
 
         /* Responsive */
@@ -317,11 +357,12 @@
         <div class="left-panel">
             <div class="panel-title">
                 <span>Live Stream</span>
-                <div style="display: flex; gap: 12px;">
+                <div style="display: flex; gap: 12px; align-items: center;">
                     <div class="ws-status">
                         <div class="ws-indicator" id="streamIndicator"></div>
                         <span id="streamStatus">Loading...</span>
                     </div>
+                    <button id="reloadStreamBtn" onclick="manualReloadStream()" style="padding: 4px 8px; font-size: 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">↻ Reload Stream</button>
                     <div class="ws-status">
                         <div class="ws-indicator" id="wsIndicator"></div>
                         <span id="wsStatus">Alerts: Connecting...</span>
@@ -366,7 +407,38 @@
                 </div>
             </div>
 
-            <div class="panel-title" style="margin-top: 20px;">
+            <!-- Threat Level Color Legend -->
+            <div style="background: #1e293b; border-radius: 8px; padding: 10px; margin-bottom: 15px; border: 1px solid #334155;">
+                <div style="font-size: 0.85em; font-weight: 600; color: #cc9933; margin-bottom: 8px; text-align: center;">🎨 Threat Level Colors</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.75em;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; background: #ef4444; border-radius: 2px;"></div>
+                        <span>Critical</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; background: #f97316; border-radius: 2px;"></div>
+                        <span>High</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; background: #eab308; border-radius: 2px;"></div>
+                        <span>Medium</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; background: #3b82f6; border-radius: 2px;"></div>
+                        <span>Low</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; background: #22c55e; border-radius: 2px;"></div>
+                        <span>Known Safe</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; background: #94a3b8; border-radius: 2px;"></div>
+                        <span>Unknown</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-title" style="margin-top: 10px;">
                 <span>Real-time Alerts</span>
                 <span class="badge badge-danger" id="alertBadge">0</span>
             </div>
@@ -474,10 +546,33 @@
         // Format timestamp for Pakistan time (already stored in local time)
         function formatTime(timestamp) {
             if (!timestamp) return 'N/A';
-            // Remove 'T', microseconds, and timezone info - display as-is
-            const cleaned = timestamp.replace('T', ' ').split('.')[0];
-            // Extract just time part (HH:MM:SS)
-            return cleaned.split(' ')[1] || cleaned;
+
+            try {
+                // Timestamp format: "2025-11-07 09:29:17.940603" (UTC)
+                // Need to parse as UTC and convert to PKT (UTC+5)
+
+                // Replace space with T to make it ISO 8601, add Z to mark as UTC
+                let isoString = timestamp.replace(' ', 'T');
+                if (!isoString.endsWith('Z')) {
+                    isoString = isoString.split('.')[0] + 'Z'; // Remove microseconds, add Z
+                }
+
+                // Parse as UTC
+                const utcDate = new Date(isoString);
+
+                // Add 5 hours for PKT
+                const pktDate = new Date(utcDate.getTime() + (5 * 60 * 60 * 1000));
+
+                // Format as HH:MM:SS in PKT
+                const hours = String(pktDate.getUTCHours()).padStart(2, '0');
+                const minutes = String(pktDate.getUTCMinutes()).padStart(2, '0');
+                const seconds = String(pktDate.getUTCSeconds()).padStart(2, '0');
+
+                return `${hours}:${minutes}:${seconds}`;
+            } catch (e) {
+                console.error('Error formatting time:', e, timestamp);
+                return 'Invalid time';
+            }
         }
 
         // WebSocket connection
@@ -486,6 +581,8 @@
         let reconnectInterval = null;
         let currentAlertPopup = null; // Track current popup alert
         let shownAlertIds = new Set(); // Track which alerts we've already shown popup for
+        let alertQueue = []; // Queue for multiple alerts
+        let isPopupVisible = false; // Track if popup is currently showing
 
         // Get WebSocket URL
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -570,11 +667,18 @@
             const isWatchlist = threatLevel !== 'none' && threatLevel !== null;
             const alertId = alertData.id;
 
-            // Only show popup if this alert hasn't been shown before
+            // Queue popup for watchlist persons (only if not shown before)
             if (alertData.event_type === 'known_person' && isWatchlist && !shownAlertIds.has(alertId)) {
-                console.log('⚠️ WATCHLIST PERSON DETECTED - Showing popup for alert', alertId);
+                console.log('⚠️ WATCHLIST PERSON DETECTED - Adding to queue: alert', alertId);
                 shownAlertIds.add(alertId); // Mark as shown
-                showAlertPopup(alertData);
+                alertQueue.push(alertData); // Add to queue
+
+                // Process queue if popup not currently showing
+                if (!isPopupVisible) {
+                    processAlertQueue();
+                } else {
+                    console.log('📋 Alert queued. Current queue length:', alertQueue.length);
+                }
 
                 // Audio alert disabled for local setup
                 // Uncomment below to enable beep sounds:
@@ -582,8 +686,19 @@
                 //     playAlertSound(threatLevel);
                 // }
             } else if (shownAlertIds.has(alertId)) {
-                console.log('⏭️ Alert', alertId, 'already shown, skipping popup');
+                console.log('⏭️ Alert', alertId, 'already shown, skipping');
             }
+        }
+
+        // Process alert queue - show next alert from queue
+        function processAlertQueue() {
+            if (alertQueue.length === 0 || isPopupVisible) {
+                return; // Nothing to show or popup already visible
+            }
+
+            const nextAlert = alertQueue.shift(); // Get first alert from queue
+            console.log('📢 Processing queued alert:', nextAlert.id, '(Remaining in queue:', alertQueue.length + ')');
+            showAlertPopup(nextAlert);
         }
 
         // Play alert sound based on threat level
@@ -739,12 +854,23 @@
             // Show popup
             const popup = document.getElementById('alertPopup');
             popup.style.display = 'flex';
+            isPopupVisible = true;
+            console.log('✅ Popup now visible for alert', alertData.id);
         }
 
         // Close alert popup
         function closeAlertPopup() {
             document.getElementById('alertPopup').style.display = 'none';
             currentAlertPopup = null;
+            isPopupVisible = false;
+
+            console.log('❌ Popup closed. Checking queue...');
+
+            // Process next alert in queue if any
+            if (alertQueue.length > 0) {
+                console.log('📋 Processing next alert from queue (', alertQueue.length, 'remaining)');
+                setTimeout(processAlertQueue, 500); // Small delay before showing next
+            }
         }
 
         // Take quick action
@@ -802,16 +928,35 @@
                 const isKnown = alert.event_type === 'known_person';
                 const time = formatTime(alert.timestamp);
 
+                // Color based on THREAT LEVEL, not known/unknown
+                const threatLevel = alert.threat_level || 'none';
+                let colorClass = 'text-gray';  // Default for unknown/no threat
+                let statusLabel = 'UNKNOWN PERSON';
+
+                if (isKnown && threatLevel !== 'none') {
+                    // Watchlist person - color by threat
+                    statusLabel = 'WATCHLIST DETECTED';
+                    if (threatLevel === 'critical') colorClass = 'text-red';
+                    else if (threatLevel === 'high') colorClass = 'text-orange';
+                    else if (threatLevel === 'medium') colorClass = 'text-yellow';
+                    else if (threatLevel === 'low') colorClass = 'text-blue';
+                } else if (isKnown) {
+                    // Known but not on watchlist
+                    statusLabel = 'KNOWN PERSON';
+                    colorClass = 'text-green';
+                }
+
                 return `
-                    <div class="alert-item ${isKnown ? 'known' : ''}">
+                    <div class="alert-item ${threatLevel !== 'none' ? 'watchlist' : ''}">
                         <div class="alert-header">
-                            <span class="alert-type ${isKnown ? 'text-green' : 'text-red'}">
-                                ${isKnown ? 'KNOWN' : 'UNKNOWN'} PERSON
+                            <span class="alert-type ${colorClass}">
+                                ${statusLabel}
                             </span>
                             <span class="alert-time">${time}</span>
                         </div>
                         <div class="alert-details">
                             ${isKnown ? `Name: ${alert.person_name}` : 'Unidentified person detected'}
+                            ${threatLevel !== 'none' ? `<br>⚠️ Threat: ${threatLevel.toUpperCase()}` : ''}
                             ${alert.confidence ? `<br>Confidence: ${(alert.confidence * 100).toFixed(1)}%` : ''}
                         </div>
                     </div>
@@ -869,36 +1014,86 @@
             }
         }, 30000);
 
+        // Global function for manual stream reload
+        function manualReloadStream() {
+            const videoStream = document.getElementById('videoStream');
+            const streamStatus = document.getElementById('streamStatus');
+            const streamIndicator = document.getElementById('streamIndicator');
+
+            console.log('🔄 Manual stream reload requested');
+            streamStatus.textContent = 'Stream: Reloading...';
+            streamIndicator.classList.add('disconnected');
+
+            // Force reload with new timestamp
+            const timestamp = new Date().getTime();
+            videoStream.src = `/api/stream/live?t=${timestamp}`;
+        }
+
         // Monitor video stream status
         function setupStreamMonitoring() {
             const videoStream = document.getElementById('videoStream');
             const streamIndicator = document.getElementById('streamIndicator');
             const streamStatus = document.getElementById('streamStatus');
 
+            let streamRetryCount = 0;
+            const maxStreamRetries = 5;
+            let streamRetryTimeout = null;
+
+            function retryStream() {
+                if (streamRetryCount >= maxStreamRetries) {
+                    streamStatus.textContent = 'Stream: Failed (max retries)';
+                    streamIndicator.classList.add('disconnected');
+                    console.error('Stream failed after max retries');
+                    return;
+                }
+
+                streamRetryCount++;
+                console.log(`Retrying stream connection (${streamRetryCount}/${maxStreamRetries})...`);
+                streamStatus.textContent = `Stream: Retrying (${streamRetryCount}/${maxStreamRetries})...`;
+                streamIndicator.classList.add('disconnected');
+
+                // Force reload by adding timestamp to prevent caching
+                const timestamp = new Date().getTime();
+                videoStream.src = `/api/stream/live?t=${timestamp}`;
+            }
+
             // Update status when stream loads
             videoStream.onload = function() {
                 streamStatus.textContent = 'Stream: Active';
                 streamIndicator.classList.remove('disconnected');
-                console.log('Video stream loaded');
+                streamRetryCount = 0; // Reset retry count on success
+                if (streamRetryTimeout) {
+                    clearTimeout(streamRetryTimeout);
+                    streamRetryTimeout = null;
+                }
+                console.log('✅ Video stream loaded successfully');
             };
 
             // Update status on error
             videoStream.onerror = function() {
                 streamStatus.textContent = 'Stream: Error';
                 streamIndicator.classList.add('disconnected');
-                console.error('Video stream error');
+                console.error('❌ Video stream error - will retry in 3 seconds');
+
+                // Retry after 3 seconds
+                if (streamRetryTimeout) clearTimeout(streamRetryTimeout);
+                streamRetryTimeout = setTimeout(retryStream, 3000);
             };
 
-            // Check if stream is loading after 3 seconds
+            // Check if stream is loading after 5 seconds
             setTimeout(() => {
                 if (videoStream.complete && videoStream.naturalHeight > 0) {
                     streamStatus.textContent = 'Stream: Active';
                     streamIndicator.classList.remove('disconnected');
+                    console.log('✅ Stream verified active');
                 } else {
-                    streamStatus.textContent = 'Stream: Active';
-                    streamIndicator.classList.remove('disconnected');
+                    streamStatus.textContent = 'Stream: Loading...';
+                    console.warn('⚠️  Stream still loading after 5 seconds');
+                    // Try reloading if it's been too long
+                    if (streamRetryTimeout) clearTimeout(streamRetryTimeout);
+                    streamRetryTimeout = setTimeout(retryStream, 2000);
                 }
-            }, 3000);
+            }, 5000);
         }
     </script>
 </body>

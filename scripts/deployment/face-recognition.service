@@ -1,0 +1,45 @@
+[Unit]
+Description=Face Recognition Security System
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mujeeb
+Group=mujeeb
+WorkingDirectory=/home/mujeeb/Downloads/face-recognition-security-system
+
+# Environment variables
+Environment="PATH=/usr/local/cuda/bin:/usr/bin:/bin"
+Environment="LD_LIBRARY_PATH=/usr/local/cuda/lib64"
+Environment="PYTHONUNBUFFERED=1"
+
+# Start command with resource limits
+ExecStart=/usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --timeout-keep-alive 30
+
+# Restart configuration
+Restart=always
+RestartSec=10
+StartLimitInterval=200
+StartLimitBurst=5
+
+# Resource limits
+MemoryLimit=4G
+MemoryHigh=3G
+CPUQuota=200%
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=append:/var/log/face-recognition/app.log
+StandardError=append:/var/log/face-recognition/error.log
+SyslogIdentifier=face-recognition
+
+# Timeout configurations
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

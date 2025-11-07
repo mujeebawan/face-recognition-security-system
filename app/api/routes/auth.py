@@ -115,6 +115,11 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Update last login time
+    from datetime import datetime
+    user.last_login = datetime.utcnow()
+    db.commit()
+
     # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -268,6 +273,130 @@ async def list_users(
     """
     users = db.query(User).all()
     return users
+
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    email: Optional[str] = None,
+    full_name: Optional[str] = None,
+    role: Optional[str] = None,
+    current_admin: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user information (admin only).
+
+    Args:
+        user_id: User ID to update
+        email: New email (optional)
+        full_name: New full name (optional)
+        role: New role (optional)
+        current_admin: Current admin user
+        db: Database session
+
+    Returns:
+        Updated user information
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Update fields if provided
+    if email is not None:
+        user.email = email
+    if full_name is not None:
+        user.full_name = full_name
+    if role is not None:
+        if role not in ['admin', 'operator', 'viewer']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid role"
+            )
+        user.role = role
+
+    db.commit()
+    db.refresh(user)
+
+    logger.info(f"User '{user.username}' updated by admin '{current_admin.username}'")
+
+    return user
+
+
+@router.put("/users/{user_id}/deactivate")
+async def deactivate_user(
+    user_id: int,
+    current_admin: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Deactivate a user (admin only).
+
+    Args:
+        user_id: User ID to deactivate
+        current_admin: Current admin user
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    if user.id == current_admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot deactivate your own account"
+        )
+
+    user.is_active = False
+    db.commit()
+
+    logger.info(f"User '{user.username}' deactivated by admin '{current_admin.username}'")
+
+    return {"message": f"User '{user.username}' deactivated successfully"}
+
+
+@router.put("/users/{user_id}/activate")
+async def activate_user(
+    user_id: int,
+    current_admin: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Activate a deactivated user (admin only).
+
+    Args:
+        user_id: User ID to activate
+        current_admin: Current admin user
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    user.is_active = True
+    db.commit()
+
+    logger.info(f"User '{user.username}' activated by admin '{current_admin.username}'")
+
+    return {"message": f"User '{user.username}' activated successfully"}
 
 
 @router.delete("/users/{user_id}")

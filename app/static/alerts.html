@@ -588,7 +588,7 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="activeAlerts">0</div>
-                    <div class="stat-label">Unacknowledged</div>
+                    <div class="stat-label">Not Verified</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="knownAlerts">0</div>
@@ -624,11 +624,15 @@
                 </div>
 
                 <div class="filter-group">
-                    <label class="filter-label">Status</label>
+                    <label class="filter-label">Guard Status</label>
                     <select class="filter-select" id="statusFilter" onchange="filterAlerts()">
                         <option value="all">All Status</option>
-                        <option value="unacknowledged">Unacknowledged</option>
-                        <option value="acknowledged">Acknowledged</option>
+                        <option value="unverified">🔴 Not Verified</option>
+                        <option value="verified">✅ Verified</option>
+                        <option value="confirmed">✅ Confirmed</option>
+                        <option value="false_alarm">⚠️ False Alarm</option>
+                        <option value="apprehended">🚔 Apprehended</option>
+                        <option value="escalated">🚨 Escalated</option>
                     </select>
                 </div>
 
@@ -668,11 +672,11 @@
 
             <div class="filter-section">
                 <div class="filter-title">Actions</div>
-                <button class="btn btn-success" onclick="acknowledgeAll()" style="width: 100%; margin-bottom: 10px;">
-                    ✓ Acknowledge All
-                </button>
-                <button class="btn btn-secondary" onclick="exportAlerts()" style="width: 100%;">
+                <button class="btn btn-secondary" onclick="exportAlerts()" style="width: 100%; margin-bottom: 10px;">
                     📥 Export to CSV
+                </button>
+                <button class="btn btn-primary" onclick="clearFilters()" style="width: 100%;">
+                    🔄 Clear Filters
                 </button>
             </div>
 
@@ -707,30 +711,6 @@
                 <div class="empty-state-icon">📭</div>
                 <h3>No Alerts Found</h3>
                 <p>No alerts match your current filters.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Acknowledge Modal -->
-    <div class="modal" id="acknowledgeModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span>Acknowledge Alert</span>
-                <button class="btn btn-secondary" onclick="closeAcknowledgeModal()" style="padding: 5px 15px;">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Alert ID</label>
-                    <input type="text" class="form-input" id="ackAlertId" readonly>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Notes (Optional)</label>
-                    <textarea class="form-textarea" id="ackNotes" placeholder="Add investigation notes or action taken..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeAcknowledgeModal()">Cancel</button>
-                <button class="btn btn-success" onclick="submitAcknowledge()">✓ Acknowledge</button>
             </div>
         </div>
     </div>
@@ -819,8 +799,27 @@
         // Format timestamp for Pakistan time (already stored in local time)
         function formatTime(timestamp) {
             if (!timestamp) return 'N/A';
-            // Remove 'T', microseconds, and timezone info - display as-is
-            return timestamp.replace('T', ' ').split('.')[0];
+
+            try {
+                // Timestamp format: "2025-11-07 09:29:17.940603" (UTC)
+                // Convert to PKT (UTC+5)
+                let isoString = timestamp.replace(' ', 'T');
+                if (!isoString.endsWith('Z')) {
+                    isoString = isoString.split('.')[0] + 'Z';
+                }
+
+                const utcDate = new Date(isoString);
+                const pktDate = new Date(utcDate.getTime() + (5 * 60 * 60 * 1000));
+
+                const hours = String(pktDate.getUTCHours()).padStart(2, '0');
+                const minutes = String(pktDate.getUTCMinutes()).padStart(2, '0');
+                const seconds = String(pktDate.getUTCSeconds()).padStart(2, '0');
+
+                return `${hours}:${minutes}:${seconds}`;
+            } catch (e) {
+                console.error('Error formatting time:', e);
+                return timestamp.replace('T', ' ').split('.')[0];
+            }
         }
 
         let allAlerts = [];
@@ -927,12 +926,26 @@
             const searchName = document.getElementById('searchName').value.toLowerCase();
 
             filteredAlerts = allAlerts.filter(alert => {
+                // Filter by alert type
                 if (type !== 'all' && alert.event_type !== type) return false;
-                if (status === 'unacknowledged' && alert.acknowledged) return false;
-                if (status === 'acknowledged' && !alert.acknowledged) return false;
+
+                // Filter by guard verification status
+                if (status === 'unverified' && alert.guard_verified) return false;
+                if (status === 'verified' && !alert.guard_verified) return false;
+                if (status === 'confirmed' && alert.guard_action !== 'confirmed') return false;
+                if (status === 'false_alarm' && alert.guard_action !== 'false_alarm') return false;
+                if (status === 'apprehended' && alert.guard_action !== 'apprehended') return false;
+                if (status === 'escalated' && alert.guard_action !== 'escalated') return false;
+
+                // Filter by threat level
                 if (threatLevel !== 'all' && alert.threat_level !== threatLevel) return false;
+
+                // Filter by watchlist status
                 if (watchlistStatus !== 'all' && alert.watchlist_status !== watchlistStatus) return false;
+
+                // Filter by person name
                 if (searchName && (!alert.person_name || !alert.person_name.toLowerCase().includes(searchName))) return false;
+
                 return true;
             });
 
@@ -1019,7 +1032,6 @@
                                 </span>
                                 ${threatBadge}
                                 ${watchlistBadge}
-                                ${isAcknowledged ? '<span class="badge badge-success" style="margin-left: 10px;">Acknowledged</span>' : '<span class="badge badge-danger" style="margin-left: 10px;">Pending</span>'}
                                 ${guardBadge}
                             </div>
                             <div class="alert-id">#${alert.id}</div>
@@ -1047,16 +1059,9 @@
                                 <span class="alert-detail-value">${alert.guard_verified_by} (${alert.guard_action})</span>
                             </div>
                             ` : ''}
-                            ${isAcknowledged && alert.acknowledged_by ? `
-                            <div class="alert-detail-row">
-                                <span class="alert-detail-label">Acknowledged by:</span>
-                                <span class="alert-detail-value">${alert.acknowledged_by}</span>
-                            </div>
-                            ` : ''}
                         </div>
                         <div class="alert-actions">
                             ${!isGuardVerified && isKnown ? `<button class="btn btn-success" onclick="openGuardActionModal(${alert.id}, '${alert.person_name || 'Unknown'}', '${threatLevel}')">🛡️ Guard Verify</button>` : ''}
-                            ${!isAcknowledged ? `<button class="btn btn-success" onclick="openAcknowledgeModal(${alert.id})">✓ Acknowledge</button>` : ''}
                             <button class="btn btn-secondary" onclick="viewDetails(${alert.id})">👁️ View</button>
                             <button class="btn btn-danger" onclick="deleteAlert(${alert.id})">🗑️</button>
                         </div>
@@ -1067,94 +1072,25 @@
 
         // Update statistics
         function updateStats() {
-            const unacknowledged = allAlerts.filter(a => !a.acknowledged).length;
+            const notVerified = allAlerts.filter(a => !a.guard_verified).length;
             const known = allAlerts.filter(a => a.event_type === 'known_person').length;
             const unknown = allAlerts.filter(a => a.event_type === 'unknown_person').length;
 
             document.getElementById('totalAlerts').textContent = allAlerts.length;
-            document.getElementById('activeAlerts').textContent = unacknowledged;
+            document.getElementById('activeAlerts').textContent = notVerified;
             document.getElementById('knownAlerts').textContent = known;
             document.getElementById('unknownAlerts').textContent = unknown;
         }
 
-        // Acknowledge modal
-        function openAcknowledgeModal(alertId) {
-            document.getElementById('ackAlertId').value = alertId;
-            document.getElementById('ackNotes').value = '';
-            document.getElementById('acknowledgeModal').classList.add('active');
-        }
 
-        function closeAcknowledgeModal() {
-            document.getElementById('acknowledgeModal').classList.remove('active');
-        }
-
-        async function submitAcknowledge() {
-            const alertId = parseInt(document.getElementById('ackAlertId').value);
-            const notes = document.getElementById('ackNotes').value;
-            const userName = document.getElementById('userName').textContent;
-
-            try {
-                const response = await fetch('/api/alerts/acknowledge', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        alert_id: alertId,
-                        acknowledged_by: userName,
-                        notes: notes || null
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    closeAcknowledgeModal();
-                    loadAlerts();
-                    alert('✅ Alert acknowledged successfully!');
-                } else {
-                    alert('❌ Failed to acknowledge alert: ' + (data.message || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Network error: ' + error.message);
-            }
-        }
-
-        // Acknowledge all
-        async function acknowledgeAll() {
-            const unacknowledged = allAlerts.filter(a => !a.acknowledged);
-
-            if (unacknowledged.length === 0) {
-                alert('No unacknowledged alerts to process.');
-                return;
-            }
-
-            if (!confirm(`Acknowledge all ${unacknowledged.length} pending alerts?`)) {
-                return;
-            }
-
-            const userName = document.getElementById('userName').textContent;
-            let successCount = 0;
-
-            for (const alert of unacknowledged) {
-                try {
-                    const response = await fetch('/api/alerts/acknowledge', {
-                        method: 'POST',
-                        headers: getAuthHeaders(),
-                        body: JSON.stringify({
-                            alert_id: alert.id,
-                            acknowledged_by: userName,
-                            notes: 'Bulk acknowledgment'
-                        })
-                    });
-
-                    if (response.ok) successCount++;
-                } catch (error) {
-                    console.error('Error acknowledging alert:', alert.id, error);
-                }
-            }
-
-            alert(`✅ Acknowledged ${successCount} of ${unacknowledged.length} alerts`);
-            loadAlerts();
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('alertType').value = 'all';
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('threatFilter').value = 'all';
+            document.getElementById('watchlistFilter').value = 'all';
+            document.getElementById('searchName').value = '';
+            filterAlerts();
         }
 
         // Delete alert
