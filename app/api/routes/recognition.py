@@ -168,7 +168,7 @@ async def enroll_person(
             watchlist_status=watchlist_status,
             threat_level=threat_level,
             criminal_notes=criminal_notes if criminal_notes else None,
-            added_to_watchlist_at=datetime.utcnow() if watchlist_status != 'none' else None
+            added_to_watchlist_at=datetime.now() if watchlist_status != 'none' else None
         )
         db.add(person)
         db.flush()  # Get the person.id
@@ -719,7 +719,7 @@ async def recognize_from_camera(db: Session = Depends(get_db)):
                     "cnic": person.cnic
                 },
                 "similarity": round(similarity, 3),
-                "timestamp": datetime.utcnow()
+                "timestamp": datetime.now()
             }
         else:
             return {
@@ -727,7 +727,7 @@ async def recognize_from_camera(db: Session = Depends(get_db)):
                 "matched": False,
                 "message": "Face not recognized",
                 "best_similarity": round(similarity, 3),
-                "timestamp": datetime.utcnow()
+                "timestamp": datetime.now()
             }
 
     except HTTPException:
@@ -1006,7 +1006,7 @@ async def enroll_person_multiple_images(
             watchlist_status=watchlist_status,
             threat_level=threat_level,
             criminal_notes=criminal_notes if criminal_notes else None,
-            added_to_watchlist_at=datetime.utcnow() if watchlist_status != 'none' else None
+            added_to_watchlist_at=datetime.now() if watchlist_status != 'none' else None
         )
         db.add(person)
         db.flush()
@@ -1367,7 +1367,7 @@ def generate_video_stream(db: Session):
                                 try:
                                     log_entry = RecognitionLog(
                                         person_id=person_ids[best_idx] if best_idx >= 0 else None,
-                                        timestamp=datetime.utcnow(),
+                                        timestamp=datetime.now(),
                                         confidence=similarity,
                                         matched=1 if best_idx >= 0 else 0,
                                         camera_source=settings.camera_ip
