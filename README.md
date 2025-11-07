@@ -88,11 +88,13 @@ http://192.168.0.117:8000
 ## 📈 Performance
 
 - **Live Stream**: 15-20 FPS with GPU acceleration
-- **Detection Time**: ~30-50ms per frame (SCRFD + TensorRT)
-- **Recognition Time**: ~200-300ms per face (ArcFace on CPU)
+- **Detection Time**: ~27ms per frame (SCRFD + TensorRT FP16)
+- **Recognition Time**: ~31ms per face (ArcFace + TensorRT FP16)
+- **Combined Pipeline**: ~58ms total latency
 - **GPU Utilization**: 40-60% during active detection
 - **Multi-Face**: Up to 10 faces processed simultaneously
 - **Recognition Accuracy**: ~90-95% with single image, ~95-98% with multiple images
+- **All Models**: 100% GPU-accelerated with TensorRT FP16 optimization
 
 ---
 
@@ -116,6 +118,7 @@ http://192.168.0.117:8000
 
 ### Getting Started
 - **[Quick Start Guide](docs/getting-started/QUICK_START.md)** - Get up and running in 5 minutes
+- **[Project Structure](PROJECT_STRUCTURE.md)** - Master reference for file locations
 - **[System Requirements](docs/)** - Hardware and software prerequisites
 
 ### Architecture & Technical
@@ -193,12 +196,6 @@ python3 -m app.db.init_db
 # Start the server
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
-
----
-
-## 🤝 Contributing
-
-For contribution guidelines, see **[docs/development/CONTRIBUTING.md](docs/development/CONTRIBUTING.md)**
 
 ---
 
