@@ -135,6 +135,15 @@ class AlertManager:
             return None
 
         try:
+            # Get person watchlist info if this is a known person
+            threat_level = None
+            watchlist_status = None
+            if person_id:
+                person = db.query(Person).filter(Person.id == person_id).first()
+                if person:
+                    threat_level = person.threat_level
+                    watchlist_status = person.watchlist_status
+
             # Create alert record
             alert = Alert(
                 event_type=event_type,
@@ -143,6 +152,10 @@ class AlertManager:
                 confidence=confidence,
                 num_faces=num_faces,
                 acknowledged=False,
+                guard_verified=False,
+                # Cache watchlist info for quick filtering
+                threat_level=threat_level,
+                watchlist_status=watchlist_status,
             )
 
             # Add to database to get ID
@@ -157,7 +170,7 @@ class AlertManager:
             db.commit()
             db.refresh(alert)
 
-            logger.info(f"Alert created: {alert}")
+            logger.info(f"Alert created: {alert} [Threat: {threat_level}, Watchlist: {watchlist_status}]")
 
             # Send notifications
             self._send_notifications(alert)
@@ -252,7 +265,10 @@ class AlertManager:
                 'confidence': alert.confidence,
                 'num_faces': alert.num_faces,
                 'snapshot_path': alert.snapshot_path,
-                'acknowledged': alert.acknowledged
+                'acknowledged': alert.acknowledged,
+                'guard_verified': alert.guard_verified,
+                'threat_level': alert.threat_level,
+                'watchlist_status': alert.watchlist_status,
             }
 
             logger.info(f"📡 Preparing to broadcast alert {alert.id} (Type: {alert.event_type})")

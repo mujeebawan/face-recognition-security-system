@@ -25,11 +25,18 @@ class Person(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+    # Watchlist fields for criminal/wanted person detection
+    watchlist_status = Column(String(50), default='none', nullable=False, index=True)  # 'most_wanted', 'suspect', 'person_of_interest', 'banned', 'none'
+    threat_level = Column(String(20), default='none', nullable=False, index=True)  # 'critical', 'high', 'medium', 'low', 'none'
+    criminal_notes = Column(Text, nullable=True)  # Details about why on watchlist
+    added_to_watchlist_at = Column(DateTime, nullable=True)  # When added to watchlist
+    watchlist_expires_at = Column(DateTime, nullable=True)  # Optional expiry date
+
     # Relationship to embeddings
     embeddings = relationship("FaceEmbedding", back_populates="person", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Person(id={self.id}, name='{self.name}', cnic='{self.cnic}')>"
+        return f"<Person(id={self.id}, name='{self.name}', cnic='{self.cnic}', watchlist='{self.watchlist_status}')>"
 
 
 class FaceEmbedding(Base):
@@ -81,13 +88,26 @@ class Alert(Base):
     confidence = Column(Float, nullable=True)  # Recognition confidence
     num_faces = Column(Integer, default=1)  # Number of faces in frame
     snapshot_path = Column(String(500), nullable=True)  # Path to snapshot image
+
+    # Original acknowledgment fields (for admin review)
     acknowledged = Column(Boolean, default=False, nullable=False, index=True)
     acknowledged_by = Column(String(100), nullable=True)  # Username who acknowledged
     acknowledged_at = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)  # Additional notes
 
+    # Guard verification fields (for real-time response)
+    guard_verified = Column(Boolean, default=False, nullable=False, index=True)  # Did guard verify match?
+    guard_action = Column(String(50), nullable=True, index=True)  # 'confirmed', 'false_alarm', 'investigating', 'apprehended', 'escalated'
+    guard_verified_by = Column(String(100), nullable=True)  # Guard username
+    guard_verified_at = Column(DateTime, nullable=True)  # When guard took action
+    action_notes = Column(Text, nullable=True)  # Guard's notes on action taken
+
+    # Cached threat level for quick filtering (denormalized from Person)
+    threat_level = Column(String(20), nullable=True, index=True)  # Cached from person.threat_level
+    watchlist_status = Column(String(50), nullable=True, index=True)  # Cached from person.watchlist_status
+
     def __repr__(self):
-        return f"<Alert(id={self.id}, type='{self.event_type}', acknowledged={self.acknowledged})>"
+        return f"<Alert(id={self.id}, type='{self.event_type}', threat='{self.threat_level}', verified={self.guard_verified})>"
 
 
 class SystemConfiguration(Base):

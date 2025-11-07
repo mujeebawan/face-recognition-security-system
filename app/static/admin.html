@@ -560,13 +560,56 @@
                     >
                 </div>
 
+                <!-- Watchlist Section -->
+                <div style="background: linear-gradient(135deg, #78350f 0%, #451a03 100%); padding: 15px; border-radius: 12px; border: 2px solid #f59e0b; margin-bottom: 18px;">
+                    <h3 style="color: #fbbf24; font-size: 1.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        🚨 Watchlist Classification
+                    </h3>
+
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label class="form-label" for="watchlistStatus">Watchlist Status *</label>
+                        <select id="watchlistStatus" class="form-input" required>
+                            <option value="none">⚪ None (Regular Person)</option>
+                            <option value="most_wanted" style="color: #dc2626; font-weight: bold;">🔴 MOST WANTED</option>
+                            <option value="suspect" style="color: #ea580c; font-weight: bold;">🟠 SUSPECT</option>
+                            <option value="person_of_interest" style="color: #f59e0b;">🟡 PERSON OF INTEREST</option>
+                            <option value="banned" style="color: #6366f1;">🟣 BANNED FROM PREMISES</option>
+                        </select>
+                        <p class="form-help" style="color: #fbbf24;">Select if this person is wanted, suspected, or banned</p>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label class="form-label" for="threatLevel">Threat Level *</label>
+                        <select id="threatLevel" class="form-input" required>
+                            <option value="none">⚪ None (No Threat)</option>
+                            <option value="critical" style="color: #dc2626; font-weight: bold;">🔴 CRITICAL (Armed/Dangerous)</option>
+                            <option value="high" style="color: #ea580c; font-weight: bold;">🟠 HIGH (Serious Crime)</option>
+                            <option value="medium" style="color: #f59e0b;">🟡 MEDIUM (Under Investigation)</option>
+                            <option value="low" style="color: #3b82f6;">🔵 LOW (Minor Offense)</option>
+                        </select>
+                        <p class="form-help" style="color: #fbbf24;">How dangerous is this person?</p>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" for="criminalNotes">Criminal Details *</label>
+                        <textarea
+                            id="criminalNotes"
+                            class="form-input"
+                            rows="3"
+                            placeholder="e.g., Wanted for armed robbery. Last seen 2024-10-15. Case #ABC123. Do NOT approach alone."
+                            required
+                        ></textarea>
+                        <p class="form-help" style="color: #fbbf24;">What crime? Case number? Special instructions for guards?</p>
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label class="form-label" for="notes">Case Notes (Optional)</label>
+                    <label class="form-label" for="notes">Additional Notes (Optional)</label>
                     <textarea
                         id="notes"
                         class="form-input"
-                        rows="3"
-                        placeholder="e.g., Wanted for theft case #12345"
+                        rows="2"
+                        placeholder="e.g., Known aliases, vehicle info, last seen location"
                     ></textarea>
                 </div>
 
@@ -1027,6 +1070,11 @@
             const useSD = useSDCheckbox.checked;
             const numVariations = parseInt(numVariationsSlider.value);
 
+            // Get watchlist data
+            const watchlistStatus = document.getElementById('watchlistStatus').value;
+            const threatLevel = document.getElementById('threatLevel').value;
+            const criminalNotes = document.getElementById('criminalNotes').value;
+
             // Get selected augmentation method
             const selectedMethod = document.querySelector('input[name="augmentMethod"]:checked')?.value || 'liveportrait';
             const useLivePortrait = (selectedMethod === 'liveportrait');
@@ -1064,6 +1112,12 @@
                 const formData = new FormData();
                 formData.append('name', name);
                 formData.append('cnic', cnic);
+                formData.append('notes', notes); // Optional notes
+
+                // Append watchlist fields
+                formData.append('watchlist_status', watchlistStatus);
+                formData.append('threat_level', threatLevel);
+                formData.append('criminal_notes', criminalNotes);
 
                 let endpoint, successMessage;
 

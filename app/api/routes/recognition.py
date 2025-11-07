@@ -94,6 +94,11 @@ async def enroll_person(
     use_traditional: bool = Form(False),
     use_multi_model: bool = Form(False),
     num_sd_variations: int = Form(5),
+    # Watchlist fields
+    watchlist_status: str = Form("none"),
+    threat_level: str = Form("none"),
+    criminal_notes: str = Form(""),
+    notes: str = Form(""),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -154,12 +159,16 @@ async def enroll_person(
         os.makedirs(person_folder, exist_ok=True)
         logger.info(f"Created person folder: {person_folder}")
 
-        # Create person record
+        # Create person record with watchlist fields
         original_image_path = f"{person_folder}/original_{file.filename}"
         person = Person(
             name=name,
             cnic=cnic,
-            reference_image_path=original_image_path
+            reference_image_path=original_image_path,
+            watchlist_status=watchlist_status,
+            threat_level=threat_level,
+            criminal_notes=criminal_notes if criminal_notes else None,
+            added_to_watchlist_at=datetime.utcnow() if watchlist_status != 'none' else None
         )
         db.add(person)
         db.flush()  # Get the person.id
@@ -953,6 +962,11 @@ async def enroll_person_multiple_images(
     cnic: str = Form(...),
     files: List[UploadFile] = File(...),
     use_augmentation: bool = Form(True),
+    # Watchlist fields
+    watchlist_status: str = Form("none"),
+    threat_level: str = Form("none"),
+    criminal_notes: str = Form(""),
+    notes: str = Form(""),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -984,11 +998,15 @@ async def enroll_person_multiple_images(
         recognizer = get_recognizer()
         augmentor = FaceAugmentation()
 
-        # Create person record
+        # Create person record with watchlist fields
         person = Person(
             name=name,
             cnic=cnic,
-            reference_image_path=f"data/images/{cnic}_multiple"
+            reference_image_path=f"data/images/{cnic}_multiple",
+            watchlist_status=watchlist_status,
+            threat_level=threat_level,
+            criminal_notes=criminal_notes if criminal_notes else None,
+            added_to_watchlist_at=datetime.utcnow() if watchlist_status != 'none' else None
         )
         db.add(person)
         db.flush()

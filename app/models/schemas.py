@@ -68,9 +68,24 @@ class AlertEvent(BaseModel):
     confidence: Optional[float] = None
     num_faces: int = 1
     snapshot_path: Optional[str] = None
+
+    # Admin acknowledgment
     acknowledged: bool = False
     acknowledged_by: Optional[str] = None
     acknowledged_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+    # Guard verification
+    guard_verified: bool = False
+    guard_action: Optional[str] = None  # 'confirmed', 'false_alarm', 'investigating', 'apprehended', 'escalated'
+    guard_verified_by: Optional[str] = None
+    guard_verified_at: Optional[datetime] = None
+    action_notes: Optional[str] = None
+
+    # Watchlist info (cached from person)
+    threat_level: Optional[str] = None  # 'critical', 'high', 'medium', 'low', 'none'
+    watchlist_status: Optional[str] = None  # 'most_wanted', 'suspect', 'person_of_interest', 'banned', 'none'
+
     original_image_url: Optional[str] = None  # URL to original enrolled person image
 
     class Config:
