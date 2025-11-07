@@ -91,6 +91,8 @@ async def enroll_person(
     use_sd_augmentation: bool = Form(False),
     use_controlnet: bool = Form(False),
     use_liveportrait: bool = Form(False),
+    use_traditional: bool = Form(False),
+    use_multi_model: bool = Form(False),
     num_sd_variations: int = Form(5),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -105,6 +107,8 @@ async def enroll_person(
         use_sd_augmentation: Use Stable Diffusion to generate additional angles (default: False)
         use_controlnet: Use ControlNet for better pose control (default: False, requires use_sd_augmentation=True)
         use_liveportrait: Use LivePortrait for 3D-aware pose generation (default: False)
+        use_traditional: Use traditional augmentation (rotation, brightness, etc.) (default: False)
+        use_multi_model: Use ALL augmentation models sequentially for critical cases (default: False)
         num_sd_variations: Number of variations to generate if augmentation enabled (default: 5, max: 10)
         db: Database session
 
@@ -112,6 +116,20 @@ async def enroll_person(
         Enrollment result with person ID and total embeddings
     """
     try:
+        import os
+        import re
+
+        # Sanitize person name for folder creation (remove special characters)
+        folder_name = re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '_')
+        person_folder = f"data/person_images/{folder_name}"
+
+        # Check if folder already exists (name conflict)
+        if os.path.exists(person_folder):
+            raise HTTPException(
+                status_code=400,
+                detail=f"A person with similar name already exists. Please use a different name to avoid conflicts. Suggested: {name}_2 or {name}_{cnic[-4:]}"
+            )
+
         # Check if CNIC already exists
         existing = db.query(Person).filter(Person.cnic == cnic).first()
         if existing:
@@ -132,11 +150,16 @@ async def enroll_person(
         if result is None:
             raise HTTPException(status_code=400, detail="No face detected in image")
 
+        # Create person-specific folder
+        os.makedirs(person_folder, exist_ok=True)
+        logger.info(f"Created person folder: {person_folder}")
+
         # Create person record
+        original_image_path = f"{person_folder}/original_{file.filename}"
         person = Person(
             name=name,
             cnic=cnic,
-            reference_image_path=f"data/images/{cnic}_{file.filename}"
+            reference_image_path=original_image_path
         )
         db.add(person)
         db.flush()  # Get the person.id
@@ -151,16 +174,70 @@ async def enroll_person(
         )
         db.add(face_embedding)
 
-        # Save reference image
-        import os
-        os.makedirs("data/images", exist_ok=True)
-        cv2.imwrite(person.reference_image_path, image)
+        # Save reference image to person folder
+        cv2.imwrite(original_image_path, image)
+        logger.info(f"Saved original image: {original_image_path}")
 
         total_embeddings = 1
         augmentation_time = 0
+        augmentation_methods_used = []
 
-        # Generate LivePortrait augmented faces if requested (takes priority over SD)
-        if use_liveportrait:
+        # Multi-model mode: Use ALL augmentation models sequentially for maximum accuracy
+        if use_multi_model:
+            logger.info(f"MULTI-MODEL AUGMENTATION MODE activated for {name} - Using ALL models sequentially")
+            use_traditional = True
+            use_liveportrait = True
+            # SD will be handled separately in Step 4 for multi-model
+            # Note: We'll use img2img for multi-model to save GPU memory, not ControlNet
+
+        # If user selected multiple individual methods, they can all run
+        # (e.g., user can select both LivePortrait AND ControlNet)
+
+        # Step 1: Traditional Augmentation (if requested or multi-model)
+        if use_traditional or use_multi_model:
+            try:
+                from app.core.augmentation import FaceAugmentation
+
+                logger.info(f"Generating traditional augmentations for {name}...")
+                augmentor = FaceAugmentation()
+
+                start_time = time.time()
+                variations = augmentor.generate_variations(image, num_variations=8)
+                trad_time = time.time() - start_time
+                augmentation_time += trad_time
+
+                logger.info(f"Traditional augmentation completed in {trad_time:.2f}s ({len(variations)} images)")
+
+                # Process each variation
+                for idx, var_img in enumerate(variations[1:], 1):  # Skip first (original)
+                    var_result = recognizer.extract_embedding(var_img)
+
+                    if var_result is not None:
+                        # Store embedding
+                        var_embedding_data = FaceRecognizer.serialize_embedding(var_result.embedding)
+                        var_face_embedding = FaceEmbedding(
+                            person_id=person.id,
+                            embedding=var_embedding_data,
+                            source=f'traditional_augmented_{idx}',
+                            confidence=var_result.confidence
+                        )
+                        db.add(var_face_embedding)
+                        total_embeddings += 1
+
+                        # Save generated image to person folder
+                        var_img_path = f"{person_folder}/traditional_aug_{idx}.jpg"
+                        cv2.imwrite(var_img_path, var_img)
+
+                augmentation_methods_used.append("Traditional")
+                logger.info(f"Traditional augmentation complete: {total_embeddings} total embeddings")
+
+            except Exception as aug_e:
+                logger.error(f"Traditional augmentation failed: {aug_e}, continuing with other methods")
+                import traceback
+                traceback.print_exc()
+
+        # Step 2: Generate LivePortrait augmented faces if requested
+        if use_liveportrait or use_multi_model:
             try:
                 import time
                 from app.core.liveportrait_augmentation import LivePortraitAugmentor
@@ -204,23 +281,27 @@ async def enroll_person(
                         db.add(gen_face_embedding)
                         total_embeddings += 1
 
-                        # Save generated image
-                        gen_img_path = f"data/images/{cnic}_liveportrait_gen_{idx+1}.jpg"
+                        # Save generated image to person folder
+                        gen_img_path = f"{person_folder}/liveportrait_gen_{idx+1}.jpg"
                         cv2.imwrite(gen_img_path, gen_img)
 
-                # Cleanup
+                # Cleanup and free GPU memory
                 del augmentor
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    logger.info("Freed GPU memory after LivePortrait")
 
-                logger.info(f"✅ LivePortrait augmentation complete: {total_embeddings} total embeddings")
+                augmentation_methods_used.append("LivePortrait")
+                logger.info(f"LivePortrait augmentation complete: {total_embeddings} total embeddings")
 
             except Exception as aug_e:
-                logger.error(f"LivePortrait augmentation failed: {aug_e}, continuing with original only")
+                logger.error(f"LivePortrait augmentation failed: {aug_e}, continuing with other methods")
                 import traceback
                 traceback.print_exc()
                 # Continue with enrollment even if augmentation fails
 
-        # Generate SD augmented faces if requested (only if LivePortrait not used)
-        elif use_sd_augmentation:
+        # Step 3: Generate SD augmented faces if requested (runs independently or in multi-model)
+        if (use_sd_augmentation or use_controlnet) and not use_multi_model:
             try:
                 import time
 
@@ -302,45 +383,141 @@ async def enroll_person(
                             db.add(gen_face_embedding)
                             total_embeddings += 1
 
-                            # Save generated image
-                            gen_img_path = f"data/images/{cnic}_{augmentation_type}_gen_{idx+1}.jpg"
+                            # Save generated image to person folder
+                            gen_img_path = f"{person_folder}/{augmentation_type}_gen_{idx+1}.jpg"
                             cv2.imwrite(gen_img_path, gen_img)
 
-                    # Unload model to free GPU memory
+                    # Unload model and free GPU memory aggressively
                     augmentor.unload_model()
+                    del augmentor
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        import gc
+                        gc.collect()
+                        logger.info(f"Freed GPU memory after {augmentation_type.upper()}")
 
-                    logger.info(f"✅ {augmentation_type.upper()} augmentation complete: {total_embeddings} total embeddings")
+                    augmentation_methods_used.append(augmentation_type.upper())
+                    logger.info(f"{augmentation_type.upper()} augmentation complete: {total_embeddings} total embeddings")
 
             except Exception as aug_e:
-                logger.error(f"Augmentation failed: {aug_e}, continuing with original only")
+                logger.error(f"Augmentation failed: {aug_e}, continuing with other methods")
                 import traceback
                 traceback.print_exc()
                 # Continue with enrollment even if augmentation fails
+                # Make sure to free GPU memory even on failure
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+        # Step 4: Multi-model SD generation (for multi_model mode only)
+        if use_multi_model:
+            try:
+                import time
+                from app.core.generative_augmentation import StableDiffusionAugmentor
+
+                # In multi-model, use img2img (lighter than ControlNet)
+                logger.info(f"Multi-Model Mode: Generating SD img2img augmented angles for {name}...")
+
+                # Check GPU memory
+                if torch.cuda.is_available():
+                    free_mem = torch.cuda.mem_get_info()[0] / 1024**3
+                    logger.info(f"Available GPU memory before SD: {free_mem:.2f} GB")
+
+                    if free_mem < 4.0:
+                        logger.warning(f"Low GPU memory ({free_mem:.1f}GB), skipping SD augmentation in multi-model mode")
+                        raise HTTPException(
+                            status_code=507,
+                            detail=f"Insufficient GPU memory for Stable Diffusion in multi-model mode. Available: {free_mem:.1f}GB, Required: ~4GB"
+                        )
+
+                # Initialize SD img2img augmentor
+                augmentor = StableDiffusionAugmentor(
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                    use_fp16=True
+                )
+
+                # Load model
+                if augmentor.load_model():
+                    # Generate variations (fewer in multi-model to save time)
+                    num_variations = min(3, num_sd_variations)
+                    start_time = time.time()
+
+                    generated_images = augmentor.generate_face_angles(
+                        reference_image=image,
+                        num_variations=num_variations,
+                        num_inference_steps=15,  # Faster for multi-model
+                        guidance_scale=7.0
+                    )
+                    sd_time = time.time() - start_time
+                    augmentation_time += sd_time
+
+                    logger.info(f"SD generation completed in {sd_time:.2f}s ({len(generated_images)} images)")
+
+                    # Process each generated image
+                    for idx, gen_img in enumerate(generated_images):
+                        gen_result = recognizer.extract_embedding(gen_img)
+
+                        if gen_result is not None:
+                            gen_embedding_data = FaceRecognizer.serialize_embedding(gen_result.embedding)
+                            gen_face_embedding = FaceEmbedding(
+                                person_id=person.id,
+                                embedding=gen_embedding_data,
+                                source=f'img2img_augmented_{idx+1}',
+                                confidence=gen_result.confidence
+                            )
+                            db.add(gen_face_embedding)
+                            total_embeddings += 1
+
+                            # Save generated image to person folder
+                            gen_img_path = f"{person_folder}/img2img_gen_{idx+1}.jpg"
+                            cv2.imwrite(gen_img_path, gen_img)
+
+                    # Unload and free memory
+                    augmentor.unload_model()
+                    del augmentor
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        import gc
+                        gc.collect()
+                        logger.info("Freed GPU memory after SD (multi-model)")
+
+                    augmentation_methods_used.append("SD-IMG2IMG")
+                    logger.info(f"Multi-model SD complete: {total_embeddings} total embeddings")
+
+            except HTTPException:
+                raise
+            except Exception as aug_e:
+                logger.error(f"SD augmentation in multi-model failed: {aug_e}")
+                import traceback
+                traceback.print_exc()
+                # Free memory even on failure
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
         db.commit()
 
-        logger.info(f"Enrolled person: {name} (CNIC: {cnic}, ID: {person.id}, Embeddings: {total_embeddings})")
+        logger.info(f"Enrolled person: {name} (CNIC: {cnic}, ID: {person.id}, Embeddings: {total_embeddings}, Folder: {person_folder})")
 
         response = {
             "success": True,
-            "message": f"Person {name} enrolled successfully",
+            "message": f"Person {name} enrolled successfully with {total_embeddings} face embeddings",
             "person_id": person.id,
+            "name": name,
             "cnic": cnic,
+            "person_folder": person_folder,
             "confidence": result.confidence,
             "total_embeddings": total_embeddings,
-            "liveportrait_used": use_liveportrait,
-            "sd_augmentation_used": use_sd_augmentation,
-            "controlnet_used": use_controlnet if use_sd_augmentation else False
+            "multi_model_used": use_multi_model,
+            "augmentation_methods": augmentation_methods_used,
+            "traditional_used": use_traditional and not use_multi_model,
+            "liveportrait_used": use_liveportrait and not use_multi_model,
+            "sd_augmentation_used": use_sd_augmentation and not use_multi_model,
+            "controlnet_used": use_controlnet and use_sd_augmentation and not use_multi_model
         }
 
         if augmentation_time > 0:
-            response["generation_time"] = round(augmentation_time, 2)
-            if use_liveportrait:
-                response["avg_time_per_image"] = round(augmentation_time / num_sd_variations, 2)
-                response["augmentation_method"] = "LivePortrait"
-            elif use_sd_augmentation:
-                response["avg_time_per_image"] = round(augmentation_time / num_sd_variations, 2)
-                response["augmentation_method"] = "ControlNet" if use_controlnet else "img2img"
+            response["total_augmentation_time"] = round(augmentation_time, 2)
+            if len(augmentation_methods_used) > 0:
+                response["augmentation_summary"] = f"Used {len(augmentation_methods_used)} methods: {', '.join(augmentation_methods_used)}"
 
         return response
 
@@ -600,41 +777,72 @@ async def get_person_details(
 
     # Collect all image paths
     import os
+    import re
     from pathlib import Path
     images = []
+
+    # Determine person folder
+    folder_name = re.sub(r'[^\w\s-]', '', person.name).strip().replace(' ', '_')
+    person_folder = f"data/person_images/{folder_name}"
+
+    # Check if person folder exists (new structure) or use old structure
+    use_new_structure = os.path.exists(person_folder)
 
     # Add original image
     if person.reference_image_path and os.path.exists(person.reference_image_path):
         images.append({
             "source": "original",
             "path": person.reference_image_path,
-            "url": f"/api/image/{person.cnic}/original"
+            "url": f"/api/image/{person.id}/original"
         })
 
-    # Add AI-generated images (ControlNet, img2img, and LivePortrait)
+    # Add AI-generated and traditional augmented images
     for emb in embeddings:
-        # Handle all augmentation types
-        if any(emb.source.startswith(prefix) for prefix in ['sd_augmented_', 'controlnet_augmented_', 'img2img_augmented_', 'liveportrait_augmented_']):
-            idx = emb.source.split('_')[-1]
+        # Handle all augmentation types (new and legacy)
+        source = emb.source
 
-            # Determine augmentation type
-            if emb.source.startswith('controlnet_augmented_'):
-                aug_type = 'controlnet'
-            elif emb.source.startswith('img2img_augmented_'):
-                aug_type = 'img2img'
-            elif emb.source.startswith('liveportrait_augmented_'):
-                aug_type = 'liveportrait'
-            else:  # sd_augmented (legacy)
-                aug_type = 'sd'
+        # Skip original embedding
+        if source == 'original':
+            continue
 
-            img_path = f"data/images/{person.cnic}_{aug_type}_gen_{idx}.jpg"
-            if os.path.exists(img_path):
-                images.append({
-                    "source": emb.source,
-                    "path": img_path,
-                    "url": f"/api/image/{person.cnic}/{aug_type}_gen_{idx}",
-                    "confidence": emb.confidence
-                })
+        # Determine image path based on structure
+        if use_new_structure:
+            # New folder structure
+            if source.startswith('traditional_augmented_'):
+                idx = source.split('_')[-1]
+                img_path = f"{person_folder}/traditional_aug_{idx}.jpg"
+            elif source.startswith('liveportrait_augmented_'):
+                idx = source.split('_')[-1]
+                img_path = f"{person_folder}/liveportrait_gen_{idx}.jpg"
+            elif source.startswith('controlnet_augmented_'):
+                idx = source.split('_')[-1]
+                img_path = f"{person_folder}/controlnet_gen_{idx}.jpg"
+            elif source.startswith('img2img_augmented_'):
+                idx = source.split('_')[-1]
+                img_path = f"{person_folder}/img2img_gen_{idx}.jpg"
+            else:
+                continue
+        else:
+            # Legacy flat structure
+            if source.startswith('controlnet_augmented_'):
+                idx = source.split('_')[-1]
+                img_path = f"data/images/{person.cnic}_controlnet_gen_{idx}.jpg"
+            elif source.startswith('img2img_augmented_'):
+                idx = source.split('_')[-1]
+                img_path = f"data/images/{person.cnic}_img2img_gen_{idx}.jpg"
+            elif source.startswith('liveportrait_augmented_'):
+                idx = source.split('_')[-1]
+                img_path = f"data/images/{person.cnic}_liveportrait_gen_{idx}.jpg"
+            else:
+                continue
+
+        if os.path.exists(img_path):
+            images.append({
+                "source": source,
+                "path": img_path,
+                "url": f"/api/image/{person.id}/{os.path.basename(img_path)}",
+                "confidence": emb.confidence
+            })
 
     return {
         "success": True,
@@ -697,35 +905,46 @@ async def delete_person(
     }
 
 
-@router.get("/image/{cnic}/{image_type}")
+@router.get("/image/{person_id}/{image_filename}")
 async def get_person_image(
-    cnic: str,
-    image_type: str,
+    person_id: int,
+    image_filename: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Serve person images (original, SD, ControlNet, img2img, or LivePortrait generated)"""
+    """Serve person images (original and augmented images from person folder or legacy structure)"""
     import os
+    import re
     from fastapi.responses import FileResponse
 
-    # Determine image path based on type
-    if image_type == "original":
-        # Get actual path from database instead of assuming filename
-        person = db.query(Person).filter(Person.cnic == cnic).first()
-        if not person or not person.reference_image_path:
-            raise HTTPException(status_code=404, detail="Person or original image not found")
-        image_path = person.reference_image_path
-    elif any(image_type.startswith(prefix) for prefix in ["sd_gen_", "controlnet_gen_", "img2img_gen_", "liveportrait_gen_"]):
-        # AI-generated images (all types)
-        image_path = f"data/images/{cnic}_{image_type}.jpg"
-    else:
-        raise HTTPException(status_code=400, detail="Invalid image type")
+    # Get person
+    person = db.query(Person).filter(Person.id == person_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
 
-    # Check if file exists
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail="Image not found")
+    # Determine folder structure
+    folder_name = re.sub(r'[^\w\s-]', '', person.name).strip().replace(' ', '_')
+    person_folder = f"data/person_images/{folder_name}"
 
-    return FileResponse(image_path, media_type="image/jpeg")
+    # Handle special case: "original"
+    if image_filename == "original":
+        if not person.reference_image_path or not os.path.exists(person.reference_image_path):
+            raise HTTPException(status_code=404, detail="Original image not found")
+        return FileResponse(person.reference_image_path, media_type="image/jpeg")
+
+    # Try new folder structure first
+    if os.path.exists(person_folder):
+        image_path = f"{person_folder}/{image_filename}"
+        if os.path.exists(image_path):
+            return FileResponse(image_path, media_type="image/jpeg")
+
+    # Fall back to legacy structure
+    legacy_path = f"data/images/{person.cnic}_{image_filename}"
+    if os.path.exists(legacy_path):
+        return FileResponse(legacy_path, media_type="image/jpeg")
+
+    # Image not found
+    raise HTTPException(status_code=404, detail=f"Image not found: {image_filename}")
 
 
 @router.post("/enroll/multiple")

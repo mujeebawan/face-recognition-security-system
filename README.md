@@ -131,9 +131,6 @@ http://192.168.0.117:8000
 - **[Project Roadmap](docs/development/ROADMAP.md)** - Future plans and milestones
 - **[Changelog](docs/development/CHANGELOG.md)** - Version history
 
-### Proprietary
-- **[NRTC Face AI Library](docs/proprietary/NRTC_FACEAI.md)** - Proprietary library documentation
-
 ---
 
 ## 🔧 System Requirements
@@ -201,14 +198,13 @@ python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ## 🤝 Contributing
 
-This is a proprietary project with NRTC Face AI library components.
 For contribution guidelines, see **[docs/development/CONTRIBUTING.md](docs/development/CONTRIBUTING.md)**
 
 ---
 
 ## 📄 License
 
-Proprietary - NRTC (Neural Real-Time Computing) Technologies
+Proprietary - All Rights Reserved
 Unauthorized use, reproduction, or distribution prohibited.
 
 ---
@@ -221,4 +217,4 @@ Unauthorized use, reproduction, or distribution prohibited.
 
 ---
 
-**Built with ❤️ on NVIDIA Jetson AGX Orin**
+**Built on NVIDIA Jetson AGX Orin**

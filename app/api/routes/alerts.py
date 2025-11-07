@@ -46,22 +46,31 @@ async def get_active_alerts(
     try:
         alerts = alert_manager.get_active_alerts(db, limit=limit)
 
-        alert_events = [
-            AlertEvent(
-                id=alert.id,
-                timestamp=alert.timestamp,
-                event_type=alert.event_type,
-                person_id=alert.person_id,
-                person_name=alert.person_name,
-                confidence=alert.confidence,
-                num_faces=alert.num_faces,
-                snapshot_path=alert.snapshot_path,
-                acknowledged=alert.acknowledged,
-                acknowledged_by=alert.acknowledged_by,
-                acknowledged_at=alert.acknowledged_at,
+        alert_events = []
+        for alert in alerts:
+            # Get original person image if person_id exists
+            original_image_url = None
+            if alert.person_id:
+                person = db.query(Person).filter(Person.id == alert.person_id).first()
+                if person:
+                    original_image_url = f"/api/alerts/original-image/{alert.id}"
+
+            alert_events.append(
+                AlertEvent(
+                    id=alert.id,
+                    timestamp=alert.timestamp,
+                    event_type=alert.event_type,
+                    person_id=alert.person_id,
+                    person_name=alert.person_name,
+                    confidence=alert.confidence,
+                    num_faces=alert.num_faces,
+                    snapshot_path=alert.snapshot_path,
+                    acknowledged=alert.acknowledged,
+                    acknowledged_by=alert.acknowledged_by,
+                    acknowledged_at=alert.acknowledged_at,
+                    original_image_url=original_image_url,
+                )
             )
-            for alert in alerts
-        ]
 
         return AlertResponse(
             success=True,
@@ -94,22 +103,31 @@ async def get_recent_alerts(
     try:
         alerts = alert_manager.get_recent_alerts(db, hours=hours, limit=limit)
 
-        alert_events = [
-            AlertEvent(
-                id=alert.id,
-                timestamp=alert.timestamp,
-                event_type=alert.event_type,
-                person_id=alert.person_id,
-                person_name=alert.person_name,
-                confidence=alert.confidence,
-                num_faces=alert.num_faces,
-                snapshot_path=alert.snapshot_path,
-                acknowledged=alert.acknowledged,
-                acknowledged_by=alert.acknowledged_by,
-                acknowledged_at=alert.acknowledged_at,
+        alert_events = []
+        for alert in alerts:
+            # Get original person image if person_id exists
+            original_image_url = None
+            if alert.person_id:
+                person = db.query(Person).filter(Person.id == alert.person_id).first()
+                if person:
+                    original_image_url = f"/api/alerts/original-image/{alert.id}"
+
+            alert_events.append(
+                AlertEvent(
+                    id=alert.id,
+                    timestamp=alert.timestamp,
+                    event_type=alert.event_type,
+                    person_id=alert.person_id,
+                    person_name=alert.person_name,
+                    confidence=alert.confidence,
+                    num_faces=alert.num_faces,
+                    snapshot_path=alert.snapshot_path,
+                    acknowledged=alert.acknowledged,
+                    acknowledged_by=alert.acknowledged_by,
+                    acknowledged_at=alert.acknowledged_at,
+                    original_image_url=original_image_url,
+                )
             )
-            for alert in alerts
-        ]
 
         return AlertResponse(
             success=True,
@@ -290,7 +308,7 @@ async def get_alert_snapshot(
     db: Session = Depends(get_db)
 ):
     """
-    Serve alert snapshot image with authentication.
+    Serve alert snapshot image (captured image) with authentication.
 
     Args:
         alert_id: The alert ID
@@ -315,12 +333,14 @@ async def get_alert_snapshot(
             logger.error(f"Snapshot file not found: {alert.snapshot_path}")
             raise HTTPException(status_code=404, detail="Snapshot file not found")
 
-        # Return the image file
+        # Return the image file with no-cache to prevent showing old snapshots
         return FileResponse(
             alert.snapshot_path,
             media_type="image/jpeg",
             headers={
-                "Cache-Control": "max-age=3600",  # Cache for 1 hour
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
                 "Content-Disposition": f'inline; filename="alert_{alert_id}_snapshot.jpg"'
             }
         )
@@ -329,4 +349,64 @@ async def get_alert_snapshot(
         raise
     except Exception as e:
         logger.error(f"Error serving snapshot for alert {alert_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/original-image/{alert_id}")
+async def get_alert_original_image(
+    alert_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Serve original enrolled person image for alert comparison with authentication.
+
+    Args:
+        alert_id: The alert ID
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        FileResponse with the original enrolled person image
+    """
+    try:
+        # Get alert from database
+        alert = db.query(Alert).filter(Alert.id == alert_id).first()
+
+        if not alert:
+            raise HTTPException(status_code=404, detail="Alert not found")
+
+        if not alert.person_id:
+            raise HTTPException(status_code=404, detail="No person associated with this alert (unknown person)")
+
+        # Get person from database
+        person = db.query(Person).filter(Person.id == alert.person_id).first()
+
+        if not person:
+            raise HTTPException(status_code=404, detail="Person not found")
+
+        if not person.reference_image_path:
+            raise HTTPException(status_code=404, detail="No reference image available for this person")
+
+        # Check if file exists
+        if not os.path.exists(person.reference_image_path):
+            logger.error(f"Original image file not found: {person.reference_image_path}")
+            raise HTTPException(status_code=404, detail="Original image file not found")
+
+        # Return the image file with no-cache
+        return FileResponse(
+            person.reference_image_path,
+            media_type="image/jpeg",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+                "Content-Disposition": f'inline; filename="alert_{alert_id}_original.jpg"'
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error serving original image for alert {alert_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

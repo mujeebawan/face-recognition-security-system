@@ -33,11 +33,22 @@ class FaceDetector:
         """
         self.min_detection_confidence = min_detection_confidence
 
-        logger.info("Initializing SCRFD face detector (CUDA)...")
+        logger.info("Initializing SCRFD face detector (TensorRT FP16)...")
 
         # Initialize FaceAnalysis with SCRFD detector
         # This uses the 'det_10g' model from buffalo_l pack (10G FLOPs SCRFD)
-        # Use CUDA provider for GPU acceleration (TensorRT requires cuDNN 8, we have cuDNN 9)
+        # Use TensorRT with FP16 for maximum performance
+
+        # TensorRT options with FP16 enabled
+        trt_options = {
+            'device_id': 0,
+            'trt_fp16_enable': True,  # Enable FP16 precision
+            'trt_engine_cache_enable': True,
+            'trt_engine_cache_path': 'data/tensorrt_engines',
+            'trt_max_workspace_size': 2147483648,  # 2GB workspace
+        }
+
+        # CUDA fallback options
         cuda_options = {
             'device_id': 0,
             'arena_extend_strategy': 'kNextPowerOfTwo',
@@ -48,6 +59,7 @@ class FaceDetector:
         self.app = FaceAnalysis(
             name='buffalo_l',  # Uses SCRFD det_10g detector
             providers=[
+                ('TensorrtExecutionProvider', trt_options),
                 ('CUDAExecutionProvider', cuda_options),
                 'CPUExecutionProvider'
             ]
@@ -60,7 +72,7 @@ class FaceDetector:
             det_thresh=min_detection_confidence
         )
 
-        logger.info(f"SCRFD detector initialized (GPU, threshold={min_detection_confidence})")
+        logger.info(f"✓ SCRFD detector initialized (TensorRT FP16, threshold={min_detection_confidence})")
 
     def detect_faces(self, image: np.ndarray) -> List[FaceDetection]:
         """

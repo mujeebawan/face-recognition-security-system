@@ -35,8 +35,18 @@ class FaceRecognizer:
         logger.info("Initializing InsightFace face recognition...")
 
         # Initialize FaceAnalysis with buffalo_l model
-        # Use CUDA provider for GPU acceleration with FP16
-        # Note: TensorRT requires cuDNN 8, we have cuDNN 9, so using CUDA only
+        # Use TensorRT with FP16 for maximum GPU acceleration
+
+        # TensorRT options with FP16 enabled
+        trt_options = {
+            'device_id': 0,
+            'trt_fp16_enable': True,  # Enable FP16 precision
+            'trt_engine_cache_enable': True,
+            'trt_engine_cache_path': 'data/tensorrt_engines',
+            'trt_max_workspace_size': 2147483648,  # 2GB workspace
+        }
+
+        # CUDA fallback options
         cuda_options = {
             'device_id': 0,
             'arena_extend_strategy': 'kNextPowerOfTwo',
@@ -47,6 +57,7 @@ class FaceRecognizer:
         self.app = FaceAnalysis(
             name='buffalo_l',
             providers=[
+                ('TensorrtExecutionProvider', trt_options),
                 ('CUDAExecutionProvider', cuda_options),
                 'CPUExecutionProvider'
             ]
@@ -55,7 +66,7 @@ class FaceRecognizer:
         # Prepare model (downloads if needed)
         self.app.prepare(ctx_id=0, det_size=(640, 640))
 
-        logger.info("✓ Face recognition model loaded successfully")
+        logger.info("✓ Face recognition model loaded successfully (TensorRT FP16)")
 
     def extract_embedding(self, image: np.ndarray) -> Optional[FaceEmbeddingResult]:
         """

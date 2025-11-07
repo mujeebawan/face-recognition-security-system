@@ -45,7 +45,7 @@
         .logo-text {
             font-size: 24px;
             font-weight: 700;
-            color: #60a5fa;
+            color: #cc9933;
             margin-bottom: 8px;
         }
 
@@ -79,9 +79,9 @@
 
         input:focus {
             outline: none;
-            border-color: #60a5fa;
+            border-color: #cc9933;
             background: rgba(15, 23, 42, 0.8);
-            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+            box-shadow: 0 0 0 3px rgba(204, 153, 51, 0.1);
         }
 
         input::placeholder {
@@ -91,7 +91,7 @@
         .login-btn {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            background: linear-gradient(90deg, #124877 0%, #0F518B 100%);
             border: none;
             border-radius: 8px;
             color: white;
@@ -104,7 +104,7 @@
 
         .login-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 8px 20px rgba(18, 72, 119, 0.4);
         }
 
         .login-btn:active {
@@ -148,26 +148,28 @@
             transform: translateY(-50%);
             cursor: pointer;
             color: #64748b;
-            font-size: 18px;
+            font-size: 12px;
             user-select: none;
+            text-transform: uppercase;
+            font-weight: 600;
         }
 
         .toggle-icon:hover {
-            color: #94a3b8;
+            color: #cc9933;
         }
 
         .default-creds {
             margin-top: 24px;
             padding: 16px;
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            background: rgba(18, 72, 119, 0.1);
+            border: 1px solid rgba(18, 72, 119, 0.2);
             border-radius: 8px;
             font-size: 13px;
         }
 
         .default-creds-title {
             font-weight: 600;
-            color: #60a5fa;
+            color: #cc9933;
             margin-bottom: 8px;
         }
 
@@ -180,7 +182,7 @@
             background: rgba(15, 23, 42, 0.6);
             padding: 2px 8px;
             border-radius: 4px;
-            color: #a78bfa;
+            color: #cc9933;
             font-family: 'Courier New', monospace;
         }
 
@@ -188,6 +190,7 @@
             color: #fbbf24;
             font-size: 12px;
             margin-top: 8px;
+            font-weight: 600;
         }
 
         .spinner {
@@ -216,7 +219,6 @@
 <body>
     <div class="login-container">
         <div class="logo-section">
-            <div class="logo">🔐</div>
             <div class="logo-text">Face Recognition</div>
             <div class="logo-subtitle">Security System Access</div>
         </div>
@@ -247,7 +249,7 @@
                         required
                         autocomplete="current-password"
                     >
-                    <span class="toggle-icon" onclick="togglePassword()">👁️</span>
+                    <span class="toggle-icon" onclick="togglePassword()">Show</span>
                 </div>
             </div>
 
@@ -260,7 +262,7 @@
             <div class="default-creds-title">Default Credentials</div>
             <div class="default-creds-item">Username: <code>admin</code></div>
             <div class="default-creds-item">Password: <code>admin123</code></div>
-            <div class="warning">⚠️ Change after first login</div>
+            <div class="warning">WARNING: Change after first login</div>
         </div>
 
         <div class="footer">
@@ -302,10 +304,10 @@
 
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
-                toggleIcon.textContent = '🙈';
+                toggleIcon.textContent = 'Hide';
             } else {
                 passwordInput.type = 'password';
-                toggleIcon.textContent = '👁️';
+                toggleIcon.textContent = 'Show';
             }
         }
 

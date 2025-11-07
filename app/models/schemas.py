@@ -71,6 +71,7 @@ class AlertEvent(BaseModel):
     acknowledged: bool = False
     acknowledged_by: Optional[str] = None
     acknowledged_at: Optional[datetime] = None
+    original_image_url: Optional[str] = None  # URL to original enrolled person image
 
     class Config:
         from_attributes = True

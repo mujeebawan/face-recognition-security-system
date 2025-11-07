@@ -12,7 +12,8 @@ from datetime import datetime
 
 from app.models.database import SystemConfiguration
 from app.config import get_settings
-from app.api.dependencies import get_db, get_current_user
+from app.core.database import get_db
+from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 

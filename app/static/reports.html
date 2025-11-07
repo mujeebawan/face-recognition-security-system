@@ -386,7 +386,7 @@
     <div class="header">
         <div class="header-content">
             <div class="header-left">
-                <h1>📊 Reports & Analytics</h1>
+                <h1>Reports & Analytics</h1>
                 <p>System Performance Insights</p>
             </div>
             <div class="header-right">
@@ -435,8 +435,8 @@
                 </select>
             </div>
 
-            <button class="btn btn-primary" onclick="loadAllData()">🔄 Refresh Data</button>
-            <button class="btn btn-secondary" onclick="exportReport()">📥 Export Report</button>
+            <button class="btn btn-primary" onclick="loadAllData()">Refresh Data</button>
+            <button class="btn btn-secondary" onclick="exportReport()">Export Report</button>
         </div>
 
         <!-- Loading State -->
@@ -453,28 +453,28 @@
         <!-- Charts -->
         <div class="charts-grid" id="chartsContainer" style="display: none;">
             <div class="chart-container">
-                <h3>📈 Alerts Over Time</h3>
+                <h3>Alerts Over Time</h3>
                 <div class="chart-wrapper">
                     <canvas id="alertsChart"></canvas>
                 </div>
             </div>
 
             <div class="chart-container">
-                <h3>✅ Recognition Success Rate</h3>
+                <h3>Recognition Success Rate</h3>
                 <div class="chart-wrapper">
                     <canvas id="recognitionChart"></canvas>
                 </div>
             </div>
 
             <div class="chart-container">
-                <h3>🕐 Alerts by Hour of Day</h3>
+                <h3>Alerts by Hour of Day</h3>
                 <div class="chart-wrapper">
                     <canvas id="hourDistributionChart"></canvas>
                 </div>
             </div>
 
             <div class="chart-container">
-                <h3>📊 Alert Types Distribution</h3>
+                <h3>Alert Types Distribution</h3>
                 <div class="chart-wrapper">
                     <canvas id="alertTypesChart"></canvas>
                 </div>
@@ -484,7 +484,7 @@
         <!-- Person Statistics Table -->
         <div class="table-container" id="personStatsTable" style="display: none;">
             <div class="table-header">
-                <h3>👥 Person-Wise Statistics</h3>
+                <h3>Person-Wise Statistics</h3>
             </div>
             <table>
                 <thead>
@@ -586,7 +586,7 @@
 
             } catch (error) {
                 console.error('Failed to load analytics:', error);
-                document.getElementById('loadingState').innerHTML = '<p style="color: #ef4444;">❌ Failed to load analytics data</p>';
+                document.getElementById('loadingState').innerHTML = '<p style="color: #ef4444;">Failed to load analytics data</p>';
             }
         }
 

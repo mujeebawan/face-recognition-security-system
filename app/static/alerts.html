@@ -973,17 +973,46 @@
             const isKnown = alert.event_type === 'known_person';
             const time = new Date(alert.timestamp).toLocaleString();
 
-            // Prepare snapshot image HTML if available
+            // Prepare image comparison HTML if available
             let snapshotHTML = '';
             if (alert.snapshot_path) {
-                snapshotHTML = `
-                <div style="background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #a78bfa;">📸 Alert Snapshot</h4>
-                    <img id="alertSnapshotImg" src="" alt="Loading snapshot..."
-                         style="width: 100%; max-width: 600px; border-radius: 8px; border: 2px solid #334155; margin-top: 10px; display: block; margin-left: auto; margin-right: auto;">
-                    <p id="snapshotError" style="display: none; color: #ef4444; margin-top: 10px; text-align: center;">Snapshot not available</p>
-                </div>
-                `;
+                // For known persons, show both original and captured images side-by-side
+                if (alert.person_id && alert.original_image_url) {
+                    snapshotHTML = `
+                    <div style="background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 15px 0; color: #a78bfa; text-align: center;">Image Comparison - Verify Match</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+                            <!-- Original Enrolled Image -->
+                            <div>
+                                <h5 style="margin: 0 0 10px 0; color: #10b981; text-align: center;">Original Enrolled Photo</h5>
+                                <img id="alertOriginalImg" src="" alt="Loading original image..."
+                                     style="width: 100%; border-radius: 8px; border: 3px solid #10b981; display: block;">
+                                <p id="originalError" style="display: none; color: #ef4444; margin-top: 10px; text-align: center; font-size: 0.85em;">Image not available</p>
+                            </div>
+                            <!-- Captured Snapshot -->
+                            <div>
+                                <h5 style="margin: 0 0 10px 0; color: #fbbf24; text-align: center;">Captured Snapshot</h5>
+                                <img id="alertSnapshotImg" src="" alt="Loading snapshot..."
+                                     style="width: 100%; border-radius: 8px; border: 3px solid #fbbf24; display: block;">
+                                <p id="snapshotError" style="display: none; color: #ef4444; margin-top: 10px; text-align: center; font-size: 0.85em;">Snapshot not available</p>
+                            </div>
+                        </div>
+                        <p style="margin: 15px 0 0 0; text-align: center; color: #94a3b8; font-size: 0.9em;">
+                            <strong>Note:</strong> Compare both images to verify the match is correct
+                        </p>
+                    </div>
+                    `;
+                } else {
+                    // For unknown persons, show only the captured snapshot
+                    snapshotHTML = `
+                    <div style="background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #a78bfa;">Alert Snapshot</h4>
+                        <img id="alertSnapshotImg" src="" alt="Loading snapshot..."
+                             style="width: 100%; max-width: 600px; border-radius: 8px; border: 2px solid #334155; margin-top: 10px; display: block; margin-left: auto; margin-right: auto;">
+                        <p id="snapshotError" style="display: none; color: #ef4444; margin-top: 10px; text-align: center;">Snapshot not available</p>
+                    </div>
+                    `;
+                }
             }
 
             document.getElementById('detailsModalBody').innerHTML = `
@@ -1017,17 +1046,32 @@
 
             document.getElementById('detailsModal').classList.add('active');
 
-            // Load snapshot image with authentication if available
+            // Load images with authentication if available
             if (alert.snapshot_path) {
                 const snapshotImg = document.getElementById('alertSnapshotImg');
                 const snapshotError = document.getElementById('snapshotError');
 
-                const imageUrl = await loadImageWithAuth(`/api/alerts/snapshot/${alert.id}`);
-                if (imageUrl) {
-                    snapshotImg.src = imageUrl;
+                // Load captured snapshot
+                const snapshotUrl = await loadImageWithAuth(`/api/alerts/snapshot/${alert.id}`);
+                if (snapshotUrl) {
+                    snapshotImg.src = snapshotUrl;
                 } else {
                     snapshotImg.style.display = 'none';
                     snapshotError.style.display = 'block';
+                }
+
+                // Load original enrolled image if person is known
+                if (alert.person_id && alert.original_image_url) {
+                    const originalImg = document.getElementById('alertOriginalImg');
+                    const originalError = document.getElementById('originalError');
+
+                    const originalUrl = await loadImageWithAuth(alert.original_image_url);
+                    if (originalUrl) {
+                        originalImg.src = originalUrl;
+                    } else {
+                        originalImg.style.display = 'none';
+                        originalError.style.display = 'block';
+                    }
                 }
             }
         }

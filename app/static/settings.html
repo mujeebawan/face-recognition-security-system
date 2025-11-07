@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0f172a;
             min-height: 100vh;
             padding: 20px;
         }
@@ -29,12 +29,13 @@
 
         /* Navigation */
         nav {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, #124877 0%, #124877 35%, #0F518B 100%);
             padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-bottom: 3px solid #cc9933;
         }
 
         nav h1 {
@@ -110,7 +111,7 @@
             font-size: 1.25rem;
             margin-bottom: 1rem;
             padding-bottom: 0.5rem;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 2px solid #cc9933;
         }
 
         /* Setting Item */
@@ -167,7 +168,7 @@
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            background: #667eea;
+            background: #cc9933;
             cursor: pointer;
         }
 
@@ -175,7 +176,7 @@
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            background: #667eea;
+            background: #cc9933;
             cursor: pointer;
             border: none;
         }
@@ -184,8 +185,8 @@
             display: inline-block;
             min-width: 60px;
             padding: 0.25rem 0.5rem;
-            background: #667eea;
-            color: white;
+            background: #cc9933;
+            color: #0f172a;
             border-radius: 5px;
             text-align: center;
             font-weight: 600;
@@ -231,7 +232,7 @@
         }
 
         input:checked + .toggle-slider {
-            background-color: #667eea;
+            background-color: #124877;
         }
 
         input:checked + .toggle-slider:before {
@@ -264,13 +265,13 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #cc9933;
+            color: #0f172a;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 5px 15px rgba(204, 153, 51, 0.4);
         }
 
         .btn-secondary {
@@ -355,7 +356,7 @@
 
         .spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid #cc9933;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -393,16 +394,16 @@
     <div class="container">
         <!-- Navigation -->
         <nav>
-            <h1>⚙️ System Settings</h1>
+            <h1>System Settings</h1>
             <div class="nav-links">
-                <a href="/dashboard">📊 Dashboard</a>
-                <a href="/admin">👥 Admin</a>
-                <a href="/alerts">🚨 Alerts</a>
-                <a href="/reports">📈 Reports</a>
-                <a href="/live">📹 Live</a>
-                <a href="/settings" class="active">⚙️ Settings</a>
-                <a href="/docs">📚 API Docs</a>
-                <a href="#" onclick="logout()">🚪 Logout</a>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/admin">Admin</a>
+                <a href="/alerts">Alerts</a>
+                <a href="/reports">Reports</a>
+                <a href="/live">Live</a>
+                <a href="/settings" class="active">Settings</a>
+                <a href="/docs">API Docs</a>
+                <a href="#" onclick="logout()">Logout</a>
             </div>
         </nav>
 
@@ -426,7 +427,7 @@
 
             <!-- Recognition Settings -->
             <div class="settings-section">
-                <h3>🎯 Recognition Settings</h3>
+                <h3>Recognition Settings</h3>
 
                 <div class="setting-item">
                     <label for="recognition_threshold">Recognition Threshold</label>
@@ -460,7 +461,7 @@
 
             <!-- Alert Settings -->
             <div class="settings-section">
-                <h3>🚨 Alert Settings</h3>
+                <h3>Alert Settings</h3>
 
                 <div class="setting-item">
                     <label for="alert_cooldown_seconds">Alert Cooldown (seconds)</label>
@@ -502,7 +503,7 @@
 
             <!-- Camera Settings -->
             <div class="settings-section">
-                <h3>📹 Camera Settings</h3>
+                <h3>Camera Settings</h3>
 
                 <div class="setting-item">
                     <label for="camera_rtsp_url">RTSP Stream URL</label>
@@ -515,7 +516,7 @@
 
             <!-- Performance Settings -->
             <div class="settings-section">
-                <h3>⚡ Performance Settings</h3>
+                <h3>Performance Settings</h3>
 
                 <div class="setting-item">
                     <label for="frame_skip">Frame Skip</label>
@@ -538,25 +539,25 @@
             <!-- Action Buttons -->
             <div class="actions-container">
                 <button class="btn btn-primary" onclick="saveAllSettings()">
-                    💾 Save All Settings
+                    Save All Settings
                 </button>
                 <button class="btn btn-secondary" onclick="reloadSettings()">
-                    🔄 Reload Settings
+                    Reload Settings
                 </button>
                 <button class="btn btn-warning" onclick="resetToDefaults()">
-                    ⚠️ Reset to Defaults
+                    Reset to Defaults
                 </button>
                 <button class="btn btn-success" onclick="exportBackup()">
-                    📥 Export Backup
+                    Export Backup
                 </button>
                 <div class="file-input-wrapper">
                     <button class="btn btn-success">
-                        📤 Import Backup
+                        Import Backup
                     </button>
                     <input type="file" id="backupFile" accept=".json" onchange="importBackup(event)">
                 </div>
                 <button class="btn btn-danger" onclick="initializeDefaults()">
-                    🔧 Initialize Defaults
+                    Initialize Defaults
                 </button>
             </div>
         </div>
