@@ -18,6 +18,7 @@ from app.core.settings_manager import settings_manager, reload_settings
 from app.core.camera import CameraHandler
 from app.core.detector import FaceDetector
 from app.core.recognizer import FaceRecognizer
+from app.core.resource_manager import get_resource_manager
 
 router = APIRouter(prefix="/api/system", tags=["system-control"])
 logger = logging.getLogger(__name__)
@@ -95,6 +96,28 @@ async def reload_system_settings(current_user: dict = Depends(get_current_user))
 
     except Exception as e:
         logger.error(f"Error reloading settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reset-camera")
+async def reset_camera_connection(current_user: dict = Depends(get_current_user)):
+    """
+    Reset camera connection - disconnect and clear cached instance.
+    Use this after changing camera settings (IP, credentials, stream channel).
+    The camera will reinitialize with new settings on next access.
+    """
+    try:
+        resource_manager = get_resource_manager()
+        resource_manager.reset_camera()
+
+        return {
+            "success": True,
+            "message": "Camera connection reset successfully. Will reconnect with new settings on next access.",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error resetting camera: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

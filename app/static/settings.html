@@ -842,7 +842,17 @@
             const data = await apiCall('/api/settings/bulk', 'POST', { settings: settingsToUpdate });
 
             if (data && data.success) {
-                showStatus(`Successfully updated ${data.updated_count} settings`, 'success');
+                showStatus(`Successfully updated ${data.updated_count} settings. Resetting camera connection...`, 'info');
+
+                // Reset camera connection to apply new camera settings
+                const resetData = await apiCall('/api/system/reset-camera', 'POST');
+
+                if (resetData && resetData.success) {
+                    showStatus(`Settings saved and camera reset successfully! New settings will apply on next camera access.`, 'success');
+                } else {
+                    showStatus(`Settings saved but camera reset failed: ${resetData?.error || 'Unknown error'}`, 'warning');
+                }
+
                 await loadSettings();  // Reload to show updated timestamps
             } else {
                 showStatus('Failed to save settings: ' + (data?.errors?.join(', ') || 'Unknown error'), 'error');

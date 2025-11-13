@@ -350,6 +350,23 @@ class ResourceManager:
 
         return self._camera_handler
 
+    def reset_camera(self):
+        """
+        Reset camera connection (disconnect and clear cached instance).
+        Use this when camera settings are changed.
+        """
+        with self._camera_lock:
+            if self._camera_handler is not None:
+                logger.info("Resetting camera connection...")
+                try:
+                    self._camera_handler.disconnect()
+                    logger.info("✓ Camera disconnected")
+                except Exception as e:
+                    logger.error(f"Error disconnecting camera: {e}")
+                finally:
+                    self._camera_handler = None
+                    logger.info("✓ Camera instance cleared - will reinitialize with new settings on next access")
+
     def is_shutting_down(self) -> bool:
         """Check if system is shutting down"""
         return self._shutdown_event.is_set()
