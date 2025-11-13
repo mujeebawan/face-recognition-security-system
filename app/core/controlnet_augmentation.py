@@ -47,7 +47,7 @@ class ControlNetFaceAugmentor:
             controlnet_model: ControlNet model for depth conditioning
             device: Device to run on ('cuda' or 'cpu')
             use_fp16: Use FP16 precision (recommended for Jetson)
-            cache_dir: Directory to cache models
+            cache_dir: Directory to cache models (default: SD card)
         """
         self.model_id = model_id
         self.controlnet_model = controlnet_model
@@ -60,7 +60,8 @@ class ControlNetFaceAugmentor:
         else:
             self.use_fp16 = use_fp16
 
-        self.cache_dir = cache_dir or os.path.expanduser("~/.cache/huggingface")
+        # Use SD card for model storage by default
+        self.cache_dir = cache_dir or "/media/sdcard/huggingface_cache"
 
         # Pipeline components
         self.controlnet = None
@@ -79,7 +80,8 @@ class ControlNetFaceAugmentor:
         """
         Load all required models (ControlNet, SD, Depth Estimator, IP-Adapter).
 
-        Downloads models on first run (~5GB total).
+        Downloads models on first use with progress tracking.
+        Models are stored on SD card at /media/sdcard/huggingface_cache
 
         Returns:
             bool: True if successfully loaded
@@ -89,9 +91,12 @@ class ControlNetFaceAugmentor:
             return True
 
         try:
-            logger.info("Loading ControlNet + IP-Adapter Face Augmentation Pipeline...")
-            logger.info("This may take 90-120 seconds on first run (downloading models)")
-            logger.info("⚠️  This is resource-intensive - may take time to load")
+            logger.info("=" * 80)
+            logger.info("Loading ControlNet + IP-Adapter Face Augmentation Pipeline")
+            logger.info("=" * 80)
+            logger.info(f"📁 Storage: {self.cache_dir}")
+            logger.info("⚠️  Models will download on first use - this may take time")
+            logger.info("=" * 80)
 
             from diffusers import (
                 ControlNetModel,
@@ -102,14 +107,28 @@ class ControlNetFaceAugmentor:
             from controlnet_aux import MidasDetector
             from transformers import CLIPVisionModelWithProjection
             from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
+            from app.core.resource_manager import download_model_with_progress
 
-            # 1. Load depth estimator
+            # 1. Download and load depth estimator
             logger.info("[1/5] Loading MiDaS depth estimator...")
-            self.depth_estimator = MidasDetector.from_pretrained("lllyasviel/Annotators")
+            download_model_with_progress(
+                "lllyasviel/Annotators",
+                self.cache_dir,
+                "MiDaS Depth Estimator"
+            )
+            self.depth_estimator = MidasDetector.from_pretrained(
+                "lllyasviel/Annotators",
+                cache_dir=self.cache_dir
+            )
             logger.info("✓ Depth estimator loaded")
 
-            # 2. Load CLIP Vision Model for IP-Adapter
+            # 2. Download and load CLIP Vision Model for IP-Adapter
             logger.info("[2/5] Loading CLIP Vision Model for IP-Adapter...")
+            download_model_with_progress(
+                "h94/IP-Adapter",
+                self.cache_dir,
+                "IP-Adapter"
+            )
             image_encoder = CLIPVisionModelWithProjection.from_pretrained(
                 "h94/IP-Adapter",
                 subfolder="models/image_encoder",
@@ -119,8 +138,13 @@ class ControlNetFaceAugmentor:
             image_encoder = image_encoder.to(self.device)
             logger.info("✓ CLIP Vision Model loaded")
 
-            # 3. Load ControlNet
-            logger.info(f"[3/5] Loading ControlNet from {self.controlnet_model}...")
+            # 3. Download and load ControlNet
+            logger.info(f"[3/5] Loading ControlNet...")
+            download_model_with_progress(
+                self.controlnet_model,
+                self.cache_dir,
+                "ControlNet Depth"
+            )
             self.controlnet = ControlNetModel.from_pretrained(
                 self.controlnet_model,
                 cache_dir=self.cache_dir,
@@ -129,8 +153,13 @@ class ControlNetFaceAugmentor:
             self.controlnet = self.controlnet.to(self.device)
             logger.info("✓ ControlNet loaded")
 
-            # 4. Load SD pipeline with ControlNet
+            # 4. Download and load SD pipeline
             logger.info(f"[4/5] Loading Stable Diffusion pipeline...")
+            download_model_with_progress(
+                self.model_id,
+                self.cache_dir,
+                "Stable Diffusion 1.5"
+            )
             self.pipeline = StableDiffusionControlNetPipeline.from_pretrained(
                 self.model_id,
                 controlnet=self.controlnet,
@@ -296,9 +325,15 @@ class ControlNetFaceAugmentor:
             logger.info("Extracting depth map...")
             depth_map = self.extract_depth_map(reference_image)
 
-            # Define target angles
+            # Define target angles - generate enough to match num_variations
             if angles is None:
-                angle_list = ['left', 'right', 'up', 'down', 'frontal'][:num_variations]
+                base_angles = ['left', 'right', 'up', 'down', 'frontal']
+                # If user wants more than 5, repeat angles with variations
+                if num_variations <= 5:
+                    angle_list = base_angles[:num_variations]
+                else:
+                    # Extend with repeated angles for variations 6-10
+                    angle_list = base_angles + base_angles[:num_variations - 5]
             else:
                 angle_list = angles[:num_variations]
 

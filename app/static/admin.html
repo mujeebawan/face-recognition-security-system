@@ -561,37 +561,37 @@
                 </div>
 
                 <!-- Watchlist Section -->
-                <div style="background: linear-gradient(135deg, #78350f 0%, #451a03 100%); padding: 15px; border-radius: 12px; border: 2px solid #f59e0b; margin-bottom: 18px;">
-                    <h3 style="color: #fbbf24; font-size: 1.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        🚨 Watchlist Classification
+                <div style="background: #1e293b; padding: 15px; border-radius: 8px; border: 2px solid #334155; margin-bottom: 18px;">
+                    <h3 style="color: #cc9933; font-size: 1.05em; margin-bottom: 12px; font-weight: 600; border-bottom: 1px solid #334155; padding-bottom: 8px;">
+                        ⚠️ Watchlist Classification
                     </h3>
 
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label class="form-label" for="watchlistStatus">Watchlist Status *</label>
                         <select id="watchlistStatus" class="form-input" required>
-                            <option value="none">⚪ None (Regular Person)</option>
-                            <option value="most_wanted" style="color: #dc2626; font-weight: bold;">🔴 MOST WANTED</option>
-                            <option value="suspect" style="color: #ea580c; font-weight: bold;">🟠 SUSPECT</option>
-                            <option value="person_of_interest" style="color: #f59e0b;">🟡 PERSON OF INTEREST</option>
-                            <option value="banned" style="color: #6366f1;">🟣 BANNED FROM PREMISES</option>
+                            <option value="none">None (Regular Person)</option>
+                            <option value="most_wanted">🔴 MOST WANTED</option>
+                            <option value="suspect">🟠 SUSPECT</option>
+                            <option value="person_of_interest">🟡 PERSON OF INTEREST</option>
+                            <option value="banned">🟣 BANNED FROM PREMISES</option>
                         </select>
-                        <p class="form-help" style="color: #fbbf24;">Select if this person is wanted, suspected, or banned</p>
+                        <p class="form-help">Select if this person is wanted, suspected, or banned</p>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label class="form-label" for="threatLevel">Threat Level *</label>
                         <select id="threatLevel" class="form-input" required>
-                            <option value="none">⚪ None (No Threat)</option>
-                            <option value="critical" style="color: #dc2626; font-weight: bold;">🔴 CRITICAL (Armed/Dangerous)</option>
-                            <option value="high" style="color: #ea580c; font-weight: bold;">🟠 HIGH (Serious Crime)</option>
-                            <option value="medium" style="color: #f59e0b;">🟡 MEDIUM (Under Investigation)</option>
-                            <option value="low" style="color: #3b82f6;">🔵 LOW (Minor Offense)</option>
+                            <option value="none">None (No Threat)</option>
+                            <option value="critical">🔴 CRITICAL (Armed/Dangerous)</option>
+                            <option value="high">🟠 HIGH (Serious Crime)</option>
+                            <option value="medium">🟡 MEDIUM (Under Investigation)</option>
+                            <option value="low">🔵 LOW (Minor Offense)</option>
                         </select>
-                        <p class="form-help" style="color: #fbbf24;">How dangerous is this person?</p>
+                        <p class="form-help">How dangerous is this person?</p>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label" for="criminalNotes">Criminal Details *</label>
+                        <label class="form-label" for="criminalNotes">Criminal Details / Case Notes *</label>
                         <textarea
                             id="criminalNotes"
                             class="form-input"
@@ -599,7 +599,7 @@
                             placeholder="e.g., Wanted for armed robbery. Last seen 2024-10-15. Case #ABC123. Do NOT approach alone."
                             required
                         ></textarea>
-                        <p class="form-help" style="color: #fbbf24;">What crime? Case number? Special instructions for guards?</p>
+                        <p class="form-help">Crime details, case number, last seen location, special instructions</p>
                     </div>
                 </div>
 
@@ -627,39 +627,39 @@
                     </p>
 
                     <div id="sdOptions" style="display: none; margin-left: 28px;">
-                        <label class="form-label" for="numVariations" style="font-size: 0.9em;">Number of AI-generated angles:</label>
-                        <input type="range" id="numVariations" min="3" max="10" value="5" style="width: 100%; margin-bottom: 8px;">
+                        <label class="form-label" for="numVariations" style="font-size: 0.9em;">Number of Variations:</label>
+                        <input type="range" id="numVariations" min="3" max="10" value="5" style="width: 100%; margin-bottom: 8px; cursor: pointer;">
                         <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #94a3b8; margin-bottom: 12px;">
-                            <span>3 (Faster ~6s)</span>
-                            <span id="numVariationsValue" style="color: #fbbf24; font-weight: 600;">5 variations</span>
-                            <span>10 (Best ~20s)</span>
+                            <span>3 (Fast)</span>
+                            <span id="numVariationsValue" style="color: #cc9933; font-weight: 600;">5 images</span>
+                            <span>10 (Best)</span>
                         </div>
 
                         <!-- Augmentation Method Selection -->
-                        <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid #334155;">
-                            <label class="form-label" style="font-size: 0.95em; color: #fbbf24; margin-bottom: 10px;">Choose AI Method:</label>
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155;">
+                            <label class="form-label" style="font-size: 0.9em;">AI Method:</label>
 
                             <!-- LivePortrait Option -->
-                            <div style="display: flex; align-items: center; margin-bottom: 12px; padding: 10px; background: #0f172a; border-radius: 8px; border: 2px solid #10b981;">
-                                <input type="radio" name="augmentMethod" id="useLivePortrait" value="liveportrait" style="width: 16px; height: 16px; margin-right: 8px; cursor: pointer;" checked>
-                                <label for="useLivePortrait" style="font-size: 0.9em; color: #10b981; margin: 0; cursor: pointer; font-weight: 600;">
-                                    ⚡ LivePortrait (FASTEST - 3D Pose Generation)
+                            <div style="display: flex; align-items: center; margin-bottom: 8px; padding: 8px; background: #0f172a; border-radius: 6px; border: 1px solid #334155;">
+                                <input type="radio" name="augmentMethod" id="useLivePortrait" value="liveportrait" style="width: 16px; height: 16px; margin-right: 10px; cursor: pointer;" checked>
+                                <label for="useLivePortrait" style="font-size: 0.9em; color: #cbd5e1; margin: 0; cursor: pointer;">
+                                    LivePortrait (Fastest)
                                 </label>
                             </div>
 
                             <!-- ControlNet Option -->
-                            <div style="display: flex; align-items: center; margin-bottom: 12px; padding: 10px; background: #0f172a; border-radius: 8px;">
-                                <input type="radio" name="augmentMethod" id="useControlNet" value="controlnet" style="width: 16px; height: 16px; margin-right: 8px; cursor: pointer;">
-                                <label for="useControlNet" style="font-size: 0.9em; color: #a78bfa; margin: 0; cursor: pointer; font-weight: 600;">
-                                    🎯 ControlNet (High Control, Slower)
+                            <div style="display: flex; align-items: center; margin-bottom: 8px; padding: 8px; background: #0f172a; border-radius: 6px; border: 1px solid #334155;">
+                                <input type="radio" name="augmentMethod" id="useControlNet" value="controlnet" style="width: 16px; height: 16px; margin-right: 10px; cursor: pointer;">
+                                <label for="useControlNet" style="font-size: 0.9em; color: #cbd5e1; margin: 0; cursor: pointer;">
+                                    ControlNet (High Control)
                                 </label>
                             </div>
 
                             <!-- img2img Option -->
-                            <div style="display: flex; align-items: center; padding: 10px; background: #0f172a; border-radius: 8px;">
-                                <input type="radio" name="augmentMethod" id="useImg2Img" value="img2img" style="width: 16px; height: 16px; margin-right: 8px; cursor: pointer;">
-                                <label for="useImg2Img" style="font-size: 0.9em; color: #60a5fa; margin: 0; cursor: pointer; font-weight: 600;">
-                                    🔄 Stable Diffusion img2img (Balanced)
+                            <div style="display: flex; align-items: center; padding: 8px; background: #0f172a; border-radius: 6px; border: 1px solid #334155;">
+                                <input type="radio" name="augmentMethod" id="useImg2Img" value="img2img" style="width: 16px; height: 16px; margin-right: 10px; cursor: pointer;">
+                                <label for="useImg2Img" style="font-size: 0.9em; color: #cbd5e1; margin: 0; cursor: pointer;">
+                                    Stable Diffusion (Balanced)
                                 </label>
                             </div>
                         </div>
@@ -688,7 +688,10 @@
 
         <!-- Right Panel: Wanted Persons List -->
         <div class="right-panel">
-            <h2 class="panel-title">Wanted Persons List</h2>
+            <h2 class="panel-title">
+                Wanted Persons List
+                <span style="font-size: 0.7em; color: #10b981; font-weight: 400; margin-left: 10px;">● Live sync enabled</span>
+            </h2>
 
             <!-- Search Box -->
             <div class="search-box">
@@ -1052,7 +1055,7 @@
 
         // Update slider value display
         numVariationsSlider.addEventListener('input', function() {
-            numVariationsValue.textContent = `${this.value} variations`;
+            numVariationsValue.textContent = `${this.value} images`;
         });
 
         form.addEventListener('submit', async function(e) {
@@ -1530,6 +1533,15 @@
         // Load wanted persons on page load
         window.addEventListener('DOMContentLoaded', function() {
             loadWantedPersons();
+
+            // Auto-refresh every 10 seconds to sync with other sessions
+            setInterval(() => {
+                // Only refresh if not currently submitting a form
+                if (!document.querySelector('button[disabled]')) {
+                    loadWantedPersons();
+                    console.log('Auto-refreshed persons list');
+                }
+            }, 10000); // 10 seconds
         });
 
         // Reload table after adding new person

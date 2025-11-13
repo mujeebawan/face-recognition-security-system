@@ -256,7 +256,7 @@
         }
 
         .text-yellow {
-            color: #eab308;
+            color: #d97706;
             font-weight: 700;
         }
 
@@ -409,7 +409,7 @@
 
             <!-- Threat Level Color Legend -->
             <div style="background: #1e293b; border-radius: 8px; padding: 10px; margin-bottom: 15px; border: 1px solid #334155;">
-                <div style="font-size: 0.85em; font-weight: 600; color: #cc9933; margin-bottom: 8px; text-align: center;">🎨 Threat Level Colors</div>
+                <div style="font-size: 0.85em; font-weight: 600; color: #cc9933; margin-bottom: 8px; text-align: center;">Threat Level Colors</div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.75em;">
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <div style="width: 12px; height: 12px; background: #ef4444; border-radius: 2px;"></div>
@@ -455,10 +455,10 @@
             <!-- Popup Header -->
             <div id="popupHeader" style="background: linear-gradient(90deg, #dc2626 0%, #7f1d1d 100%); padding: 20px; border-bottom: 3px solid #cc9933;">
                 <h2 style="margin: 0; color: #fff; font-size: 1.8em; display: flex; align-items: center; gap: 15px;">
-                    <span id="popupIcon">🚨</span>
+                    <span id="popupIcon">⚠</span>
                     <span id="popupTitle">ALERT: Person Detected</span>
                 </h2>
-                <p style="margin: 10px 0 0 0; color: #fbbf24; font-size: 1.1em;" id="popupSubtitle">Watchlist Match</p>
+                <p style="margin: 10px 0 0 0; color: #e2e8f0; font-size: 1.1em;" id="popupSubtitle">Watchlist Match</p>
             </div>
 
             <!-- Popup Body -->
@@ -476,7 +476,7 @@
                         </div>
                         <div>
                             <p style="margin: 0; color: #94a3b8; font-size: 0.9em;">Watchlist Status</p>
-                            <p id="popupWatchlistStatus" style="margin: 5px 0 0 0; color: #fbbf24; font-size: 1.1em; font-weight: 600;">Most Wanted</p>
+                            <p id="popupWatchlistStatus" style="margin: 5px 0 0 0; color: #e2e8f0; font-size: 1.1em; font-weight: 600;">Most Wanted</p>
                         </div>
                         <div>
                             <p style="margin: 0; color: #94a3b8; font-size: 0.9em;">Confidence</p>
@@ -487,11 +487,11 @@
 
                 <!-- Image Comparison -->
                 <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h3 style="margin: 0 0 15px 0; color: #a78bfa; text-align: center; font-size: 1.2em;">📸 Compare Photos - Verify Match</h3>
+                    <h3 style="margin: 0 0 15px 0; color: #a78bfa; text-align: center; font-size: 1.2em;">Compare Photos - Verify Match</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                         <!-- Original Enrolled Photo -->
                         <div>
-                            <h4 style="margin: 0 0 10px 0; color: #10b981; text-align: center; font-size: 1em;">✓ Enrolled Photo</h4>
+                            <h4 style="margin: 0 0 10px 0; color: #10b981; text-align: center; font-size: 1em;">Enrolled Photo</h4>
                             <div style="position: relative; background: #0f172a; border-radius: 8px; overflow: hidden; border: 3px solid #10b981;">
                                 <img id="popupOriginalImg" src="" alt="Loading..." style="width: 100%; height: 300px; object-fit: cover; display: block;">
                                 <div id="popupOriginalLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8;">Loading...</div>
@@ -500,34 +500,36 @@
                         </div>
                         <!-- Captured Snapshot -->
                         <div>
-                            <h4 style="margin: 0 0 10px 0; color: #fbbf24; text-align: center; font-size: 1em;">📷 Captured Now</h4>
-                            <div style="position: relative; background: #0f172a; border-radius: 8px; overflow: hidden; border: 3px solid #fbbf24;">
+                            <h4 style="margin: 0 0 10px 0; color: #d97706; text-align: center; font-size: 1em;">Captured Now</h4>
+                            <div style="position: relative; background: #0f172a; border-radius: 8px; overflow: hidden; border: 3px solid #d97706;">
                                 <img id="popupSnapshotImg" src="" alt="Loading..." style="width: 100%; height: 300px; object-fit: cover; display: block;">
                                 <div id="popupSnapshotLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8;">Loading...</div>
                             </div>
                             <p style="margin: 10px 0 0 0; text-align: center; color: #94a3b8; font-size: 0.85em;">Just captured snapshot</p>
                         </div>
                     </div>
-                    <p style="margin: 15px 0 0 0; text-align: center; color: #fbbf24; font-size: 0.95em; font-weight: 600;">
-                        ⚠️ Compare both images carefully before taking action
+                    <p style="margin: 15px 0 0 0; text-align: center; color: #d97706; font-size: 0.95em; font-weight: 600;">
+                        ⚠ Compare both images carefully before taking action
                     </p>
                 </div>
 
                 <!-- Quick Action Buttons -->
-                <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h3 style="margin: 0 0 15px 0; color: #fbbf24; font-size: 1.2em;">⚡ Quick Action - Take Immediate Decision:</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <button onclick="takeQuickAction('confirmed')" style="background: #10b981; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-                            ✅ CONFIRM MATCH<br><span style="font-size: 0.85em; font-weight: 400; opacity: 0.9;">Person verified</span>
+                <div style="background: #1e293b; padding: 18px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #334155;">
+                    <h3 style="margin: 0 0 12px 0; color: #cc9933; font-size: 1.1em; font-weight: 600; border-bottom: 1px solid #334155; padding-bottom: 8px;">
+                        ⚡ Quick Action - Take Decision
+                    </h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button onclick="takeQuickAction('confirmed')" style="background: #10b981; color: white; padding: 14px; border: none; border-radius: 6px; font-size: 0.95em; font-weight: 600; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                            ✅ CONFIRM<br><span style="font-size: 0.8em; font-weight: 400; opacity: 0.9;">Match verified</span>
                         </button>
-                        <button onclick="takeQuickAction('false_alarm')" style="background: #64748b; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748b'">
-                            ❌ FALSE ALARM<br><span style="font-size: 0.85em; font-weight: 400; opacity: 0.9;">Wrong person</span>
+                        <button onclick="takeQuickAction('false_alarm')" style="background: #64748b; color: white; padding: 14px; border: none; border-radius: 6px; font-size: 0.95em; font-weight: 600; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748b'">
+                            ❌ FALSE ALARM<br><span style="font-size: 0.8em; font-weight: 400; opacity: 0.9;">Wrong person</span>
                         </button>
-                        <button onclick="takeQuickAction('apprehended')" style="background: #10b981; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-                            🚔 APPREHENDED<br><span style="font-size: 0.85em; font-weight: 400; opacity: 0.9;">Person detained</span>
+                        <button onclick="takeQuickAction('apprehended')" style="background: #3b82f6; color: white; padding: 14px; border: none; border-radius: 6px; font-size: 0.95em; font-weight: 600; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                            🚔 APPREHENDED<br><span style="font-size: 0.8em; font-weight: 400; opacity: 0.9;">Person secured</span>
                         </button>
-                        <button onclick="takeQuickAction('escalated')" style="background: #dc2626; color: white; padding: 18px; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='#991b1b'" onmouseout="this.style.background='#dc2626'">
-                            ⚠️ ESCALATE<br><span style="font-size: 0.85em; font-weight: 400; opacity: 0.9;">Need backup</span>
+                        <button onclick="takeQuickAction('escalated')" style="background: #dc2626; color: white; padding: 14px; border: none; border-radius: 6px; font-size: 0.95em; font-weight: 600; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='#991b1b'" onmouseout="this.style.background='#dc2626'">
+                            ⚠️ ESCALATE<br><span style="font-size: 0.8em; font-weight: 400; opacity: 0.9;">Need backup</span>
                         </button>
                     </div>
                 </div>
@@ -747,18 +749,18 @@
 
             // Update popup content
             const threatLabels = {
-                'critical': '🔴 CRITICAL',
-                'high': '🟠 HIGH',
-                'medium': '🟡 MEDIUM',
-                'low': '🔵 LOW',
-                'none': '⚪ None'
+                'critical': 'CRITICAL',
+                'high': 'HIGH',
+                'medium': 'MEDIUM',
+                'low': 'LOW',
+                'none': 'None'
             };
 
             const watchlistLabels = {
-                'most_wanted': '🔴 MOST WANTED',
-                'suspect': '🟠 SUSPECT',
-                'person_of_interest': '🟡 PERSON OF INTEREST',
-                'banned': '🟣 BANNED FROM PREMISES',
+                'most_wanted': 'MOST WANTED',
+                'suspect': 'SUSPECT',
+                'person_of_interest': 'PERSON OF INTEREST',
+                'banned': 'BANNED FROM PREMISES',
                 'none': 'None'
             };
 
@@ -956,7 +958,7 @@
                         </div>
                         <div class="alert-details">
                             ${isKnown ? `Name: ${alert.person_name}` : 'Unidentified person detected'}
-                            ${threatLevel !== 'none' ? `<br>⚠️ Threat: ${threatLevel.toUpperCase()}` : ''}
+                            ${threatLevel !== 'none' ? `<br>⚠ Threat: ${threatLevel.toUpperCase()}` : ''}
                             ${alert.confidence ? `<br>Confidence: ${(alert.confidence * 100).toFixed(1)}%` : ''}
                         </div>
                     </div>

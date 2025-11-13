@@ -45,7 +45,7 @@ class StableDiffusionAugmentor:
             model_id: Hugging Face model ID (default: SD 1.5)
             device: Device to run on ('cuda' or 'cpu')
             use_fp16: Use FP16 precision for memory efficiency (recommended for Jetson)
-            cache_dir: Directory to cache downloaded models (default: ~/.cache/huggingface)
+            cache_dir: Directory to cache downloaded models (default: SD card)
         """
         self.model_id = model_id
         self.device = device
@@ -55,7 +55,9 @@ class StableDiffusionAugmentor:
             logger.warning("CPU detected - FP16 not supported, using FP32 (slower)")
         else:
             self.use_fp16 = use_fp16
-        self.cache_dir = cache_dir or os.path.expanduser("~/.cache/huggingface")
+
+        # Use SD card for model storage by default
+        self.cache_dir = cache_dir or "/media/sdcard/huggingface_cache"
 
         self.pipeline = None
         self._is_loaded = False
@@ -67,8 +69,8 @@ class StableDiffusionAugmentor:
         """
         Load Stable Diffusion model into memory.
 
-        This will download the model (~4GB) on first run.
-        Subsequent runs will use cached model.
+        Downloads model on first use with progress tracking.
+        Models are stored on SD card at /media/sdcard/huggingface_cache
 
         Returns:
             bool: True if successfully loaded
@@ -78,17 +80,29 @@ class StableDiffusionAugmentor:
             return True
 
         try:
-            logger.info("Loading Stable Diffusion Img2Img pipeline...")
-            logger.info(f"This may take 30-60 seconds on first run (downloading ~4GB model)")
+            logger.info("=" * 80)
+            logger.info("Loading Stable Diffusion Img2Img Pipeline")
+            logger.info("=" * 80)
+            logger.info(f"📁 Storage: {self.cache_dir}")
+            logger.info("⚠️  Model will download on first use - this may take time")
+            logger.info("=" * 80)
 
             from diffusers import StableDiffusionImg2ImgPipeline, DPMSolverMultistepScheduler
+            from app.core.resource_manager import download_model_with_progress
 
-            # Load img2img pipeline (transforms input image instead of generating from scratch)
+            # Download model with progress
+            download_model_with_progress(
+                self.model_id,
+                self.cache_dir,
+                "Stable Diffusion 1.5"
+            )
+
+            # Load img2img pipeline
             self.pipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
                 self.model_id,
                 cache_dir=self.cache_dir,
                 torch_dtype=torch.float16 if self.use_fp16 else torch.float32,
-                safety_checker=None,  # Disable for speed (optional)
+                safety_checker=None,
                 requires_safety_checker=False
             )
 
@@ -170,13 +184,26 @@ class StableDiffusionAugmentor:
 
             # Define angle prompts for img2img transformation
             if angles is None:
-                angle_prompts = [
+                base_prompts = [
                     "face turned slightly to the left, same person",
                     "face turned slightly to the right, same person",
                     "face turned to the left, side angle, same person",
                     "face turned to the right, side angle, same person",
                     "looking slightly upward, same person",
                 ]
+                # If user wants more than 5, extend with variations
+                if num_variations <= 5:
+                    angle_prompts = base_prompts[:num_variations]
+                else:
+                    # Add additional prompts for variations 6-10
+                    extra_prompts = [
+                        "looking slightly downward, same person",
+                        "face at slight left angle, different lighting, same person",
+                        "face at slight right angle, different lighting, same person",
+                        "neutral expression, frontal view, same person",
+                        "subtle smile, same person",
+                    ]
+                    angle_prompts = base_prompts + extra_prompts[:num_variations - 5]
             else:
                 # Map angles to prompts
                 angle_map = {
@@ -187,6 +214,9 @@ class StableDiffusionAugmentor:
                     'down': "looking downward, chin down, same person",
                 }
                 angle_prompts = [angle_map.get(a, angle_map['frontal']) for a in angles]
+                # Extend if needed
+                if len(angle_prompts) < num_variations:
+                    angle_prompts = angle_prompts * ((num_variations // len(angle_prompts)) + 1)
 
             # Limit to requested number
             angle_prompts = angle_prompts[:num_variations]
