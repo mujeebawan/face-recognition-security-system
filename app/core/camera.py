@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 import numpy as np
 import threading
 from app.config import settings
+from app.core.settings_manager import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +24,36 @@ class CameraHandler:
         Args:
             use_main_stream: If True, use main stream (high quality), else use sub-stream (lower quality)
         """
-        self.stream_url = settings.camera_main_stream if use_main_stream else settings.camera_sub_stream
+        # Build RTSP URL dynamically from database settings
+        camera_username = get_setting('camera_username', settings.camera_username)
+        camera_password = get_setting('camera_password', settings.camera_password)
+        camera_ip = get_setting('camera_ip', settings.camera_ip)
+        camera_port = get_setting('camera_rtsp_port', settings.camera_rtsp_port)
+
+        # Get stream channel preference from database (default to sub-stream)
+        stream_channel = get_setting('camera_stream_channel', 'sub')
+
+        # Override use_main_stream if database setting is different
+        if stream_channel == 'main':
+            use_main_stream = True
+        elif stream_channel == 'sub':
+            use_main_stream = False
+
+        # Hikvision RTSP URL format:
+        # Main stream: /Streaming/Channels/101
+        # Sub stream: /Streaming/Channels/102
+        stream_path = '/Streaming/Channels/101' if use_main_stream else '/Streaming/Channels/102'
+
+        # Build complete RTSP URL
+        self.stream_url = f"rtsp://{camera_username}:{camera_password}@{camera_ip}:{camera_port}{stream_path}"
+
         self.capture: Optional[cv2.VideoCapture] = None
         self.is_connected = False
         self.frame_count = 0
         self.read_lock = threading.Lock()  # Thread-safe access to camera
 
-        logger.info(f"Camera handler initialized with {'main' if use_main_stream else 'sub'} stream")
+        logger.info(f"Camera handler initialized with {'main' if use_main_stream else 'sub'} stream from database settings")
+        logger.info(f"Connecting to: rtsp://{camera_username}:****@{camera_ip}:{camera_port}{stream_path}")
 
     def connect(self) -> bool:
         """
@@ -39,7 +63,8 @@ class CameraHandler:
             True if connection successful, False otherwise
         """
         try:
-            logger.info(f"Connecting to camera at {settings.camera_ip}...")
+            camera_ip = get_setting('camera_ip', settings.camera_ip)
+            logger.info(f"Connecting to camera at {camera_ip}...")
 
             # Use FFMPEG with optimal low-latency settings
             # Note: OpenCV not built with GStreamer, using FFMPEG

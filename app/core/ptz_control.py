@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 import time
 
 from app.config import settings
+from app.core.settings_manager import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -25,18 +26,21 @@ class PTZController:
         Initialize PTZ Controller
 
         Args:
-            camera_ip: Camera IP address (default from settings)
-            username: Camera username (default from settings)
-            password: Camera password (default from settings)
+            camera_ip: Camera IP address (default from database settings)
+            username: Camera username (default from database settings)
+            password: Camera password (default from database settings)
         """
-        self.camera_ip = camera_ip or settings.camera_ip
-        self.username = username or settings.camera_username
-        self.password = password or settings.camera_password
+        # Use database settings if not explicitly provided
+        self.camera_ip = camera_ip or get_setting('camera_ip', settings.camera_ip)
+        self.username = username or get_setting('camera_username', settings.camera_username)
+        self.password = password or get_setting('camera_password', settings.camera_password)
         self.channel = 1  # Default camera channel
         self.base_url = f"http://{self.camera_ip}/ISAPI/PTZCtrl/channels/{self.channel}"
 
         # Track current zoom level (0-100%)
         self.current_zoom_level = 0  # Start at 0%
+
+        logger.info(f"PTZ Controller initialized for camera at {self.camera_ip} (from database settings)")
 
     def _send_ptz_command(self, command: str, params: dict) -> Tuple[bool, str]:
         """
