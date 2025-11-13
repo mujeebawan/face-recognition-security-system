@@ -21,13 +21,16 @@ from app.models.schemas import (
     CameraFrameResponse
 )
 from app.config import settings
+from app.core.settings_manager import get_setting
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["detection"])
 
-# Initialize face detector (singleton)
-face_detector = FaceDetector(min_detection_confidence=settings.face_detection_confidence)
+# Initialize face detector (singleton) with dynamic settings
+detection_confidence = get_setting('detection_confidence', settings.face_detection_confidence)
+logger.info(f"Initializing face detector with confidence threshold: {detection_confidence}")
+face_detector = FaceDetector(min_detection_confidence=detection_confidence)
 
 
 @router.post("/detect-faces", response_model=DetectionResponse)

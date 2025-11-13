@@ -15,6 +15,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import threading
 
 from app.config import settings
+from app.core.settings_manager import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +208,10 @@ class FaceRecognizer:
             Returns (-1, 0.0) if no match found
         """
         if threshold is None:
-            threshold = 1.0 - settings.max_face_distance  # Convert distance to similarity
+            # Try to get from database settings first, fallback to config
+            recognition_threshold = get_setting('recognition_threshold', settings.max_face_distance)
+            threshold = recognition_threshold if recognition_threshold <= 1.0 else (1.0 - recognition_threshold)
+            logger.debug(f"Using recognition threshold: {threshold:.3f} (from {'database' if recognition_threshold != settings.max_face_distance else 'config'})")
 
         if len(database_embeddings) == 0:
             return -1, 0.0
