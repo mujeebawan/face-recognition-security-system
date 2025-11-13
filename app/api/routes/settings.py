@@ -68,10 +68,45 @@ DEFAULT_SETTINGS = {
         "type": "bool",
         "description": "Save snapshot images when alerts are triggered"
     },
-    "camera_rtsp_url": {
-        "value": "rtsp://admin:password@192.168.1.64:554/Streaming/Channels/101",
+    "camera_brand": {
+        "value": "hikvision",
         "type": "string",
-        "description": "RTSP URL for IP camera main stream"
+        "description": "Camera manufacturer brand"
+    },
+    "camera_model": {
+        "value": "DS-2CD7A47EWD-XZS",
+        "type": "string",
+        "description": "Camera model number"
+    },
+    "camera_ip": {
+        "value": "192.168.1.64",
+        "type": "string",
+        "description": "IP address of the camera"
+    },
+    "camera_rtsp_port": {
+        "value": 554,
+        "type": "int",
+        "description": "RTSP port number (default: 554)"
+    },
+    "camera_stream_channel": {
+        "value": "sub",
+        "type": "string",
+        "description": "Stream channel to use (main or sub)"
+    },
+    "camera_username": {
+        "value": "admin",
+        "type": "string",
+        "description": "Camera authentication username"
+    },
+    "camera_password": {
+        "value": "",
+        "type": "string",
+        "description": "Camera authentication password"
+    },
+    "camera_rtsp_url": {
+        "value": "rtsp://admin:password@192.168.1.64:554/Streaming/Channels/102",
+        "type": "string",
+        "description": "Auto-generated RTSP URL (legacy field, use camera_* fields instead)"
     },
     "detection_confidence": {
         "value": 0.5,

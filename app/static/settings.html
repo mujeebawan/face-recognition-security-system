@@ -580,15 +580,92 @@
             </div>
 
             <!-- Camera Settings -->
-            <div class="settings-section">
-                <h3>Camera Settings</h3>
+            <div class="settings-section" style="grid-column: 1 / -1;">
+                <h3>📹 Camera Configuration</h3>
 
-                <div class="setting-item">
-                    <label for="camera_rtsp_url">RTSP Stream URL</label>
-                    <div class="description">Full RTSP URL including credentials (format: rtsp://user:pass@ip:port/path)</div>
-                    <input type="text" id="camera_rtsp_url"
-                           placeholder="rtsp://admin:password@192.168.1.64:554/Streaming/Channels/101">
-                    <div class="last-updated" id="camera_rtsp_url_updated"></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <!-- Camera Brand -->
+                    <div class="setting-item">
+                        <label for="camera_brand">Camera Brand</label>
+                        <div class="description">Select the camera manufacturer</div>
+                        <select id="camera_brand" class="form-select" style="width: 100%; padding: 0.75rem; border: 1px solid #ced4da; border-radius: 5px; font-size: 1rem;">
+                            <option value="hikvision">Hikvision</option>
+                            <option value="dahua">Dahua (Coming Soon)</option>
+                            <option value="axis">Axis (Coming Soon)</option>
+                            <option value="generic">Generic RTSP</option>
+                        </select>
+                        <div class="last-updated" id="camera_brand_updated"></div>
+                    </div>
+
+                    <!-- Camera Model -->
+                    <div class="setting-item">
+                        <label for="camera_model">Camera Model</label>
+                        <div class="description">Select the camera model</div>
+                        <select id="camera_model" class="form-select" style="width: 100%; padding: 0.75rem; border: 1px solid #ced4da; border-radius: 5px; font-size: 1rem;">
+                            <option value="DS-2CD7A47EWD-XZS">DS-2CD7A47EWD-XZS (Fisheye 4MP)</option>
+                            <option value="DS-2CD2xx">DS-2CD2xx Series (Coming Soon)</option>
+                            <option value="DS-2DE4xx">DS-2DE4xx PTZ (Coming Soon)</option>
+                            <option value="custom">Custom Model</option>
+                        </select>
+                        <div class="last-updated" id="camera_model_updated"></div>
+                    </div>
+
+                    <!-- Camera IP Address -->
+                    <div class="setting-item">
+                        <label for="camera_ip">Camera IP Address</label>
+                        <div class="description">IP address of the camera on your network</div>
+                        <input type="text" id="camera_ip" placeholder="192.168.1.64" pattern="^(\d{1,3}\.){3}\d{1,3}$">
+                        <div class="last-updated" id="camera_ip_updated"></div>
+                    </div>
+
+                    <!-- RTSP Port -->
+                    <div class="setting-item">
+                        <label for="camera_rtsp_port">RTSP Port</label>
+                        <div class="description">RTSP port (default: 554)</div>
+                        <input type="number" id="camera_rtsp_port" placeholder="554" min="1" max="65535" value="554">
+                        <div class="last-updated" id="camera_rtsp_port_updated"></div>
+                    </div>
+
+                    <!-- Stream Channel -->
+                    <div class="setting-item">
+                        <label for="camera_stream_channel">Stream Channel</label>
+                        <div class="description">Select which stream to use for face recognition</div>
+                        <select id="camera_stream_channel" class="form-select" style="width: 100%; padding: 0.75rem; border: 1px solid #ced4da; border-radius: 5px; font-size: 1rem;">
+                            <option value="main">Main Stream (High Quality, slower)</option>
+                            <option value="sub" selected>Sub Stream (Lower Quality, faster)</option>
+                        </select>
+                        <div class="last-updated" id="camera_stream_channel_updated"></div>
+                    </div>
+
+                    <!-- Username -->
+                    <div class="setting-item">
+                        <label for="camera_username">Camera Username</label>
+                        <div class="description">Username for camera authentication</div>
+                        <input type="text" id="camera_username" placeholder="admin" autocomplete="username">
+                        <div class="last-updated" id="camera_username_updated"></div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="setting-item">
+                        <label for="camera_password">Camera Password</label>
+                        <div class="description">Password for camera authentication</div>
+                        <div style="position: relative;">
+                            <input type="password" id="camera_password" placeholder="Enter password" autocomplete="current-password" style="width: 100%; padding-right: 50px;">
+                            <button type="button" onclick="togglePasswordVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6c757d; font-size: 1.1rem;">
+                                👁️
+                            </button>
+                        </div>
+                        <div class="last-updated" id="camera_password_updated"></div>
+                    </div>
+
+                    <!-- Auto-generated RTSP URL Display -->
+                    <div class="setting-item" style="grid-column: 1 / -1;">
+                        <label>Generated RTSP URL</label>
+                        <div class="description">This URL will be used for camera connection (auto-generated from settings above)</div>
+                        <div id="rtsp_url_display" style="background: #f8f9fa; padding: 0.75rem; border-radius: 5px; border: 1px solid #ced4da; font-family: monospace; word-break: break-all; color: #495057;">
+                            rtsp://admin:****@192.168.1.64:554/Streaming/Channels/101
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -728,6 +805,9 @@
                 }
 
                 showStatus('Settings loaded successfully', 'success');
+
+                // Update RTSP URL display after loading settings
+                setTimeout(updateRtspUrlDisplay, 100);
             } else {
                 showStatus('Failed to load settings', 'error');
             }
@@ -746,9 +826,17 @@
                 alert_on_unknown: document.getElementById('alert_on_unknown').checked,
                 alert_on_known: document.getElementById('alert_on_known').checked,
                 alert_save_snapshot: document.getElementById('alert_save_snapshot').checked,
-                camera_rtsp_url: document.getElementById('camera_rtsp_url').value,
                 frame_skip: parseInt(document.getElementById('frame_skip').value),
-                enable_gpu: document.getElementById('enable_gpu').checked
+                enable_gpu: document.getElementById('enable_gpu').checked,
+
+                // Camera settings
+                camera_brand: document.getElementById('camera_brand').value,
+                camera_model: document.getElementById('camera_model').value,
+                camera_ip: document.getElementById('camera_ip').value,
+                camera_rtsp_port: parseInt(document.getElementById('camera_rtsp_port').value),
+                camera_stream_channel: document.getElementById('camera_stream_channel').value,
+                camera_username: document.getElementById('camera_username').value,
+                camera_password: document.getElementById('camera_password').value
             };
 
             const data = await apiCall('/api/settings/bulk', 'POST', { settings: settingsToUpdate });
@@ -967,6 +1055,49 @@
 
         // ==================== End System Control Panel Functions ====================
 
+        // ==================== Camera Configuration Functions ====================
+
+        // Toggle password visibility
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('camera_password');
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+        }
+
+        // Update RTSP URL display based on camera settings
+        function updateRtspUrlDisplay() {
+            const username = document.getElementById('camera_username').value || 'admin';
+            const password = document.getElementById('camera_password').value || '****';
+            const ip = document.getElementById('camera_ip').value || '192.168.1.64';
+            const port = document.getElementById('camera_rtsp_port').value || '554';
+            const channel = document.getElementById('camera_stream_channel').value || 'sub';
+
+            // Hikvision RTSP URL format:
+            // Main stream: /Streaming/Channels/101
+            // Sub stream: /Streaming/Channels/102
+            const streamPath = channel === 'main' ? '/Streaming/Channels/101' : '/Streaming/Channels/102';
+
+            // Mask password for display
+            const maskedPassword = password ? '****' : '';
+
+            const rtspUrl = `rtsp://${username}:${maskedPassword}@${ip}:${port}${streamPath}`;
+            document.getElementById('rtsp_url_display').textContent = rtspUrl;
+        }
+
+        // Add event listeners for camera settings to auto-update RTSP URL
+        function setupCameraSettingsListeners() {
+            const cameraFields = ['camera_username', 'camera_password', 'camera_ip', 'camera_rtsp_port', 'camera_stream_channel'];
+            cameraFields.forEach(fieldId => {
+                const element = document.getElementById(fieldId);
+                if (element) {
+                    element.addEventListener('input', updateRtspUrlDisplay);
+                    element.addEventListener('change', updateRtspUrlDisplay);
+                }
+            });
+        }
+
+        // ==================== End Camera Configuration Functions ====================
+
         // Update slider value displays in real-time
         document.getElementById('recognition_threshold').addEventListener('input', function() {
             document.getElementById('recognition_threshold_value').textContent = this.value;
@@ -981,6 +1112,8 @@
             loadSettings();
             // Load system status after settings
             setTimeout(refreshStatus, 1000);
+            // Setup camera settings listeners
+            setupCameraSettingsListeners();
         }
     </script>
 </body>
