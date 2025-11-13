@@ -478,42 +478,61 @@
             }
         }
 
-        // Zoom In
+        // Zoom control state
+        let zoomInterval = null;
+        let isZooming = false;
+
+        // Zoom In (continuous while held)
         async function zoomIn() {
+            if (isZooming) return; // Already zooming
+
+            isZooming = true;
             const speed = parseInt(document.getElementById('zoomSpeed').value);
             console.log(`🔍 Zoom IN: speed=${speed}`);
             showZoomStatus('⏫ Zooming IN... (speed: ' + speed + ')', '#10b981');
 
-            const success = await ptzApiCall(`/api/ptz/zoom/in?speed=${speed}`, 'POST');
-            if (success) {
-                console.log('✅ Zoom IN command sent successfully');
-                // Update zoom level immediately
+            // Send initial zoom command
+            await ptzApiCall(`/api/ptz/zoom/in?speed=${speed}`, 'POST');
+            await fetchZoomLevel();
+
+            // Continue sending zoom commands every 200ms while button is held
+            zoomInterval = setInterval(async () => {
+                await ptzApiCall(`/api/ptz/zoom/in?speed=${speed}`, 'POST');
                 await fetchZoomLevel();
-                setTimeout(() => {
-                    showZoomStatus('⏫ Zoomed IN (release to stop)', '#10b981');
-                }, 500);
-            }
+            }, 200);
         }
 
-        // Zoom Out
+        // Zoom Out (continuous while held)
         async function zoomOut() {
+            if (isZooming) return; // Already zooming
+
+            isZooming = true;
             const speed = parseInt(document.getElementById('zoomSpeed').value);
             console.log(`🔍 Zoom OUT: speed=${speed}`);
             showZoomStatus('⏬ Zooming OUT... (speed: ' + speed + ')', '#f59e0b');
 
-            const success = await ptzApiCall(`/api/ptz/zoom/out?speed=${speed}`, 'POST');
-            if (success) {
-                console.log('✅ Zoom OUT command sent successfully');
-                // Update zoom level immediately
+            // Send initial zoom command
+            await ptzApiCall(`/api/ptz/zoom/out?speed=${speed}`, 'POST');
+            await fetchZoomLevel();
+
+            // Continue sending zoom commands every 200ms while button is held
+            zoomInterval = setInterval(async () => {
+                await ptzApiCall(`/api/ptz/zoom/out?speed=${speed}`, 'POST');
                 await fetchZoomLevel();
-                setTimeout(() => {
-                    showZoomStatus('⏬ Zoomed OUT (release to stop)', '#f59e0b');
-                }, 500);
-            }
+            }, 200);
         }
 
         // Stop Zoom
         async function stopZoom() {
+            if (!isZooming) return;
+
+            // Clear the interval to stop continuous zoom commands
+            if (zoomInterval) {
+                clearInterval(zoomInterval);
+                zoomInterval = null;
+            }
+
+            isZooming = false;
             console.log('Zoom STOP');
             showZoomStatus('⏹️ Stopped', '#cbd5e1');
             await ptzApiCall('/api/ptz/zoom/stop', 'POST');
@@ -533,11 +552,17 @@
         });
 
         // Keyboard shortcuts (zoom only)
+        let keyPressed = new Set();
+
         document.addEventListener('keydown', function(e) {
             // Prevent if typing in input field
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
+
+            // Prevent multiple triggers for same key
+            if (keyPressed.has(e.key)) return;
+            keyPressed.add(e.key);
 
             switch(e.key) {
                 case '+':
@@ -558,6 +583,8 @@
         });
 
         document.addEventListener('keyup', function(e) {
+            keyPressed.delete(e.key);
+
             // Stop on key release for zoom controls
             if (['+', '=', '-', '_'].includes(e.key)) {
                 e.preventDefault();
