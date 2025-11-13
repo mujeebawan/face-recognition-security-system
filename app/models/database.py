@@ -88,6 +88,8 @@ class Alert(Base):
     confidence = Column(Float, nullable=True)  # Recognition confidence
     num_faces = Column(Integer, default=1)  # Number of faces in frame
     snapshot_path = Column(String(500), nullable=True)  # Path to snapshot image
+    matched_embedding_id = Column(Integer, ForeignKey("face_embeddings.id"), nullable=True)  # Which embedding matched best
+    video_path = Column(String(500), nullable=True)  # Path to recorded video clip
 
     # Original acknowledgment fields (for admin review)
     acknowledged = Column(Boolean, default=False, nullable=False, index=True)

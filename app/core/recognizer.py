@@ -194,7 +194,8 @@ class FaceRecognizer:
 
     def match_face(self, query_embedding: np.ndarray,
                    database_embeddings: List[np.ndarray],
-                   threshold: float = None) -> Tuple[int, float]:
+                   threshold: float = None,
+                   embedding_ids: Optional[List[int]] = None) -> Tuple[int, float, Optional[int]]:
         """
         Match query embedding against database of embeddings.
 
@@ -202,10 +203,11 @@ class FaceRecognizer:
             query_embedding: Query face embedding
             database_embeddings: List of database embeddings
             threshold: Similarity threshold (default from config)
+            embedding_ids: Optional list of embedding IDs (parallel to database_embeddings)
 
         Returns:
-            Tuple of (best_match_index, similarity_score)
-            Returns (-1, 0.0) if no match found
+            Tuple of (best_match_index, similarity_score, matched_embedding_id)
+            Returns (-1, 0.0, None) if no match found
         """
         if threshold is None:
             # Try to get from database settings first, fallback to config
@@ -214,7 +216,7 @@ class FaceRecognizer:
             logger.debug(f"Using recognition threshold: {threshold:.3f} (from {'database' if recognition_threshold != settings.max_face_distance else 'config'})")
 
         if len(database_embeddings) == 0:
-            return -1, 0.0
+            return -1, 0.0, None
 
         # Compute similarities with all database embeddings
         similarities = []
@@ -226,13 +228,18 @@ class FaceRecognizer:
         best_idx = np.argmax(similarities)
         best_similarity = similarities[best_idx]
 
+        # Get the matched embedding ID if provided
+        matched_embedding_id = None
+        if embedding_ids and len(embedding_ids) > best_idx:
+            matched_embedding_id = embedding_ids[best_idx]
+
         # Check if it meets threshold
         if best_similarity >= threshold:
-            logger.info(f"Match found: index={best_idx}, similarity={best_similarity:.3f}")
-            return best_idx, best_similarity
+            logger.info(f"Match found: index={best_idx}, similarity={best_similarity:.3f}, embedding_id={matched_embedding_id}")
+            return best_idx, best_similarity, matched_embedding_id
         else:
             logger.info(f"No match found (best similarity: {best_similarity:.3f} < threshold: {threshold:.3f})")
-            return -1, 0.0
+            return -1, 0.0, None
 
     @staticmethod
     def serialize_embedding(embedding: np.ndarray) -> bytes:
