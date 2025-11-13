@@ -274,6 +274,13 @@
             <!-- Zoom Controls -->
             <div style="max-width: 600px; margin: 0 auto;">
                 <div style="background: #1e293b; padding: 20px; border-radius: 8px; border: 2px solid #334155;">
+                    <!-- Zoom Multiplier Display -->
+                    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 2px solid #cc9933;">
+                        <div style="color: #cbd5e1; font-size: 0.85em; margin-bottom: 5px;">Current Zoom Level</div>
+                        <div id="zoomMultiplier" style="color: #cc9933; font-size: 3em; font-weight: 700; font-family: 'Courier New', monospace;">1.0x</div>
+                        <div style="color: #94a3b8; font-size: 0.75em; margin-top: 5px;">Optical Zoom: 1.0x - 3.0x</div>
+                    </div>
+
                     <!-- Status Display -->
                     <div id="zoomStatus" style="background: #0f172a; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; min-height: 40px;">
                         <span style="color: #94a3b8; font-size: 0.9em;">Ready to zoom</span>
@@ -445,6 +452,32 @@
             }
         }
 
+        // Update zoom multiplier display (1.0x - 3.0x for this camera)
+        function updateZoomMultiplier(percentage) {
+            const multiplierEl = document.getElementById('zoomMultiplier');
+            if (multiplierEl) {
+                // DS-2CD7A47EWD-XZS: 1.56mm-4.68mm = 3x optical zoom
+                // Map 0-100% to 1.0x-3.0x
+                const minZoom = 1.0;
+                const maxZoom = 3.0;
+                const zoomMultiplier = minZoom + (percentage / 100) * (maxZoom - minZoom);
+                multiplierEl.textContent = zoomMultiplier.toFixed(1) + 'x';
+            }
+        }
+
+        // Fetch and display current zoom level
+        async function fetchZoomLevel() {
+            try {
+                const response = await fetch('/api/ptz/zoom/level');
+                const data = await response.json();
+                if (data.success) {
+                    updateZoomMultiplier(data.zoom_level);
+                }
+            } catch (error) {
+                console.error('Failed to fetch zoom level:', error);
+            }
+        }
+
         // Zoom In
         async function zoomIn() {
             const speed = parseInt(document.getElementById('zoomSpeed').value);
@@ -454,6 +487,8 @@
             const success = await ptzApiCall(`/api/ptz/zoom/in?speed=${speed}`, 'POST');
             if (success) {
                 console.log('✅ Zoom IN command sent successfully');
+                // Update zoom level immediately
+                await fetchZoomLevel();
                 setTimeout(() => {
                     showZoomStatus('⏫ Zoomed IN (release to stop)', '#10b981');
                 }, 500);
@@ -469,6 +504,8 @@
             const success = await ptzApiCall(`/api/ptz/zoom/out?speed=${speed}`, 'POST');
             if (success) {
                 console.log('✅ Zoom OUT command sent successfully');
+                // Update zoom level immediately
+                await fetchZoomLevel();
                 setTimeout(() => {
                     showZoomStatus('⏬ Zoomed OUT (release to stop)', '#f59e0b');
                 }, 500);
@@ -480,6 +517,9 @@
             console.log('Zoom STOP');
             showZoomStatus('⏹️ Stopped', '#cbd5e1');
             await ptzApiCall('/api/ptz/zoom/stop', 'POST');
+
+            // Update zoom level immediately
+            await fetchZoomLevel();
 
             // Reset status after 2 seconds
             setTimeout(() => {
@@ -532,11 +572,18 @@
             console.log('=== Live Stream Page Loaded ===');
             showZoomStatus('Ready to zoom', '#10b981');
 
+            // Fetch initial zoom level
+            fetchZoomLevel();
+
+            // Poll zoom level every 2 seconds
+            setInterval(fetchZoomLevel, 2000);
+
             // Log PTZ endpoint information for debugging
             console.log('PTZ API Endpoints:');
             console.log('  POST /api/ptz/zoom/in?speed=<1-100>');
             console.log('  POST /api/ptz/zoom/out?speed=<1-100>');
             console.log('  POST /api/ptz/zoom/stop');
+            console.log('  GET /api/ptz/zoom/level');
         });
 
         // ==================== End PTZ Control Functions ====================

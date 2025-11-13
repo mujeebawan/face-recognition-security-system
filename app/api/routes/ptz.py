@@ -205,7 +205,7 @@ async def save_preset(request: PresetRequest):
 @router.get("/status")
 async def get_ptz_status():
     """
-    Get PTZ status
+    Get PTZ status including current zoom level
     """
     try:
         ptz = get_ptz_controller()
@@ -218,4 +218,38 @@ async def get_ptz_status():
 
     except Exception as e:
         logger.error(f"PTZ status error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/zoom/level")
+async def get_zoom_level():
+    """
+    Get current zoom level percentage
+    """
+    try:
+        ptz = get_ptz_controller()
+        return {
+            "success": True,
+            "zoom_level": ptz.get_zoom_level()
+        }
+    except Exception as e:
+        logger.error(f"Get zoom level error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/zoom/level")
+async def set_zoom_level(level: int = Query(..., ge=0, le=100, description="Zoom level (0-100%)")):
+    """
+    Set/reset zoom level percentage manually
+    """
+    try:
+        ptz = get_ptz_controller()
+        ptz.set_zoom_level(level)
+        return {
+            "success": True,
+            "message": f"Zoom level set to {level}%",
+            "zoom_level": ptz.get_zoom_level()
+        }
+    except Exception as e:
+        logger.error(f"Set zoom level error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -35,6 +35,9 @@ class PTZController:
         self.channel = 1  # Default camera channel
         self.base_url = f"http://{self.camera_ip}/ISAPI/PTZCtrl/channels/{self.channel}"
 
+        # Track current zoom level (0-100%)
+        self.current_zoom_level = 0  # Start at 0%
+
     def _send_ptz_command(self, command: str, params: dict) -> Tuple[bool, str]:
         """
         Send PTZ command to camera
@@ -83,32 +86,45 @@ class PTZController:
             logger.error(error_msg)
             return False, error_msg
 
-    def zoom_in(self, speed: int = 50) -> Tuple[bool, str]:
+    def zoom_in(self, speed: int = 50, duration: float = 0.1) -> Tuple[bool, str]:
         """
         Zoom in (continuous)
 
         Args:
             speed: Zoom speed (1-100)
+            duration: How long to zoom (used for percentage calculation)
 
         Returns:
             Tuple of (success: bool, message: str)
         """
         speed = max(1, min(100, speed))  # Clamp between 1-100
         params = {'zoom': speed}
+
+        # Increment zoom level (approximate based on speed)
+        # Higher speed = faster zoom = more percentage increase
+        increment = (speed / 100) * 5  # Max 5% per command at full speed
+        self.current_zoom_level = min(100, self.current_zoom_level + increment)
+
         return self._send_ptz_command('continuous', params)
 
-    def zoom_out(self, speed: int = 50) -> Tuple[bool, str]:
+    def zoom_out(self, speed: int = 50, duration: float = 0.1) -> Tuple[bool, str]:
         """
         Zoom out (continuous)
 
         Args:
             speed: Zoom speed (1-100)
+            duration: How long to zoom (used for percentage calculation)
 
         Returns:
             Tuple of (success: bool, message: str)
         """
         speed = max(1, min(100, speed))  # Clamp between 1-100
         params = {'zoom': -speed}  # Negative for zoom out
+
+        # Decrement zoom level (approximate based on speed)
+        decrement = (speed / 100) * 5  # Max 5% per command at full speed
+        self.current_zoom_level = max(0, self.current_zoom_level - decrement)
+
         return self._send_ptz_command('continuous', params)
 
     def zoom_stop(self) -> Tuple[bool, str]:
@@ -230,6 +246,25 @@ class PTZController:
             logger.error(error_msg)
             return False, error_msg
 
+    def get_zoom_level(self) -> int:
+        """
+        Get current zoom level
+
+        Returns:
+            Zoom level as percentage (0-100)
+        """
+        return int(self.current_zoom_level)
+
+    def set_zoom_level(self, level: int):
+        """
+        Set current zoom level (for manual override or reset)
+
+        Args:
+            level: Zoom level percentage (0-100)
+        """
+        self.current_zoom_level = max(0, min(100, level))
+        logger.info(f"Zoom level manually set to {self.current_zoom_level}%")
+
     def get_ptz_status(self) -> Optional[dict]:
         """
         Get current PTZ status
@@ -250,7 +285,8 @@ class PTZController:
                 # Parse XML response (simplified)
                 return {
                     "success": True,
-                    "status": "online"
+                    "status": "online",
+                    "zoom_level": self.get_zoom_level()
                 }
             else:
                 logger.error(f"Failed to get PTZ status: HTTP {response.status_code}")
