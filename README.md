@@ -39,17 +39,23 @@ http://192.168.0.117:8000
 - ✅ **Alert Management** - Advanced filtering, acknowledgment, bulk operations, CSV export
 - ✅ **Reports & Analytics** - Interactive charts, time-series analysis, person statistics
 - ✅ **Live Stream Viewer** - Full-screen video monitoring with recognition data
+- ✅ **Camera Zoom Control** - Remote motorized zoom with speed control and keyboard shortcuts
+- ✅ **System Control Panel** - Live monitoring, settings verification, and test endpoints
 - ✅ **JWT Authentication** - Secure login with role-based access control
 
 ### 🔌 API Features
 - ✅ **RESTful API** - Complete FastAPI endpoints with OpenAPI documentation
 - ✅ **WebSocket Support** - Real-time alert notifications
 - ✅ **Analytics API** - Summary stats, time-series data, distribution analysis
+- ✅ **PTZ Control API** - Camera zoom control via ISAPI (Hikvision)
+- ✅ **System Status API** - Real-time GPU, memory, and settings monitoring
+- ✅ **Dynamic Settings** - Database-backed configuration with live reload
 - ✅ **Image Authentication** - Secure snapshot serving with JWT tokens
 - ✅ **CORS Support** - Configurable cross-origin resource sharing
 
 ### 🗄️ Data Management
 - ✅ **SQLite Database** - Person records, embeddings, alerts, recognition logs
+- ✅ **Dynamic Configuration** - Runtime settings loaded from database with caching
 - ✅ **Alert Snapshots** - Automatic snapshot capture and storage
 - ✅ **Recognition Audit Log** - Complete history of all recognition attempts
 - ✅ **Person Photos** - Secure storage and authenticated serving

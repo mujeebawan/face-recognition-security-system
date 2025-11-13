@@ -6,6 +6,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.6.0] - 2025-11-13
+
+### Added - Camera Zoom Control & Dynamic Settings Management
+
+#### Camera Zoom Control
+- **PTZ Control Module**: Added Hikvision ISAPI camera control integration
+- **Zoom API Endpoints**:
+  - `POST /api/ptz/zoom/in?speed=<1-100>` - Continuous zoom in
+  - `POST /api/ptz/zoom/out?speed=<1-100>` - Continuous zoom out
+  - `POST /api/ptz/zoom/stop` - Stop zoom movement
+- **Live Stream Integration**:
+  - Added zoom controls to live stream viewer page
+  - Adjustable speed slider (10-100)
+  - Real-time status display
+  - Keyboard shortcuts: `+`/`=` (zoom in), `-`/`_` (zoom out), `Space` (stop)
+- **No Authentication Required**: Zoom controls work without login for ease of use
+- **Detailed Logging**: All PTZ commands logged with emoji indicators for easy debugging
+
+#### Dynamic Settings Management
+- **Settings Manager Module**: Real-time settings loaded from database
+- **10-Second Cache**: Optimized performance with automatic cache refresh
+- **Lazy Loading**: Database queries only when settings are accessed
+- **System Control Panel** (Settings Page):
+  - Live GPU status monitoring (utilization, memory, temperature)
+  - System memory and disk usage display
+  - Settings sync status (active vs database comparison)
+  - Camera connectivity indicator
+- **Test Endpoints**:
+  - `POST /api/system/test/camera` - Test camera connection with current RTSP URL
+  - `POST /api/system/test/gpu` - Test GPU availability and perform inference
+  - `POST /api/system/reload-settings` - Force immediate settings reload
+  - `GET /api/system/status` - Comprehensive system status with active vs DB settings
+
+#### Resource Management
+- **Resource Manager**: Memory monitoring and efficient model loading
+- **Graceful Degradation**: Automatic model unloading under memory pressure
+
+### Technical Details
+- **Camera Model**: Hikvision DS-2CD7A47EWD-XZS (fixed mount with motorized zoom)
+- **Communication**: HTTP Digest Auth with XML payloads via ISAPI
+- **Settings Storage**: SQLite database with lazy-load singleton pattern
+- **New Files**:
+  - `app/core/ptz_control.py` - PTZ controller
+  - `app/api/routes/ptz.py` - PTZ API endpoints
+  - `app/core/settings_manager.py` - Dynamic settings loader
+  - `app/api/routes/system_control.py` - System monitoring endpoints
+  - `app/core/resource_manager.py` - Resource management utilities
+
+### Fixed
+- Settings page now actually applies changes (previously only saved to DB)
+- Server startup freeze issue with settings manager (switched to lazy loading)
+
+---
+
 ## [1.5.0] - 2025-11-07
 
 ### Added - Watchlist System & Production Hardening
