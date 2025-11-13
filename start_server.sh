@@ -11,6 +11,9 @@ export OPENBLAS_NUM_THREADS=4
 export MKL_NUM_THREADS=4
 export OMP_WAIT_POLICY=PASSIVE
 
+# Use SD card for HuggingFace model cache
+export HF_HOME=/media/sdcard/huggingface_cache
+
 echo "🚀 Face Recognition System - Starting..."
 echo ""
 

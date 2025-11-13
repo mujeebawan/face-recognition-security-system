@@ -899,18 +899,43 @@ async def delete_person(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete an enrolled person"""
+    """Delete an enrolled person and all associated files"""
+    import os
+    import re
+    import shutil
+
     person = db.query(Person).filter(Person.id == person_id).first()
 
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
 
+    # Delete person folder and all its contents from SD card
+    folder_name = re.sub(r'[^\w\s-]', '', person.name).strip().replace(' ', '_')
+    person_folder = f"data/person_images/{folder_name}"
+
+    if os.path.exists(person_folder):
+        try:
+            shutil.rmtree(person_folder)
+            logger.info(f"Deleted person folder: {person_folder}")
+        except Exception as e:
+            logger.error(f"Failed to delete folder {person_folder}: {e}")
+            # Continue with database deletion even if folder deletion fails
+
+    # Also delete legacy reference image if it exists
+    if person.reference_image_path and os.path.exists(person.reference_image_path):
+        try:
+            os.remove(person.reference_image_path)
+            logger.info(f"Deleted reference image: {person.reference_image_path}")
+        except Exception as e:
+            logger.error(f"Failed to delete reference image: {e}")
+
+    # Delete from database (cascade will delete embeddings and logs)
     db.delete(person)
     db.commit()
 
     return {
         "success": True,
-        "message": f"Person {person.name} deleted successfully"
+        "message": f"Person {person.name} deleted successfully from database and storage"
     }
 
 
@@ -1381,7 +1406,7 @@ def generate_video_stream(db: Session):
                                     try:
                                         if best_idx >= 0:
                                             person_info = person_cache.get(person_ids[best_idx], {'name': 'Unknown'})
-                                            logger.warning(f"🔔 KNOWN PERSON: {person_info['name']} (Confidence: {similarity:.2f})")
+                                            logger.warning(f"[DETECTED] KNOWN PERSON: {person_info['name']} (Confidence: {similarity:.2f})")
                                             alert_mgr.create_alert(
                                                 db=db,
                                                 event_type='known_person',

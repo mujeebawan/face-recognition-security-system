@@ -265,6 +265,54 @@
             </div>
         </div>
 
+        <!-- Zoom Controls -->
+        <div style="padding: 20px 30px; background: #0f172a; border-top: 1px solid #334155;">
+            <h3 style="color: #cc9933; margin-bottom: 15px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.3em;">🔍</span> Zoom Control
+            </h3>
+
+            <!-- Zoom Controls -->
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div style="background: #1e293b; padding: 20px; border-radius: 8px; border: 2px solid #334155;">
+                    <!-- Status Display -->
+                    <div id="zoomStatus" style="background: #0f172a; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; min-height: 40px;">
+                        <span style="color: #94a3b8; font-size: 0.9em;">Ready to zoom</span>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 15px;">
+                        <button onmousedown="zoomIn()" onmouseup="stopZoom()" ontouchstart="zoomIn()" ontouchend="stopZoom()" class="button button-primary" style="flex: 1; padding: 20px; font-size: 1.2em;">
+                            ➕ Zoom In
+                        </button>
+                        <button onmousedown="zoomOut()" onmouseup="stopZoom()" ontouchstart="zoomOut()" ontouchend="stopZoom()" class="button button-primary" style="flex: 1; padding: 20px; font-size: 1.2em;">
+                            ➖ Zoom Out
+                        </button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                        <label style="color: #cbd5e1; font-size: 0.95em; min-width: 60px;">Speed:</label>
+                        <input type="range" id="zoomSpeed" min="10" max="100" value="70" style="flex: 1; height: 6px; cursor: pointer;">
+                        <span id="zoomSpeedValue" style="color: #cc9933; font-weight: 700; min-width: 45px; font-size: 1.1em;">70</span>
+                    </div>
+                    <div style="background: rgba(204, 153, 51, 0.1); padding: 10px; border-radius: 6px; border-left: 3px solid #cc9933; text-align: center;">
+                        <div style="color: #cbd5e1; font-size: 0.85em;">
+                            <strong style="color: #cc9933;">Tip:</strong> Hold buttons for 2-3 seconds, watch the stream
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Keyboard Shortcuts Info -->
+            <div style="max-width: 600px; margin: 15px auto 0; background: rgba(204, 153, 51, 0.1); padding: 10px; border-radius: 6px;">
+                <div style="color: #cbd5e1; font-size: 0.85em; text-align: center;">
+                    <strong style="color: #cc9933;">⌨️ Keyboard:</strong>
+                    <span style="margin-left: 10px;">
+                        <kbd style="background: #334155; padding: 2px 8px; border-radius: 3px; font-family: monospace;">+</kbd> In  |
+                        <kbd style="background: #334155; padding: 2px 8px; border-radius: 3px; font-family: monospace;">-</kbd> Out  |
+                        <kbd style="background: #334155; padding: 2px 8px; border-radius: 3px; font-family: monospace;">Space</kbd> Stop
+                    </span>
+                </div>
+            </div>
+        </div>
+
         <div class="info-panel">
             <div class="info-grid">
                 <div class="info-card">
@@ -348,6 +396,150 @@
                 statusIndicator.style.background = '#cc9933';
             }
         }, 1000);
+
+        // ==================== PTZ Control Functions ====================
+
+        // API call helper
+        async function ptzApiCall(endpoint, method = 'POST', params = {}) {
+            try {
+                const url = new URL(endpoint, window.location.origin);
+                if (method === 'GET' && Object.keys(params).length > 0) {
+                    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+                }
+
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+
+                if (method === 'POST' && Object.keys(params).length > 0) {
+                    options.body = JSON.stringify(params);
+                }
+
+                console.log(`PTZ API Call: ${method} ${endpoint}`);
+                const response = await fetch(url, options);
+                const data = await response.json();
+                console.log('PTZ Response:', data);
+
+                if (!data.success) {
+                    console.error('PTZ command failed:', data.message);
+                    showZoomStatus(`❌ ${data.message || 'Command failed'}`, '#ef4444');
+                }
+
+                return data.success;
+
+            } catch (error) {
+                console.error('PTZ API error:', error);
+                showZoomStatus(`❌ Error: ${error.message}`, '#ef4444');
+                return false;
+            }
+        }
+
+        // Show status message
+        function showZoomStatus(message, color = '#94a3b8') {
+            const statusEl = document.getElementById('zoomStatus');
+            if (statusEl) {
+                statusEl.innerHTML = `<span style="color: ${color}; font-size: 0.9em;">${message}</span>`;
+            }
+        }
+
+        // Zoom In
+        async function zoomIn() {
+            const speed = parseInt(document.getElementById('zoomSpeed').value);
+            console.log(`🔍 Zoom IN: speed=${speed}`);
+            showZoomStatus('⏫ Zooming IN... (speed: ' + speed + ')', '#10b981');
+
+            const success = await ptzApiCall(`/api/ptz/zoom/in?speed=${speed}`, 'POST');
+            if (success) {
+                console.log('✅ Zoom IN command sent successfully');
+                setTimeout(() => {
+                    showZoomStatus('⏫ Zoomed IN (release to stop)', '#10b981');
+                }, 500);
+            }
+        }
+
+        // Zoom Out
+        async function zoomOut() {
+            const speed = parseInt(document.getElementById('zoomSpeed').value);
+            console.log(`🔍 Zoom OUT: speed=${speed}`);
+            showZoomStatus('⏬ Zooming OUT... (speed: ' + speed + ')', '#f59e0b');
+
+            const success = await ptzApiCall(`/api/ptz/zoom/out?speed=${speed}`, 'POST');
+            if (success) {
+                console.log('✅ Zoom OUT command sent successfully');
+                setTimeout(() => {
+                    showZoomStatus('⏬ Zoomed OUT (release to stop)', '#f59e0b');
+                }, 500);
+            }
+        }
+
+        // Stop Zoom
+        async function stopZoom() {
+            console.log('Zoom STOP');
+            showZoomStatus('⏹️ Stopped', '#cbd5e1');
+            await ptzApiCall('/api/ptz/zoom/stop', 'POST');
+
+            // Reset status after 2 seconds
+            setTimeout(() => {
+                showZoomStatus('Ready to zoom', '#94a3b8');
+            }, 2000);
+        }
+
+        // Update zoom speed display
+        document.getElementById('zoomSpeed').addEventListener('input', function() {
+            document.getElementById('zoomSpeedValue').textContent = this.value;
+        });
+
+        // Keyboard shortcuts (zoom only)
+        document.addEventListener('keydown', function(e) {
+            // Prevent if typing in input field
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            switch(e.key) {
+                case '+':
+                case '=':
+                    e.preventDefault();
+                    zoomIn();
+                    break;
+                case '-':
+                case '_':
+                    e.preventDefault();
+                    zoomOut();
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    stopZoom();
+                    break;
+            }
+        });
+
+        document.addEventListener('keyup', function(e) {
+            // Stop on key release for zoom controls
+            if (['+', '=', '-', '_'].includes(e.key)) {
+                e.preventDefault();
+                stopZoom();
+            }
+        });
+
+        // ==================== Initialization ====================
+
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            console.log('=== Live Stream Page Loaded ===');
+            showZoomStatus('Ready to zoom', '#10b981');
+
+            // Log PTZ endpoint information for debugging
+            console.log('PTZ API Endpoints:');
+            console.log('  POST /api/ptz/zoom/in?speed=<1-100>');
+            console.log('  POST /api/ptz/zoom/out?speed=<1-100>');
+            console.log('  POST /api/ptz/zoom/stop');
+        });
+
+        // ==================== End PTZ Control Functions ====================
     </script>
 </body>
 </html>

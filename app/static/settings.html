@@ -425,6 +425,84 @@
         <!-- Settings Container -->
         <div id="settingsContainer" class="settings-container" style="display: none;">
 
+            <!-- System Control Panel - Full Width -->
+            <div class="settings-section" style="grid-column: 1 / -1; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 2px solid #cc9933;">
+                <h3 style="color: #cc9933; border-bottom-color: #cc9933;">⚙️ System Control & Verification</h3>
+
+                <!-- Live Status Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <!-- GPU Status -->
+                    <div style="background: #0f172a; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span style="color: #94a3b8; font-size: 0.875rem;">GPU Status</span>
+                            <span id="gpuStatusIndicator" style="width: 10px; height: 10px; border-radius: 50%; background: #64748b; display: inline-block;"></span>
+                        </div>
+                        <div id="gpuStatusText" style="color: #e2e8f0; font-weight: 600; font-size: 1.1rem;">Loading...</div>
+                        <div id="gpuMemoryText" style="color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem;">-</div>
+                    </div>
+
+                    <!-- System Memory -->
+                    <div style="background: #0f172a; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">
+                        <div style="display: flex; justify-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span style="color: #94a3b8; font-size: 0.875rem;">System Memory</span>
+                            <span id="memStatusIndicator" style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+                        </div>
+                        <div id="memStatusText" style="color: #e2e8f0; font-weight: 600; font-size: 1.1rem;">Loading...</div>
+                        <div id="cpuStatusText" style="color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem;">-</div>
+                    </div>
+
+                    <!-- Settings Sync Status -->
+                    <div style="background: #0f172a; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span style="color: #94a3b8; font-size: 0.875rem;">Settings Sync</span>
+                            <span id="settingsSyncIndicator" style="width: 10px; height: 10px; border-radius: 50%; background: #64748b; display: inline-block;"></span>
+                        </div>
+                        <div id="settingsSyncText" style="color: #e2e8f0; font-weight: 600; font-size: 1.1rem;">Loading...</div>
+                        <div id="settingsSyncDetail" style="color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem;">-</div>
+                    </div>
+
+                    <!-- Camera Status -->
+                    <div style="background: #0f172a; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span style="color: #94a3b8; font-size: 0.875rem;">Camera</span>
+                            <span id="cameraStatusIndicator" style="width: 10px; height: 10px; border-radius: 50%; background: #64748b; display: inline-block;"></span>
+                        </div>
+                        <div id="cameraStatusText" style="color: #e2e8f0; font-weight: 600; font-size: 1.1rem;">Not Tested</div>
+                        <div id="cameraStatusDetail" style="color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem;">-</div>
+                    </div>
+                </div>
+
+                <!-- Test Controls -->
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; margin-bottom: 1rem;">
+                    <h4 style="color: #cc9933; margin: 0 0 1rem 0; font-size: 1rem;">🧪 System Tests</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                        <button onclick="testCamera()" class="btn btn-secondary" style="font-size: 0.9rem;">
+                            📹 Test Camera
+                        </button>
+                        <button onclick="testGPU()" class="btn btn-secondary" style="font-size: 0.9rem;">
+                            🎮 Test GPU
+                        </button>
+                        <button onclick="reloadSettings()" class="btn btn-warning" style="font-size: 0.9rem;">
+                            🔄 Reload Settings
+                        </button>
+                        <button onclick="refreshStatus()" class="btn btn-primary" style="font-size: 0.9rem;">
+                            ↻ Refresh Status
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Settings Comparison (Show if mismatches) -->
+                <div id="settingsComparison" style="display: none; background: #78350f; padding: 1rem; border-radius: 8px; border: 2px solid #f59e0b;">
+                    <h4 style="color: #fbbf24; margin: 0 0 0.75rem 0; font-size: 1rem;">⚠️ Settings Mismatch Detected</h4>
+                    <div id="settingsMismatchList" style="color: #fcd34d; font-size: 0.875rem; line-height: 1.6;"></div>
+                    <div style="margin-top: 1rem;">
+                        <button onclick="reloadSettings()" class="btn btn-warning">
+                            Apply Changes from Database
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Recognition Settings -->
             <div class="settings-section">
                 <h3>Recognition Settings</h3>
@@ -764,6 +842,131 @@
             }
         }
 
+        // ==================== System Control Panel Functions ====================
+
+        // Refresh system status
+        async function refreshStatus() {
+            const data = await apiCall('/api/system/status');
+
+            if (data && data.success) {
+                updateStatusDisplays(data);
+                showStatus('System status refreshed', 'success');
+            } else {
+                showStatus('Failed to refresh status', 'error');
+            }
+        }
+
+        // Update status displays
+        function updateStatusDisplays(data) {
+            // GPU Status
+            if (data.gpu && data.gpu.available) {
+                document.getElementById('gpuStatusIndicator').style.background = '#10b981';
+                document.getElementById('gpuStatusText').textContent = data.gpu.device_name || 'GPU Available';
+                document.getElementById('gpuMemoryText').textContent =
+                    `${data.gpu.memory_used_gb}GB / ${data.gpu.memory_total_gb}GB (${data.gpu.memory_usage_percent}%)`;
+            } else {
+                document.getElementById('gpuStatusIndicator').style.background = '#ef4444';
+                document.getElementById('gpuStatusText').textContent = 'GPU Not Available';
+                document.getElementById('gpuMemoryText').textContent = 'CUDA not detected';
+            }
+
+            // System Memory
+            if (data.system) {
+                document.getElementById('memStatusIndicator').style.background =
+                    data.system.memory_percent < 80 ? '#10b981' : '#f59e0b';
+                document.getElementById('memStatusText').textContent =
+                    `${data.system.memory_used_gb}GB / ${data.system.memory_total_gb}GB`;
+                document.getElementById('cpuStatusText').textContent = `CPU: ${data.system.cpu_percent}%`;
+            }
+
+            // Settings Sync
+            if (data.settings) {
+                const mismatchCount = data.settings.mismatches?.length || 0;
+                const syncIndicator = document.getElementById('settingsSyncIndicator');
+                const syncText = document.getElementById('settingsSyncText');
+                const syncDetail = document.getElementById('settingsSyncDetail');
+                const comparisonDiv = document.getElementById('settingsComparison');
+
+                if (mismatchCount > 0) {
+                    syncIndicator.style.background = '#f59e0b';
+                    syncText.textContent = `${mismatchCount} Mismatch${mismatchCount > 1 ? 'es' : ''}`;
+                    syncDetail.textContent = 'Settings need reload';
+
+                    // Show comparison details
+                    const mismatchHTML = data.settings.mismatches.map(m =>
+                        `<div style="margin-bottom: 0.5rem;">
+                            <strong>${m.key}:</strong> Active = ${m.active_value}, DB = ${m.db_value}
+                        </div>`
+                    ).join('');
+                    document.getElementById('settingsMismatchList').innerHTML = mismatchHTML;
+                    comparisonDiv.style.display = 'block';
+                } else {
+                    syncIndicator.style.background = '#10b981';
+                    syncText.textContent = 'Synchronized';
+                    syncDetail.textContent = 'All settings in sync';
+                    comparisonDiv.style.display = 'none';
+                }
+            }
+        }
+
+        // Test camera connection
+        async function testCamera() {
+            showStatus('Testing camera connection...', 'info');
+            const data = await apiCall('/api/system/test/camera', 'POST');
+
+            const indicator = document.getElementById('cameraStatusIndicator');
+            const statusText = document.getElementById('cameraStatusText');
+            const detailText = document.getElementById('cameraStatusDetail');
+
+            if (data && data.success) {
+                indicator.style.background = '#10b981';
+                statusText.textContent = 'Connected';
+                detailText.textContent = data.message || 'Camera online';
+                showStatus('Camera test successful', 'success');
+            } else {
+                indicator.style.background = '#ef4444';
+                statusText.textContent = 'Failed';
+                detailText.textContent = data?.error || 'Connection failed';
+                showStatus('Camera test failed: ' + (data?.error || 'Unknown error'), 'error');
+            }
+        }
+
+        // Test GPU
+        async function testGPU() {
+            showStatus('Testing GPU...', 'info');
+            const data = await apiCall('/api/system/test/gpu');
+
+            if (data && data.success) {
+                showStatus('GPU test successful: ' + data.device_name, 'success');
+                refreshStatus(); // Refresh to show latest GPU info
+            } else {
+                showStatus('GPU test failed: ' + (data?.error || 'Unknown error'), 'error');
+            }
+        }
+
+        // Reload settings from database
+        async function reloadSettings() {
+            showStatus('Reloading settings from database...', 'info');
+            const data = await apiCall('/api/system/reload-settings', 'POST');
+
+            if (data && data.success) {
+                showStatus('Settings reloaded successfully! Changes are now active.', 'success');
+                await loadSettings(); // Reload UI
+                await refreshStatus(); // Refresh status
+            } else {
+                showStatus('Failed to reload settings', 'error');
+            }
+        }
+
+        // Auto-refresh status every 30 seconds
+        setInterval(() => {
+            if (document.getElementById('settingsContainer').style.display !== 'none') {
+                refreshStatus();
+            }
+        }, 30000);
+
+        // ==================== End System Control Panel Functions ====================
+
         // Update slider value displays in real-time
         document.getElementById('recognition_threshold').addEventListener('input', function() {
             document.getElementById('recognition_threshold_value').textContent = this.value;
@@ -776,6 +979,8 @@
         // Initialize
         if (checkAuth()) {
             loadSettings();
+            // Load system status after settings
+            setTimeout(refreshStatus, 1000);
         }
     </script>
 </body>

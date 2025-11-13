@@ -12,6 +12,7 @@ from typing import List, Tuple, Optional
 from dataclasses import dataclass
 import pickle
 from sklearn.metrics.pairwise import cosine_similarity
+import threading
 
 from app.config import settings
 
@@ -33,6 +34,9 @@ class FaceRecognizer:
     def __init__(self):
         """Initialize InsightFace face recognition"""
         logger.info("Initializing InsightFace face recognition...")
+
+        # Thread lock for TensorRT thread-safety
+        self._lock = threading.Lock()
 
         # Initialize FaceAnalysis with buffalo_l model
         # Use TensorRT with FP16 for maximum GPU acceleration
@@ -66,7 +70,7 @@ class FaceRecognizer:
         # Prepare model (downloads if needed)
         self.app.prepare(ctx_id=0, det_size=(640, 640))
 
-        logger.info("✓ Face recognition model loaded successfully (TensorRT FP16)")
+        logger.info("✓ Face recognition model loaded successfully (TensorRT FP16, thread-safe)")
 
     def extract_embedding(self, image: np.ndarray) -> Optional[FaceEmbeddingResult]:
         """
@@ -83,8 +87,10 @@ class FaceRecognizer:
             return None
 
         try:
-            # Detect and extract features
-            faces = self.app.get(image)
+            # Thread-safe GPU access - acquire lock before calling TensorRT model
+            with self._lock:
+                # Detect and extract features
+                faces = self.app.get(image)
 
             if len(faces) == 0:
                 logger.warning("No face detected in image")
@@ -134,7 +140,10 @@ class FaceRecognizer:
             return []
 
         try:
-            faces = self.app.get(image)
+            # Thread-safe GPU access - acquire lock before calling TensorRT model
+            with self._lock:
+                faces = self.app.get(image)
+
             results = []
 
             for face in faces:

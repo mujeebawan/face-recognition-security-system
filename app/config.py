@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     use_diffusion: bool = False
     liveportrait_path: str = "/home/mujeeb/Downloads/LivePortrait"
 
+    # HuggingFace Cache Settings
+    hf_home: str = "/media/sdcard/huggingface_cache"
+    transformers_cache: str = "/media/sdcard/huggingface_cache"
+    diffusers_cache: str = "/media/sdcard/huggingface_cache"
+
     # Alert System
     alert_webhook_url: str = ""
     alert_email_recipients: str = ""

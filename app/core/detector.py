@@ -9,6 +9,7 @@ import logging
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
 from insightface.app import FaceAnalysis
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ class FaceDetector:
             min_detection_confidence: Minimum confidence threshold (0-1)
         """
         self.min_detection_confidence = min_detection_confidence
+
+        # Thread lock for TensorRT thread-safety
+        self._lock = threading.Lock()
 
         logger.info("Initializing SCRFD face detector (TensorRT FP16)...")
 
@@ -72,7 +76,7 @@ class FaceDetector:
             det_thresh=min_detection_confidence
         )
 
-        logger.info(f"✓ SCRFD detector initialized (TensorRT FP16, threshold={min_detection_confidence})")
+        logger.info(f"✓ SCRFD detector initialized (TensorRT FP16, thread-safe, threshold={min_detection_confidence})")
 
     def detect_faces(self, image: np.ndarray) -> List[FaceDetection]:
         """
@@ -91,8 +95,10 @@ class FaceDetector:
         # Get image dimensions
         height, width = image.shape[:2]
 
-        # Detect faces using SCRFD (expects BGR)
-        faces = self.app.get(image)
+        # Thread-safe GPU access - acquire lock before calling TensorRT model
+        with self._lock:
+            # Detect faces using SCRFD (expects BGR)
+            faces = self.app.get(image)
 
         detections = []
 
