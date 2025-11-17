@@ -1,6 +1,7 @@
 """
 Camera handler for Hikvision IP camera RTSP streaming.
 Manages video capture, frame processing, and stream connection.
+Uses GStreamer with hardware acceleration for better performance.
 """
 
 import cv2
@@ -10,6 +11,12 @@ import numpy as np
 import threading
 from app.config import settings
 from app.core.settings_manager import get_setting
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import Gst
+
+# Initialize GStreamer
+Gst.init(None)
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +24,13 @@ logger = logging.getLogger(__name__)
 class CameraHandler:
     """Handle RTSP camera stream from Hikvision IP camera"""
 
-    def __init__(self, use_main_stream: bool = True):
+    def __init__(self, use_main_stream: bool = None):
         """
         Initialize camera handler.
 
         Args:
-            use_main_stream: If True, use main stream (high quality), else use sub-stream (lower quality)
+            use_main_stream: If True, use main stream (high quality), if False use sub-stream.
+                           If None (default), uses database setting.
         """
         # Build RTSP URL dynamically from database settings
         camera_username = get_setting('camera_username', settings.camera_username)
@@ -30,50 +38,151 @@ class CameraHandler:
         camera_ip = get_setting('camera_ip', settings.camera_ip)
         camera_port = get_setting('camera_rtsp_port', settings.camera_rtsp_port)
 
-        # Get stream channel preference from database (default to sub-stream)
-        stream_channel = get_setting('camera_stream_channel', 'sub')
+        # Get stream channel preference from database (default to main stream for powerful GPU)
+        stream_channel = get_setting('camera_stream_channel', 'main')
 
-        # Override use_main_stream if database setting is different
-        if stream_channel == 'main':
-            use_main_stream = True
-        elif stream_channel == 'sub':
-            use_main_stream = False
+        # Use database setting if use_main_stream not explicitly provided
+        if use_main_stream is None:
+            if stream_channel == 'main':
+                use_main_stream = True
+            else:
+                use_main_stream = False
 
         # Hikvision RTSP URL format:
         # Main stream: /Streaming/Channels/101
         # Sub stream: /Streaming/Channels/102
         stream_path = '/Streaming/Channels/101' if use_main_stream else '/Streaming/Channels/102'
 
-        # Build complete RTSP URL
-        self.stream_url = f"rtsp://{camera_username}:{camera_password}@{camera_ip}:{camera_port}{stream_path}"
+        # Build complete RTSP URL with URL-encoded credentials (for special characters like @)
+        from urllib.parse import quote
+        encoded_username = quote(camera_username, safe='')
+        encoded_password = quote(camera_password, safe='')
+        self.stream_url = f"rtsp://{encoded_username}:{encoded_password}@{camera_ip}:{camera_port}{stream_path}"
 
+        # Camera capture objects
         self.capture: Optional[cv2.VideoCapture] = None
         self.is_connected = False
+
+        # GStreamer objects
+        self.use_gstreamer = True  # Try GStreamer first, fallback to OpenCV if needed
+        self.pipeline = None
+        self.appsink = None
+        self.latest_frame = None
+        self.frame_lock = threading.Lock()
         self.frame_count = 0
         self.read_lock = threading.Lock()  # Thread-safe access to camera
 
         logger.info(f"Camera handler initialized with {'main' if use_main_stream else 'sub'} stream from database settings")
         logger.info(f"Connecting to: rtsp://{camera_username}:****@{camera_ip}:{camera_port}{stream_path}")
 
-    def connect(self) -> bool:
+    def _connect_gstreamer(self) -> bool:
         """
-        Connect to the RTSP camera stream.
-
-        Returns:
-            True if connection successful, False otherwise
+        Connect using GStreamer with hardware acceleration.
+        Uses nvv4l2decoder for GPU-accelerated H.264/H.265 decoding.
         """
         try:
             camera_ip = get_setting('camera_ip', settings.camera_ip)
-            logger.info(f"Connecting to camera at {camera_ip}...")
+            logger.info(f"Connecting to camera at {camera_ip} using GStreamer with hardware acceleration...")
+
+            # GStreamer pipeline with NVIDIA hardware decoder
+            # rtspsrc: RTSP source
+            # rtph264depay/rtph265depay: RTP depayloader
+            # nvv4l2decoder: NVIDIA hardware H.264/H.265 decoder
+            # nvvidconv: NVIDIA video converter
+            # videoconvert: Convert to format OpenCV can use
+            # appsink: Output sink for frame capture
+            pipeline_str = (
+                f'rtspsrc location="{self.stream_url}" latency=0 buffer-mode=0 ! '
+                'rtph264depay ! h264parse ! '
+                'nvv4l2decoder enable-max-performance=1 ! '
+                'nvvidconv ! video/x-raw,format=BGRx ! '
+                'videoconvert ! video/x-raw,format=BGR ! '
+                'appsink name=sink emit-signals=true max-buffers=1 drop=true'
+            )
+
+            logger.info(f"GStreamer pipeline: {pipeline_str}")
+
+            # Create pipeline
+            self.pipeline = Gst.parse_launch(pipeline_str)
+            self.appsink = self.pipeline.get_by_name('sink')
+
+            # Start pipeline
+            ret = self.pipeline.set_state(Gst.State.PLAYING)
+            if ret == Gst.StateChangeReturn.FAILURE:
+                logger.error("✗ Failed to start GStreamer pipeline")
+                return False
+
+            # Wait for pipeline to reach PLAYING state (shorter timeout to prevent hanging)
+            import time
+            state_change = self.pipeline.get_state(timeout=Gst.SECOND * 3)
+            if state_change[0] != Gst.StateChangeReturn.SUCCESS:
+                logger.error(f"✗ Pipeline failed to reach PLAYING state within 3s: {state_change[0]}")
+                return False
+
+            logger.info("Pipeline in PLAYING state, waiting for first frame...")
+
+            # Wait for first frame to verify connection (reduced timeout)
+            max_wait = 5  # seconds (fail faster to prevent page hanging)
+            start_time = time.time()
+
+            # Check bus for errors
+            bus = self.pipeline.get_bus()
+
+            while time.time() - start_time < max_wait:
+                # Check for errors on the bus
+                msg = bus.pop_filtered(Gst.MessageType.ERROR)
+                if msg:
+                    err, debug = msg.parse_error()
+                    logger.error(f"✗ GStreamer error: {err.message}")
+                    logger.debug(f"Debug info: {debug}")
+                    return False
+
+                # Try to pull a sample with timeout (non-blocking)
+                # Use emit with try-pull-sample signal (timeout in nanoseconds)
+                sample = self.appsink.emit('try-pull-sample', Gst.SECOND * 1)  # 1 second timeout per attempt
+                if sample:
+                    buffer = sample.get_buffer()
+                    caps = sample.get_caps()
+
+                    # Get frame dimensions
+                    struct = caps.get_structure(0)
+                    width = struct.get_value('width')
+                    height = struct.get_value('height')
+
+                    self.is_connected = True
+                    logger.info(f"✓ Camera connected successfully via GStreamer - Resolution: {width}x{height}")
+                    logger.info("✓ Hardware-accelerated decoding active (nvv4l2decoder)")
+                    return True
+
+                time.sleep(0.2)
+
+            # Check for warnings/info on bus before giving up
+            msg = bus.pop()
+            if msg:
+                logger.warning(f"Last GStreamer message: {msg.type}")
+
+            logger.error("✗ Timeout waiting for first frame from GStreamer")
+            return False
+
+        except Exception as e:
+            logger.error(f"✗ GStreamer connection error: {str(e)}")
+            logger.info("Falling back to OpenCV/FFmpeg...")
+            return False
+
+    def _connect_opencv(self) -> bool:
+        """
+        Fallback connection using OpenCV with FFmpeg.
+        Used if GStreamer fails.
+        """
+        try:
+            camera_ip = get_setting('camera_ip', settings.camera_ip)
+            logger.info(f"Connecting to camera at {camera_ip} using OpenCV/FFmpeg...")
 
             # Use FFMPEG with optimal low-latency settings
-            # Note: OpenCV not built with GStreamer, using FFMPEG
             import os
             os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp|fflags;nobuffer|flags;low_delay'
 
             self.capture = cv2.VideoCapture(self.stream_url, cv2.CAP_FFMPEG)
-
-            # Aggressive low-latency settings
             self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer
 
             # Try to read a frame to verify connection
@@ -82,7 +191,8 @@ class CameraHandler:
                 if ret and frame is not None:
                     self.is_connected = True
                     height, width = frame.shape[:2]
-                    logger.info(f"✓ Camera connected successfully - Resolution: {width}x{height}")
+                    logger.info(f"✓ Camera connected successfully via OpenCV - Resolution: {width}x{height}")
+                    logger.warning("⚠️  Using software decoding (no hardware acceleration)")
                     return True
                 else:
                     logger.error("✗ Camera opened but cannot read frames")
@@ -92,32 +202,129 @@ class CameraHandler:
                 return False
 
         except Exception as e:
-            logger.error(f"✗ Camera connection error: {str(e)}")
-            self.is_connected = False
+            logger.error(f"✗ OpenCV connection error: {str(e)}")
             return False
+
+    def connect(self) -> bool:
+        """
+        Connect to the RTSP camera stream.
+        Tries GStreamer first for hardware acceleration, falls back to OpenCV if needed.
+
+        Returns:
+            True if connection successful, False otherwise
+        """
+        # Try GStreamer with hardware acceleration first
+        if self.use_gstreamer:
+            if self._connect_gstreamer():
+                return True
+            else:
+                logger.warning("GStreamer connection failed, falling back to OpenCV...")
+                self.use_gstreamer = False
+
+        # Fallback to OpenCV/FFmpeg
+        return self._connect_opencv()
 
     def disconnect(self):
         """Disconnect from camera stream"""
+        if self.pipeline is not None:
+            # Stop GStreamer pipeline
+            self.pipeline.set_state(Gst.State.NULL)
+            self.pipeline = None
+            self.appsink = None
+            logger.info("GStreamer pipeline stopped")
+
         if self.capture is not None:
             self.capture.release()
-            self.is_connected = False
-            logger.info("Camera disconnected")
+            self.capture = None
+
+        self.is_connected = False
+        logger.info("Camera disconnected")
+
+    def _read_frame_gstreamer(self, crop_osd: bool) -> Tuple[bool, Optional[np.ndarray]]:
+        """Read frame from GStreamer pipeline"""
+        try:
+            # Pull sample from appsink with timeout to prevent blocking indefinitely
+            # Use emit with try-pull-sample signal (timeout in nanoseconds)
+            sample = self.appsink.emit('try-pull-sample', Gst.SECOND * 2)  # 2 second timeout
+            if sample is None:
+                logger.warning("Timeout or no sample available from GStreamer appsink")
+                return False, None
+
+            buffer = sample.get_buffer()
+            caps = sample.get_caps()
+
+            # Get frame dimensions
+            struct = caps.get_structure(0)
+            width = struct.get_value('width')
+            height = struct.get_value('height')
+
+            # Extract buffer data
+            success, map_info = buffer.map(Gst.MapFlags.READ)
+            if not success:
+                return False, None
+
+            # Convert to numpy array
+            frame = np.ndarray(
+                shape=(height, width, 3),
+                dtype=np.uint8,
+                buffer=map_info.data
+            )
+
+            # Make a copy since we're unmapping the buffer
+            frame = frame.copy()
+            buffer.unmap(map_info)
+
+            # Crop OSD overlay from top
+            if crop_osd:
+                frame = frame[65:, :]
+
+            self.frame_count += 1
+            return True, frame
+
+        except Exception as e:
+            logger.error(f"Error reading frame from GStreamer: {str(e)}")
+            return False, None
+
+    def _read_frame_opencv(self, crop_osd: bool, flush_buffer: bool) -> Tuple[bool, Optional[np.ndarray]]:
+        """Read frame from OpenCV VideoCapture"""
+        try:
+            # Flush old buffered frames to get the latest frame (reduces delay)
+            if flush_buffer:
+                for _ in range(3):
+                    self.capture.grab()
+
+            ret, frame = self.capture.read()
+            if ret and frame is not None:
+                # Crop OSD overlay from top
+                if crop_osd:
+                    frame = frame[65:, :]
+
+                self.frame_count += 1
+                return True, frame
+
+            return False, None
+
+        except Exception as e:
+            logger.error(f"Error reading frame from OpenCV: {str(e)}")
+            return False, None
 
     def read_frame(self, crop_osd: bool = True, flush_buffer: bool = False, max_retries: int = 3) -> Tuple[bool, Optional[np.ndarray]]:
         """
         Read a single frame from the camera with automatic reconnection on failure.
         Thread-safe with locking to prevent simultaneous access.
 
+        Supports both GStreamer (hardware-accelerated) and OpenCV (software fallback).
+
         Args:
             crop_osd: If True, crop top region to remove camera OSD text overlay
-            flush_buffer: If True, flush old frames to get the latest frame (reduces latency)
+            flush_buffer: If True, flush old frames to get the latest frame (only for OpenCV)
             max_retries: Maximum number of reconnection attempts on frame read failure
 
         Returns:
             Tuple of (success, frame)
         """
         with self.read_lock:  # Ensure only one thread reads at a time
-            if not self.is_connected or self.capture is None:
+            if not self.is_connected:
                 logger.warning("Camera not connected, attempting to connect...")
                 if not self.connect():
                     return False, None
@@ -125,22 +332,16 @@ class CameraHandler:
             retry_count = 0
             while retry_count < max_retries:
                 try:
-                    # Flush old buffered frames to get the latest frame (reduces delay)
-                    # Grab and discard buffered frames to get the most recent one
-                    if flush_buffer:
-                        # Grab 3 frames for better responsiveness
-                        for _ in range(3):
-                            self.capture.grab()
+                    # Read from GStreamer or OpenCV depending on what's active
+                    if self.pipeline is not None and self.appsink is not None:
+                        ret, frame = self._read_frame_gstreamer(crop_osd)
+                    elif self.capture is not None:
+                        ret, frame = self._read_frame_opencv(crop_osd, flush_buffer)
+                    else:
+                        logger.error("No capture source available")
+                        return False, None
 
-                    ret, frame = self.capture.read()
                     if ret and frame is not None:
-                        self.frame_count += 1
-
-                        # Crop OSD overlay from top
-                        if crop_osd:
-                            # Crop 65 pixels from top to remove camera OSD text
-                            frame = frame[65:, :]
-
                         return True, frame
                     else:
                         # Frame read failed - attempt reconnection
@@ -252,7 +453,7 @@ class FrameBroadcaster:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, use_main_stream: bool = True):
+    def __init__(self, use_main_stream: bool = None):
         """Initialize the broadcaster (only once)"""
         if self._initialized:
             return

@@ -23,14 +23,14 @@
 
         .header {
             background: linear-gradient(90deg, #124877 0%, #124877 35%, #0F518B 100%);
-            padding: 12px 30px;
+            padding: 10px 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             border-bottom: 3px solid #cc9933;
             flex-shrink: 0;
         }
 
         .header h1 {
-            font-size: 1.6em;
+            font-size: 1.5em;
             margin-bottom: 2px;
             color: #cc9933;
         }
@@ -95,7 +95,7 @@
 
         .stat-card {
             background: #334155;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
             text-align: center;
             border: 2px solid #cc9933;
@@ -486,50 +486,56 @@
                 </div>
 
                 <!-- Image Comparison -->
-                <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h3 style="margin: 0 0 15px 0; color: #a78bfa; text-align: center; font-size: 1.2em;">Compare Photos - Verify Match</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="background: #1e293b; padding: 25px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #334155;">
+                    <h3 style="margin: 0 0 20px 0; color: #a78bfa; text-align: center; font-size: 1.3em; font-weight: 600;">📸 Compare Photos - Verify Match</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
                         <!-- Original Enrolled Photo -->
                         <div>
-                            <h4 style="margin: 0 0 10px 0; color: #10b981; text-align: center; font-size: 1em;">Enrolled Photo</h4>
-                            <div style="position: relative; background: #0f172a; border-radius: 8px; overflow: hidden; border: 3px solid #10b981;">
-                                <img id="popupOriginalImg" src="" alt="Loading..." style="width: 100%; height: 300px; object-fit: cover; display: block;">
-                                <div id="popupOriginalLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8;">Loading...</div>
+                            <h4 style="margin: 0 0 12px 0; color: #10b981; text-align: center; font-size: 1.05em; font-weight: 600;">📋 Enrolled Photo</h4>
+                            <div style="position: relative; background: #0f172a; border-radius: 10px; overflow: hidden; border: 3px solid #10b981; box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);">
+                                <img id="popupOriginalImg" src="" alt="Loading..." style="width: 100%; max-height: 320px; min-height: 250px; object-fit: contain; display: block; background: #0f172a;">
+                                <div id="popupOriginalLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8; font-size: 0.95em;">Loading...</div>
                             </div>
-                            <p style="margin: 10px 0 0 0; text-align: center; color: #94a3b8; font-size: 0.85em;">Original enrolled image</p>
+                            <p style="margin: 12px 0 0 0; text-align: center; color: #10b981; font-size: 0.9em; font-weight: 500;">✓ Database Reference</p>
                         </div>
                         <!-- Captured Snapshot -->
                         <div>
-                            <h4 style="margin: 0 0 10px 0; color: #d97706; text-align: center; font-size: 1em;">Captured Now</h4>
-                            <div style="position: relative; background: #0f172a; border-radius: 8px; overflow: hidden; border: 3px solid #d97706;">
-                                <img id="popupSnapshotImg" src="" alt="Loading..." style="width: 100%; height: 300px; object-fit: cover; display: block;">
-                                <div id="popupSnapshotLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8;">Loading...</div>
+                            <h4 style="margin: 0 0 12px 0; color: #f59e0b; text-align: center; font-size: 1.05em; font-weight: 600;">📷 Captured Now</h4>
+                            <div style="position: relative; background: #0f172a; border-radius: 10px; overflow: hidden; border: 3px solid #f59e0b; box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);">
+                                <img id="popupSnapshotImg" src="" alt="Loading..." style="width: 100%; max-height: 320px; min-height: 250px; object-fit: contain; display: block; background: #0f172a;">
+                                <div id="popupSnapshotLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8; font-size: 0.95em;">Loading...</div>
                             </div>
-                            <p style="margin: 10px 0 0 0; text-align: center; color: #94a3b8; font-size: 0.85em;">Just captured snapshot</p>
+                            <p style="margin: 12px 0 0 0; text-align: center; color: #f59e0b; font-size: 0.9em; font-weight: 500;">🔴 Live Detection</p>
                         </div>
                     </div>
-                    <p style="margin: 15px 0 0 0; text-align: center; color: #d97706; font-size: 0.95em; font-weight: 600;">
-                        ⚠ Compare both images carefully before taking action
-                    </p>
+                    <div style="margin: 18px 0 0 0; text-align: center; background: #2d1f15; padding: 12px; border-radius: 6px; border-left: 4px solid #f59e0b;">
+                        <p style="margin: 0; color: #f59e0b; font-size: 1em; font-weight: 600;">
+                            ⚠ Compare both images carefully before taking action
+                        </p>
+                    </div>
                 </div>
 
                 <!-- Quick Action Buttons -->
-                <div style="background: #1e293b; padding: 18px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #334155;">
-                    <h3 style="margin: 0 0 12px 0; color: #cc9933; font-size: 1.1em; font-weight: 600; border-bottom: 1px solid #334155; padding-bottom: 8px;">
+                <div style="background: #1e293b; padding: 22px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #cc9933;">
+                    <h3 style="margin: 0 0 16px 0; color: #cc9933; font-size: 1.2em; font-weight: 600; border-bottom: 2px solid #cc9933; padding-bottom: 10px;">
                         ⚡ Quick Action - Take Decision
                     </h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <button onclick="takeQuickAction('confirmed')" style="background: #10b981; color: white; padding: 14px; border: none; border-radius: 6px; font-size: 0.95em; font-weight: 600; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-                            ✅ CONFIRM<br><span style="font-size: 0.8em; font-weight: 400; opacity: 0.9;">Match verified</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <button onclick="takeQuickAction('confirmed')" style="background: #10b981; color: white; padding: 18px 16px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.3s; min-height: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center;" onmouseover="this.style.background='#059669'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(16, 185, 129, 0.4)'" onmouseout="this.style.background='#10b981'; this.style.transform=''; this.style.boxShadow=''">
+                            <div>✅ CONFIRM</div>
+                            <div style="font-size: 0.85em; font-weight: 400; opacity: 0.9; margin-top: 6px;">Match verified</div>
                         </button>
-                        <button onclick="takeQuickAction('false_alarm')" style="background: #64748b; color: white; padding: 14px; border: none; border-radius: 6px; font-size: 0.95em; font-weight: 600; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748b'">
-                            ❌ FALSE ALARM<br><span style="font-size: 0.8em; font-weight: 400; opacity: 0.9;">Wrong person</span>
+                        <button onclick="takeQuickAction('false_alarm')" style="background: #64748b; color: white; padding: 18px 16px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.3s; min-height: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center;" onmouseover="this.style.background='#475569'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(100, 116, 139, 0.4)'" onmouseout="this.style.background='#64748b'; this.style.transform=''; this.style.boxShadow=''">
+                            <div>❌ FALSE ALARM</div>
+                            <div style="font-size: 0.85em; font-weight: 400; opacity: 0.9; margin-top: 6px;">Wrong person</div>
                         </button>
-                        <button onclick="takeQuickAction('apprehended')" style="background: #3b82f6; color: white; padding: 14px; border: none; border-radius: 6px; font-size: 0.95em; font-weight: 600; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
-                            🚔 APPREHENDED<br><span style="font-size: 0.8em; font-weight: 400; opacity: 0.9;">Person secured</span>
+                        <button onclick="takeQuickAction('apprehended')" style="background: #3b82f6; color: white; padding: 18px 16px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.3s; min-height: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center;" onmouseover="this.style.background='#2563eb'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(59, 130, 246, 0.4)'" onmouseout="this.style.background='#3b82f6'; this.style.transform=''; this.style.boxShadow=''">
+                            <div>🚔 APPREHENDED</div>
+                            <div style="font-size: 0.85em; font-weight: 400; opacity: 0.9; margin-top: 6px;">Person secured</div>
                         </button>
-                        <button onclick="takeQuickAction('escalated')" style="background: #dc2626; color: white; padding: 14px; border: none; border-radius: 6px; font-size: 0.95em; font-weight: 600; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='#991b1b'" onmouseout="this.style.background='#dc2626'">
-                            ⚠️ ESCALATE<br><span style="font-size: 0.8em; font-weight: 400; opacity: 0.9;">Need backup</span>
+                        <button onclick="takeQuickAction('escalated')" style="background: #dc2626; color: white; padding: 18px 16px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.3s; min-height: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center;" onmouseover="this.style.background='#991b1b'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(220, 38, 38, 0.4)'" onmouseout="this.style.background='#dc2626'; this.style.transform=''; this.style.boxShadow=''">
+                            <div>⚠️ ESCALATE</div>
+                            <div style="font-size: 0.85em; font-weight: 400; opacity: 0.9; margin-top: 6px;">Need backup</div>
                         </button>
                     </div>
                 </div>

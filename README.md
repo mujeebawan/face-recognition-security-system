@@ -31,17 +31,18 @@ http://192.168.0.117:8000
 - ✅ **RTSP Camera Integration** - Hikvision IP camera support (main/sub-stream)
 - ✅ **Person Enrollment** - Single/multiple image enrollment with augmentation
 - ✅ **Alert System** - Real-time alerts for known/unknown persons with cooldown
-- ✅ **Live Streaming** - MJPEG video stream with real-time recognition overlay
+- ✅ **Live Streaming** - Hardware-accelerated MJPEG stream with GStreamer (nvv4l2decoder), dynamic quality settings, stream switching
 
 ### 📊 Web Interface
-- ✅ **Dashboard** - Real-time statistics, live stream preview, recent alerts
-- ✅ **Admin Panel** - Person management (add, edit, delete enrolled persons)
-- ✅ **Alert Management** - Advanced filtering, acknowledgment, bulk operations, CSV export
+- ✅ **Dashboard** - Real-time statistics, live stream preview, enhanced alert popups with side-by-side image comparison
+- ✅ **Admin Panel** - Person management with real-time enrollment progress tracking (9-stage progress bar)
+- ✅ **Alert Management** - Advanced filtering, improved button layouts, acknowledgment system, bulk operations, CSV export
 - ✅ **Reports & Analytics** - Interactive charts, time-series analysis, person statistics
-- ✅ **Live Stream Viewer** - Full-screen video monitoring with recognition data
+- ✅ **Live Stream Viewer** - Hardware-accelerated streaming with frame skip control, main/sub-stream switching
 - ✅ **Camera Zoom Control** - Remote motorized zoom with speed control and keyboard shortcuts
 - ✅ **System Control Panel** - Live monitoring, settings verification, and test endpoints
 - ✅ **JWT Authentication** - Secure login with role-based access control
+- ✅ **Responsive Design** - Optimized layouts at 100% zoom, no scrolling required
 
 ### 🔌 API Features
 - ✅ **RESTful API** - Complete FastAPI endpoints with OpenAPI documentation
@@ -74,7 +75,8 @@ http://192.168.0.117:8000
 - **Detection**: SCRFD (InsightFace) + TensorRT FP16
 - **Recognition**: ArcFace (InsightFace buffalo_l)
 - **Database**: SQLite 3.x (PostgreSQL-ready via SQLAlchemy)
-- **Computer Vision**: OpenCV 4.x (CUDA-enabled)
+- **Video Processing**: GStreamer 1.0 with NVIDIA hardware acceleration (nvv4l2decoder)
+- **Computer Vision**: OpenCV 4.x (CUDA-enabled, FFMPEG fallback)
 - **Deep Learning**: ONNX Runtime 1.19.0 (TensorRT Execution Provider)
 - **Frontend**: Vanilla JavaScript, Chart.js for visualizations
 

@@ -23,7 +23,7 @@
 
         .header {
             background: linear-gradient(90deg, #124877 0%, #124877 35%, #0F518B 100%);
-            padding: 15px 30px;
+            padding: 10px 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             border-bottom: 3px solid #cc9933;
             flex-shrink: 0;
@@ -33,14 +33,14 @@
         }
 
         .header-left h1 {
-            font-size: 1.8em;
-            margin-bottom: 3px;
+            font-size: 1.5em;
+            margin-bottom: 2px;
             color: #cc9933;
         }
 
         .header-left p {
             opacity: 0.9;
-            font-size: 0.9em;
+            font-size: 0.85em;
         }
 
         .header-right {
@@ -93,10 +93,10 @@
         }
 
         .left-panel {
-            width: 320px;
+            width: 280px;
             background: #1e293b;
             overflow-y: auto;
-            padding: 20px;
+            padding: 15px;
             border-right: 3px solid #cc9933;
             flex-shrink: 0;
         }
@@ -105,18 +105,18 @@
             flex: 1;
             background: #0f172a;
             overflow-y: auto;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
         }
 
         .panel-title {
-            font-size: 1.3em;
+            font-size: 1.2em;
             font-weight: 600;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             color: #cc9933;
             border-bottom: 2px solid #cc9933;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
         }
 
         /* Stats Cards */
@@ -748,32 +748,32 @@
 
                 <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h4 style="margin: 0 0 15px 0; color: #fbbf24;">Select Guard Action</h4>
-                    <p style="color: #94a3b8; font-size: 0.9em; margin-bottom: 15px;">Choose the appropriate action based on your verification:</p>
+                    <p style="color: #94a3b8; font-size: 0.9em; margin-bottom: 18px;">Choose the appropriate action based on your verification:</p>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
-                        <button class="btn" style="background: #10b981; color: white; padding: 15px; text-align: left;" onclick="selectGuardAction('confirmed')">
-                            <div style="font-weight: 600; margin-bottom: 5px;">✅ Confirmed Match</div>
-                            <div style="font-size: 0.85em; opacity: 0.9;">Person identity verified</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
+                        <button class="btn" style="background: #10b981; color: white; padding: 18px 16px; text-align: left; min-height: 75px; display: flex; flex-direction: column; justify-content: center; transition: all 0.3s;" onclick="selectGuardAction('confirmed')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(16, 185, 129, 0.3)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                            <div style="font-weight: 600; margin-bottom: 6px; font-size: 1em;">✅ Confirmed Match</div>
+                            <div style="font-size: 0.85em; opacity: 0.9; line-height: 1.3;">Person identity verified</div>
                         </button>
 
-                        <button class="btn" style="background: #64748b; color: white; padding: 15px; text-align: left;" onclick="selectGuardAction('false_alarm')">
-                            <div style="font-weight: 600; margin-bottom: 5px;">❌ False Alarm</div>
-                            <div style="font-size: 0.85em; opacity: 0.9;">Wrong person detected</div>
+                        <button class="btn" style="background: #64748b; color: white; padding: 18px 16px; text-align: left; min-height: 75px; display: flex; flex-direction: column; justify-content: center; transition: all 0.3s;" onclick="selectGuardAction('false_alarm')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(100, 116, 139, 0.3)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                            <div style="font-weight: 600; margin-bottom: 6px; font-size: 1em;">❌ False Alarm</div>
+                            <div style="font-size: 0.85em; opacity: 0.9; line-height: 1.3;">Wrong person detected</div>
                         </button>
 
-                        <button class="btn" style="background: #f59e0b; color: white; padding: 15px; text-align: left;" onclick="selectGuardAction('investigating')">
-                            <div style="font-weight: 600; margin-bottom: 5px;">🔍 Investigating</div>
-                            <div style="font-size: 0.85em; opacity: 0.9;">Further verification needed</div>
+                        <button class="btn" style="background: #f59e0b; color: white; padding: 18px 16px; text-align: left; min-height: 75px; display: flex; flex-direction: column; justify-content: center; transition: all 0.3s;" onclick="selectGuardAction('investigating')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(245, 158, 11, 0.3)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                            <div style="font-weight: 600; margin-bottom: 6px; font-size: 1em;">🔍 Investigating</div>
+                            <div style="font-size: 0.85em; opacity: 0.9; line-height: 1.3;">Further verification needed</div>
                         </button>
 
-                        <button class="btn" style="background: #10b981; color: white; padding: 15px; text-align: left;" onclick="selectGuardAction('apprehended')">
-                            <div style="font-weight: 600; margin-bottom: 5px;">🚔 Apprehended</div>
-                            <div style="font-size: 0.85em; opacity: 0.9;">Person detained/arrested</div>
+                        <button class="btn" style="background: #10b981; color: white; padding: 18px 16px; text-align: left; min-height: 75px; display: flex; flex-direction: column; justify-content: center; transition: all 0.3s;" onclick="selectGuardAction('apprehended')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(16, 185, 129, 0.3)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                            <div style="font-weight: 600; margin-bottom: 6px; font-size: 1em;">🚔 Apprehended</div>
+                            <div style="font-size: 0.85em; opacity: 0.9; line-height: 1.3;">Person detained/arrested</div>
                         </button>
 
-                        <button class="btn" style="background: #dc2626; color: white; padding: 15px; text-align: left; grid-column: 1 / -1;" onclick="selectGuardAction('escalated')">
-                            <div style="font-weight: 600; margin-bottom: 5px;">⚠️ Escalated</div>
-                            <div style="font-size: 0.85em; opacity: 0.9;">Situation requires supervisor/backup</div>
+                        <button class="btn" style="background: #dc2626; color: white; padding: 18px 16px; text-align: left; min-height: 75px; grid-column: 1 / -1; display: flex; flex-direction: column; justify-content: center; transition: all 0.3s;" onclick="selectGuardAction('escalated')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(220, 38, 38, 0.3)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                            <div style="font-weight: 600; margin-bottom: 6px; font-size: 1em;">⚠️ Escalated</div>
+                            <div style="font-size: 0.85em; opacity: 0.9; line-height: 1.3;">Situation requires supervisor/backup</div>
                         </button>
                     </div>
 
