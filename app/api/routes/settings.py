@@ -89,7 +89,7 @@ DEFAULT_SETTINGS = {
         "description": "RTSP port number (default: 554)"
     },
     "camera_stream_channel": {
-        "value": "sub",
+        "value": "main",
         "type": "string",
         "description": "Stream channel to use (main or sub)"
     },
@@ -119,14 +119,24 @@ DEFAULT_SETTINGS = {
         "description": "Maximum number of faces to process per frame"
     },
     "frame_skip": {
-        "value": 5,
+        "value": 0,
         "type": "int",
-        "description": "Process every Nth frame for recognition (1 = every frame)"
+        "description": "Number of frames to skip between processing (0 = process all frames, recommended for powerful GPUs)"
     },
     "enable_gpu": {
         "value": True,
         "type": "bool",
         "description": "Enable GPU acceleration for face detection"
+    },
+    "alert_record_video": {
+        "value": False,
+        "type": "bool",
+        "description": "Record video clips when alerts are triggered"
+    },
+    "alert_video_duration": {
+        "value": 10,
+        "type": "int",
+        "description": "Duration of alert video clips in seconds (5-15)"
     }
 }
 
@@ -303,6 +313,9 @@ async def update_setting(
     elif key == "frame_skip":
         if int(update.value) < 1:
             raise HTTPException(status_code=400, detail="Frame skip must be at least 1")
+    elif key == "alert_video_duration":
+        if int(update.value) < 5 or int(update.value) > 15:
+            raise HTTPException(status_code=400, detail="Video duration must be between 5 and 15 seconds")
 
     # Update in database
     setting = create_or_update_setting(
@@ -466,4 +479,156 @@ async def import_settings(
         "imported_count": len(imported),
         "imported": imported,
         "errors": errors if errors else None
+    }
+
+
+# ==================== Stream Settings Endpoints ====================
+
+class StreamSettingsUpdate(BaseModel):
+    """Schema for quick stream settings update"""
+    frame_skip: int = Field(None, ge=0, le=10, description="Number of frames to skip (0-10)")
+    stream_channel: str = Field(None, pattern="^(main|sub)$", description="Stream channel (main or sub)")
+
+
+# Create a separate router for public endpoints (no auth required)
+from fastapi import APIRouter as FastAPIRouter
+public_router = FastAPIRouter(prefix="/api/public", tags=["public"])
+
+
+@public_router.get("/stream-settings")
+async def get_public_stream_settings(db: Session = Depends(get_db)):
+    """
+    Get current stream settings (frame_skip and stream_channel).
+    PUBLIC endpoint - no authentication required.
+    """
+    frame_skip_setting = get_setting_from_db(db, "frame_skip")
+    stream_channel_setting = get_setting_from_db(db, "camera_stream_channel")
+
+    frame_skip = parse_setting_value(frame_skip_setting) if frame_skip_setting else DEFAULT_SETTINGS["frame_skip"]["value"]
+    stream_channel = parse_setting_value(stream_channel_setting) if stream_channel_setting else DEFAULT_SETTINGS["camera_stream_channel"]["value"]
+
+    return {
+        "success": True,
+        "frame_skip": frame_skip,
+        "stream_channel": stream_channel
+    }
+
+
+@public_router.post("/stream-settings")
+async def update_public_stream_settings(
+    settings: StreamSettingsUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update stream settings (frame_skip and/or stream_channel).
+    PUBLIC endpoint - no authentication required.
+    Changes apply immediately to the stream. Camera will reconnect if stream channel changes.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    updated_settings = []
+
+    # Update frame_skip if provided
+    if settings.frame_skip is not None:
+        create_or_update_setting(
+            db,
+            "frame_skip",
+            settings.frame_skip,
+            "int",
+            "Number of frames to skip between processing"
+        )
+        updated_settings.append("frame_skip")
+        logger.info(f"Frame skip updated to {settings.frame_skip}")
+
+    # Update stream_channel if provided
+    if settings.stream_channel is not None:
+        create_or_update_setting(
+            db,
+            "camera_stream_channel",
+            settings.stream_channel,
+            "string",
+            "Stream channel to use (main or sub)"
+        )
+        updated_settings.append("stream_channel")
+        logger.info(f"Stream channel updated to {settings.stream_channel}")
+
+        # Reset camera connection when stream changes
+        try:
+            from app.api.routes.recognition import camera_handler
+            if camera_handler is not None:
+                logger.info("Resetting camera connection due to stream change...")
+                camera_handler.disconnect()
+                # Camera will reconnect automatically on next frame read with new settings
+        except Exception as e:
+            logger.warning(f"Failed to reset camera: {e}")
+
+    # Force reload settings cache
+    from app.core.settings_manager import reload_settings
+    reload_settings()
+
+    return {
+        "success": True,
+        "message": f"Updated {len(updated_settings)} setting(s): {', '.join(updated_settings)}",
+        "updated": updated_settings
+    }
+
+
+@router.post("/stream")
+async def update_stream_settings(
+    settings: StreamSettingsUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update stream settings (frame_skip and/or stream_channel).
+    Changes apply immediately to the stream. Camera will reconnect if stream channel changes.
+    Note: This endpoint is public for easier frontend access.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    updated_settings = []
+
+    # Update frame_skip if provided
+    if settings.frame_skip is not None:
+        create_or_update_setting(
+            db,
+            "frame_skip",
+            settings.frame_skip,
+            "int",
+            "Number of frames to skip between processing"
+        )
+        updated_settings.append("frame_skip")
+        logger.info(f"Frame skip updated to {settings.frame_skip}")
+
+    # Update stream_channel if provided
+    if settings.stream_channel is not None:
+        create_or_update_setting(
+            db,
+            "camera_stream_channel",
+            settings.stream_channel,
+            "string",
+            "Stream channel to use (main or sub)"
+        )
+        updated_settings.append("stream_channel")
+        logger.info(f"Stream channel updated to {settings.stream_channel}")
+
+        # Reset camera connection when stream changes
+        try:
+            from app.api.routes.recognition import camera_handler
+            if camera_handler is not None:
+                logger.info("Resetting camera connection due to stream change...")
+                camera_handler.disconnect()
+                # Camera will reconnect automatically on next frame read with new settings
+        except Exception as e:
+            logger.warning(f"Failed to reset camera: {e}")
+
+    # Force reload settings cache
+    from app.core.settings_manager import reload_settings
+    reload_settings()
+
+    return {
+        "success": True,
+        "message": f"Updated {len(updated_settings)} setting(s): {', '.join(updated_settings)}",
+        "updated": updated_settings
     }

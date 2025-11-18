@@ -4,10 +4,25 @@
 echo "🛑 Stopping Face Recognition System..."
 echo ""
 
-# Kill uvicorn processes
+# Check PID file first
+if [ -f logs/server.pid ]; then
+    SAVED_PID=$(cat logs/server.pid)
+    if kill -0 $SAVED_PID 2>/dev/null; then
+        echo "📋 Stopping server (PID: $SAVED_PID)"
+        kill -15 $SAVED_PID 2>/dev/null
+        sleep 2
+        # Force kill if still running
+        if kill -0 $SAVED_PID 2>/dev/null; then
+            kill -9 $SAVED_PID 2>/dev/null
+        fi
+    fi
+    rm -f logs/server.pid
+fi
+
+# Kill any remaining uvicorn processes
 UVICORN_PIDS=$(pgrep -f "uvicorn.*app.main:app")
 if [ ! -z "$UVICORN_PIDS" ]; then
-    echo "📋 Found server processes: $UVICORN_PIDS"
+    echo "📋 Found additional server processes: $UVICORN_PIDS"
     pkill -9 -f "uvicorn.*app.main:app" 2>/dev/null
     sleep 1
 fi
@@ -27,9 +42,9 @@ else
     echo "✅ Server stopped successfully"
 fi
 
-# Clean up log file if requested
+# Clean up log files if requested
 if [ "$1" == "--clean" ]; then
-    rm -f server.log nohup.out
+    rm -f logs/server.log logs/server.pid nohup.out
     echo "✅ Cleaned up log files"
 fi
 

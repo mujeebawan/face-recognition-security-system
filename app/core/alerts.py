@@ -29,6 +29,8 @@ class AlertManager:
         self.last_alert_times: Dict[str, datetime] = {}  # Cooldown tracking
         self.snapshots_dir = Path("data/alert_snapshots")
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)
+        self.videos_dir = Path("data/alert_videos")
+        self.videos_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Alert Manager initialized")
 
     def _load_config(self) -> Dict[str, Any]:
@@ -43,6 +45,8 @@ class AlertManager:
             "webhook_url": os.getenv("ALERT_WEBHOOK_URL"),
             "email_recipients": os.getenv("ALERT_EMAIL_RECIPIENTS", "").split(",") if os.getenv("ALERT_EMAIL_RECIPIENTS") else [],
             "save_snapshot": True,
+            "record_video": os.getenv("ALERT_RECORD_VIDEO", "false").lower() == "true",
+            "video_duration": int(os.getenv("ALERT_VIDEO_DURATION", "10")),
         }
         return config
 
@@ -83,7 +87,8 @@ class AlertManager:
 
     def save_snapshot(self, frame, alert_id: int) -> Optional[str]:
         """
-        Save frame snapshot for alert.
+        Save frame snapshot for alert in date-wise folder.
+        Organizes snapshots as: data/alert_snapshots/YYYY-MM-DD/alert_id_HHMMSS.jpg
 
         Args:
             frame: OpenCV frame (numpy array)
@@ -93,9 +98,18 @@ class AlertManager:
             str: Path to saved snapshot, or None if failed
         """
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"alert_{alert_id}_{timestamp}.jpg"
-            filepath = self.snapshots_dir / filename
+            # Get current date and time
+            now = datetime.now()
+            date_folder_name = now.strftime("%Y-%m-%d")  # e.g., "2025-01-13"
+            time_str = now.strftime("%H%M%S")  # e.g., "142530"
+
+            # Create date-wise folder
+            date_folder = self.snapshots_dir / date_folder_name
+            date_folder.mkdir(parents=True, exist_ok=True)
+
+            # Create filename
+            filename = f"alert_{alert_id}_{time_str}.jpg"
+            filepath = date_folder / filename
 
             cv2.imwrite(str(filepath), frame)
             logger.info(f"Snapshot saved: {filepath}")
@@ -103,6 +117,69 @@ class AlertManager:
 
         except Exception as e:
             logger.error(f"Failed to save snapshot: {e}")
+            return None
+
+    def save_video(self, frames: list, alert_id: int, fps: int = 15) -> Optional[str]:
+        """
+        Save video clip for alert in date-wise folder.
+        Organizes videos as: data/alert_videos/YYYY-MM-DD/alert_id_HHMMSS.mp4
+
+        Args:
+            frames: List of OpenCV frames (numpy arrays)
+            alert_id: Alert ID for filename
+            fps: Frames per second for video (default: 15)
+
+        Returns:
+            str: Path to saved video, or None if failed
+        """
+        try:
+            if not frames or len(frames) == 0:
+                logger.warning("No frames provided for video recording")
+                return None
+
+            # Get current date and time
+            now = datetime.now()
+            date_folder_name = now.strftime("%Y-%m-%d")  # e.g., "2025-11-14"
+            time_str = now.strftime("%H%M%S")  # e.g., "142530"
+
+            # Create date-wise folder
+            date_folder = self.videos_dir / date_folder_name
+            date_folder.mkdir(parents=True, exist_ok=True)
+
+            # Create filename
+            filename = f"alert_{alert_id}_{time_str}.mp4"
+            filepath = date_folder / filename
+
+            # Get frame dimensions from first frame
+            height, width = frames[0].shape[:2]
+
+            # Create video writer with H264 codec (MP4 format)
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # MP4 codec
+            video_writer = cv2.VideoWriter(
+                str(filepath),
+                fourcc,
+                fps,
+                (width, height)
+            )
+
+            if not video_writer.isOpened():
+                logger.error(f"Failed to open video writer for {filepath}")
+                return None
+
+            # Write all frames to video
+            for frame in frames:
+                video_writer.write(frame)
+
+            # Release video writer
+            video_writer.release()
+
+            logger.info(f"Video saved: {filepath} ({len(frames)} frames at {fps} FPS)")
+            return str(filepath)
+
+        except Exception as e:
+            logger.error(f"Failed to save video: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def create_alert(
@@ -114,6 +191,7 @@ class AlertManager:
         confidence: Optional[float] = None,
         num_faces: int = 1,
         frame = None,
+        video_frames: Optional[List] = None,
     ) -> Optional[Alert]:
         """
         Create and save alert to database.
@@ -126,6 +204,7 @@ class AlertManager:
             confidence: Recognition confidence
             num_faces: Number of faces detected
             frame: OpenCV frame for snapshot
+            video_frames: List of frames for video clip (optional)
 
         Returns:
             Alert: Created alert object, or None if alert shouldn't be triggered
@@ -166,6 +245,11 @@ class AlertManager:
             if self.config["save_snapshot"] and frame is not None:
                 snapshot_path = self.save_snapshot(frame, alert.id)
                 alert.snapshot_path = snapshot_path
+
+            # Save video if configured and frames provided
+            if self.config["record_video"] and video_frames is not None and len(video_frames) > 0:
+                video_path = self.save_video(video_frames, alert.id, fps=15)
+                alert.video_path = video_path
 
             db.commit()
             db.refresh(alert)

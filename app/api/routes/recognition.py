@@ -13,6 +13,7 @@ from typing import List, Optional
 import time
 import threading
 from queue import Queue, Empty
+from collections import deque
 
 from app.core.recognizer import FaceRecognizer
 from app.core.detector import FaceDetector
@@ -69,13 +70,14 @@ def get_camera() -> CameraHandler:
     global camera_handler
     if camera_handler is None:
         logger.info("Initializing camera handler (singleton)...")
-        camera_handler = CameraHandler(use_main_stream=False)  # Use sub-stream as requested
+        # CameraHandler will automatically use settings from database
+        camera_handler = CameraHandler()
         if not camera_handler.connect():
             logger.error("Failed to connect to camera on startup")
             camera_handler = None
             raise HTTPException(status_code=503, detail="Camera connection failed")
     elif not camera_handler.is_connected:
-        # Reconnect if disconnected
+        # Reconnect if disconnected (this happens when stream settings change)
         logger.info("Reconnecting to camera...")
         if not camera_handler.connect():
             logger.error("Failed to reconnect to camera")
@@ -651,7 +653,7 @@ async def recognize_from_camera(db: Session = Depends(get_db)):
     """
     try:
         # Capture from camera
-        camera = CameraHandler(use_main_stream=False)  # Use sub-stream as requested
+        camera = CameraHandler()  # Uses settings from database
 
         if not camera.connect():
             raise HTTPException(status_code=503, detail="Failed to connect to camera")
@@ -1151,7 +1153,7 @@ async def enroll_from_camera(
 
         recognizer = get_recognizer()
         augmentor = FaceAugmentation()
-        camera = CameraHandler(use_main_stream=False)  # Use sub-stream as requested
+        camera = CameraHandler()  # Uses settings from database
 
         if not camera.connect():
             raise HTTPException(status_code=503, detail="Failed to connect to camera")
@@ -1284,6 +1286,8 @@ def generate_video_stream(db: Session):
     Yields:
         JPEG frames with recognition overlay
     """
+    from app.core.settings_manager import get_setting
+
     # Single viewer mode - simple camera access
     logger.info("New viewer connected to stream")
 
@@ -1321,10 +1325,19 @@ def generate_video_stream(db: Session):
 
         logger.info(f"Streaming started with {len(db_embeddings)} embeddings from {len(set(person_ids))} persons")
 
+        # Get frame skip setting dynamically
+        frame_skip_setting = get_setting("frame_skip", 0)
+        logger.info(f"Using frame skip setting: {frame_skip_setting} (0 = process all frames)")
+
         frame_count = 0
         last_recognitions = {}  # Cache last recognition per face (dict keyed by face index)
         last_detections = []  # Cache last detection bboxes
         last_logged = {}  # Track when each person was last logged (person_id: timestamp)
+
+        # Video recording state
+        frame_buffer = deque(maxlen=45)  # Buffer for ~3 seconds at 15 FPS (for "before" footage)
+        video_recording_state = {}  # Track active video recordings: {alert_id: {'frames': [], 'target_frame_count': int}}
+        video_recording_lock = threading.Lock()
 
         # Queue for sending frames to recognition thread
         recognition_queue = Queue(maxsize=2)  # Small queue to avoid lag
@@ -1404,6 +1417,13 @@ def generate_video_stream(db: Session):
 
                                     # Trigger alerts
                                     try:
+                                        # Prepare video frames from buffer (for video recording)
+                                        video_frames_for_alert = None
+                                        with video_recording_lock:
+                                            if len(frame_buffer) > 0:
+                                                # Copy buffered frames for video
+                                                video_frames_for_alert = list(frame_buffer)
+
                                         if best_idx >= 0:
                                             person_info = person_cache.get(person_ids[best_idx], {'name': 'Unknown'})
                                             logger.warning(f"[DETECTED] KNOWN PERSON: {person_info['name']} (Confidence: {similarity:.2f})")
@@ -1414,7 +1434,8 @@ def generate_video_stream(db: Session):
                                                 person_name=person_info['name'],
                                                 confidence=similarity,
                                                 num_faces=len(detections_list),
-                                                frame=frame_for_recognition.copy()
+                                                frame=frame_for_recognition.copy(),
+                                                video_frames=video_frames_for_alert
                                             )
                                         else:
                                             logger.warning(f"⚠️  ALERT: UNKNOWN PERSON DETECTED - Confidence: {similarity:.2f}")
@@ -1425,7 +1446,8 @@ def generate_video_stream(db: Session):
                                                 person_name=None,
                                                 confidence=similarity,
                                                 num_faces=len(detections_list),
-                                                frame=frame_for_recognition.copy()
+                                                frame=frame_for_recognition.copy(),
+                                                video_frames=video_frames_for_alert
                                             )
                                     except Exception as alert_e:
                                         logger.error(f"Failed to create alert: {alert_e}")
@@ -1454,8 +1476,19 @@ def generate_video_stream(db: Session):
 
                 frame_count += 1
 
-                # Skip frames to reduce processing load (process every 2nd frame)
-                if frame_count % 2 != 0:
+                # Add frame to buffer for video recording (thread-safe)
+                with video_recording_lock:
+                    frame_buffer.append(frame.copy())
+
+                # Skip frames to reduce processing load based on settings
+                # frame_skip=0 means process all frames, frame_skip=1 means skip 1 frame (process every 2nd), etc.
+                should_skip_frame = False
+                if frame_skip_setting > 0:
+                    # Skip frame if not at the right interval
+                    if (frame_count - 1) % (frame_skip_setting + 1) != 0:
+                        should_skip_frame = True
+
+                if should_skip_frame:
                     # Use cached detections for skipped frames
                     for bbox in last_detections:
                         x, y, w, h = bbox

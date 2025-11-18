@@ -31,19 +31,52 @@ else
     echo "✓ No existing processes found"
 fi
 
+# Create logs directory if it doesn't exist
+mkdir -p logs
+
 # Start the server
 echo ""
 echo "🎬 Starting FastAPI server..."
-nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > logs/server.log 2>&1 &
 SERVER_PID=$!
+
+# Save PID to file
+echo $SERVER_PID > logs/server.pid
 
 echo "✓ Server started with PID: $SERVER_PID"
 echo ""
-echo "⏳ Waiting for models to load (this takes ~10 seconds)..."
-sleep 10
+echo "⏳ Waiting for server to bind to port (loading ML models, ~15-20 seconds)..."
+
+# Wait up to 30 seconds for server to bind to port
+MAX_RETRIES=30
+RETRY_COUNT=0
+SERVER_READY=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if lsof -ti :8000 > /dev/null 2>&1; then
+        SERVER_READY=true
+        break
+    fi
+
+    # Check if process is still alive
+    if ! kill -0 $SERVER_PID 2>/dev/null; then
+        echo "❌ Server process died unexpectedly. Check logs/server.log:"
+        echo ""
+        tail -30 logs/server.log
+        exit 1
+    fi
+
+    sleep 1
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+
+    # Show progress every 5 seconds
+    if [ $((RETRY_COUNT % 5)) -eq 0 ]; then
+        echo "   Still waiting... ($RETRY_COUNT seconds)"
+    fi
+done
 
 # Check if server is responding
-if lsof -ti :8000 > /dev/null 2>&1; then
+if [ "$SERVER_READY" = true ]; then
     # Get local IP address
     LOCAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7}' | head -1)
 
@@ -63,11 +96,16 @@ if lsof -ti :8000 > /dev/null 2>&1; then
     fi
     echo ""
     echo "📋 To stop server: ./stop_server.sh"
-    echo "📄 View logs: tail -f server.log"
+    echo "📄 View logs: tail -f logs/server.log"
+    echo "📄 Server PID: $SERVER_PID (saved to logs/server.pid)"
     echo ""
 else
-    echo "❌ Server failed to start. Check server.log for errors:"
+    echo "❌ Server failed to bind to port 8000 after 30 seconds."
+    echo "   The process may still be initializing. Check logs/server.log for details:"
     echo ""
-    tail -20 server.log
+    tail -30 logs/server.log
+    echo ""
+    echo "💡 Tip: The server process (PID $SERVER_PID) may still be loading."
+    echo "   Monitor with: tail -f logs/server.log"
     exit 1
 fi
