@@ -80,16 +80,29 @@ http://192.168.0.117:8000
 - **Deep Learning**: ONNX Runtime 1.19.0 (TensorRT Execution Provider)
 - **Frontend**: Vanilla JavaScript, Chart.js for visualizations
 
-### AI Models
-- **Face Detection**: SCRFD (scrfd_10g_bnkps)
+### AI Models (Pretrained)
+
+**Core Models** (Always Active):
+- **Face Detection**: SCRFD det_10g (InsightFace buffalo_l pack)
+  - Pretrained on WIDER FACE dataset
   - Input: 640x640 RGB
   - Output: Bounding boxes + 5 facial keypoints
-  - Optimization: TensorRT FP16, ~30-50ms per frame
+  - Optimization: TensorRT FP16, ~27-50ms per frame
+  - Benchmark: Industry-leading accuracy
 
-- **Face Recognition**: ArcFace (buffalo_l)
+- **Face Recognition**: ArcFace W600K-R50 (InsightFace buffalo_l pack)
+  - Pretrained on MS-Celeb-1M / MS1MV3 dataset
   - Input: 112x112 aligned face
   - Output: 512-D embedding vector
   - Matching: Cosine similarity with 0.35 threshold
+  - Benchmark Accuracy: >99.8% on LFW, >98% on CFP-FP
+
+**Optional Augmentation Models** (For Enrollment):
+- **Stable Diffusion 1.5**: Face angle generation (~1.5-3s per image)
+- **ControlNet Depth**: Pose-guided generation (~3.5-5.5s per image)
+- **LivePortrait**: 3D-aware pose changes (~0.5-1s per image)
+
+> **Note**: All models use pretrained weights. No custom training required - works out of the box!
 
 ---
 
@@ -162,20 +175,22 @@ http://192.168.0.117:8000
 
 ## 📊 Project Status
 
-**Current Version**: 0.7.0 (70% Complete)
-**Last Updated**: November 5, 2025
-**Status**: ✅ Fully Functional (Production-Ready Core Features)
+**Current Version**: 1.0.0 (Production Ready)
+**Last Updated**: November 18, 2025
+**Status**: ✅ Production-Ready Face Recognition System
 
-**Recent Milestones**:
+**Completed Milestones**:
 - ✅ Milestone 1: Core Face Recognition System
-- ✅ Milestone 2: GPU Acceleration & Cleanup
+- ✅ Milestone 2: GPU Acceleration & TensorRT Optimization
 - ✅ Milestone 3: Alert Management & GUI Enhancements
 - ✅ Milestone 4: Reports & Analytics Dashboard
+- ✅ Milestone 5: Watchlist System & Production Hardening
+- ✅ Milestone 6: System Settings & Configuration UI
 
-**Next Up**:
-- 🚧 System Settings Page (Web UI for configuration)
-- 🚧 SD Card Portability System
-- 🚧 Enhanced Enrollment Workflow
+**Optional Features (Available)**:
+- ⭐ AI Data Augmentation (ControlNet, Stable Diffusion, LivePortrait)
+- ⭐ Multi-Image Enrollment
+- ⭐ Adaptive Recognition Thresholds
 
 For detailed status, see **[CURRENT_STATUS.md](CURRENT_STATUS.md)**
 

@@ -70,6 +70,14 @@ data/temp/
 *.mp4
 *.avi
 
+# BUT allow documentation images
+!docs/images/*.png
+!docs/images/*.jpg
+!docs/screenshots/*.png
+!docs/screenshots/*.jpg
+!.github/images/*.png
+!.github/images/*.jpg
+
 # Logs
 logs/
 *.log
