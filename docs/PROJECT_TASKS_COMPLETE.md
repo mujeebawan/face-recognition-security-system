@@ -888,24 +888,31 @@
 
 **Grand Total: ~400 tasks**
 
-### Tasks by Role:
-- **Embedded Systems (Mujeeb)**: ~280 tasks (70%) - PRIMARY DEVELOPER
+### Tasks by Role (Balanced Team Distribution):
+- **Embedded Systems (Mujeeb)**: ~180 tasks (45%) - Hardware & Core Implementation
   - Hardware setup, optimization, and deployment
-  - Backend development (FastAPI, database, APIs)
-  - Frontend development (HTML, CSS, JavaScript)
+  - Jetson platform configuration and tuning
   - GPU acceleration and TensorRT optimization
   - FAISS compilation and integration
   - Camera integration and PTZ control
+  - GStreamer pipeline and video processing
   - Performance optimization and profiling
-  - System testing and production deployment
-- **Simulation**: ~60 tasks (15%)
+  - Production deployment and system monitoring
+- **Simulation**: ~120 tasks (30%) - Algorithms & Backend Development
   - Algorithm design and theoretical analysis
-  - Model selection and benchmarking
-  - Testing and validation support
-- **Documentation**: ~60 tasks (15%)
+  - Face detection/recognition implementation
+  - Backend API development (FastAPI endpoints)
+  - Database design and optimization
+  - Recognition pipeline and logic
+  - Testing and validation
+  - Performance benchmarking
+- **Documentation**: ~100 tasks (25%) - Documentation & Frontend
+  - All web interface development (HTML, CSS, JavaScript)
   - Technical reports and user manuals
   - API documentation and guides
-  - Presentation materials
+  - Presentation materials and demos
+  - Literature review compilation
+  - Testing documentation
 
 ### Timeline:
 - **Start Date**: October 22, 2025 (v1.1.0)
@@ -924,36 +931,85 @@
 
 ---
 
-## Task Distribution by Team Member
+## Task Distribution by Team Member (Balanced Collaboration)
 
-### Embedded Systems Role (Mujeeb) - PRIMARY DEVELOPER - 70% of work
+### Embedded Systems Role (Mujeeb) - 45% of work - HARDWARE & OPTIMIZATION
 
 **Phase 1 - Literature Review:**
-- All hardware platform research (Jetson, CUDA, JetPack)
-- Video streaming research (GStreamer, RTSP)
-- GPU acceleration research (TensorRT, FAISS)
-- Web framework research (FastAPI)
+- Hardware platform research (Jetson, CUDA, JetPack)
+- Video streaming research (GStreamer, RTSP, hardware codecs)
+- GPU acceleration research (TensorRT, ONNX Runtime)
+- FAISS GPU research
 
-**Phase 2 - Implementation (ALL VERSIONS):**
+**Phase 2 - Implementation:**
 
 **v1.1.0 - Core System:**
-- Complete hardware setup (Jetson, cooling, networking, SSH)
+- Complete hardware setup (Jetson unboxing, cooling, power, networking)
 - Camera integration and RTSP configuration
-- Development environment setup (Python, CUDA, OpenCV, GStreamer)
-- FastAPI backend architecture and implementation
-- Face detection integration (SCRFD model)
-- Face recognition implementation (ArcFace model)
-- Person enrollment system (API + database)
-- Real-time video processing (GStreamer pipeline)
-- Alert system implementation
-- Web interface development (all HTML/CSS/JavaScript)
-- WebSocket real-time notifications
+- Development environment setup (CUDA, cuDNN, TensorRT)
+- GStreamer pipeline for RTSP decoding
+- Hardware-accelerated video processing
 
 **v1.2.0 - GPU Acceleration:**
 - Complete JetPack 6.1 upgrade process
 - TensorRT integration and FP16 optimization
-- Hardware acceleration (nvv4l2decoder)
-- Performance profiling and optimization
+- Hardware acceleration (nvv4l2decoder, NVDEC)
+- Performance profiling (GPU utilization, memory, thermals)
+
+**v1.5.0 - Production Deployment:**
+- Complete systemd service integration
+- All deployment scripts (install, uninstall, monitor)
+- Enhanced health check endpoint
+- Resource monitoring
+
+**v1.6.0 - Camera Control:**
+- PTZ control implementation (Hikvision ISAPI protocol)
+- Camera test endpoints
+- Resource management module
+
+**v1.8.0 - FAISS GPU:**
+- CMake upgrade (3.22 → 4.1.3)
+- Complete FAISS compilation from source (ARM64, GPU)
+- GStreamer optimization research
+- Stream performance profiling
+- Performance benchmarking
+
+**Phase 3 - Testing:**
+- Hardware testing (Jetson, GPU, thermals, power)
+- Camera testing (RTSP, PTZ, stability)
+- Streaming performance testing
+- Production testing (systemd, auto-restart)
+
+**Phase 4 - Documentation:**
+- Developer guide (hardware setup)
+- Deployment documentation
+
+**Total: ~180 tasks (45%)**
+
+---
+
+### Simulation Role - 30% of work - ALGORITHMS & BACKEND
+
+**Phase 1 - Literature Review:**
+- Face detection algorithm survey (MTCNN, RetinaFace, SCRFD)
+- Face recognition algorithm survey (FaceNet, ArcFace, CosFace)
+- Similarity search algorithm research (brute-force, KD-Tree, FAISS)
+- Web framework research (FastAPI, SQLAlchemy)
+
+**Phase 2 - Implementation:**
+
+**v1.1.0 - Core System:**
+- FastAPI backend architecture and design
+- Database schema design (SQLAlchemy ORM)
+- Face detection integration (SCRFD model loading)
+- Face recognition implementation (ArcFace model)
+- Person enrollment system (API + database)
+- Alert system implementation (database + logic)
+- Recognition pipeline and logic
+- WebSocket real-time notifications
+
+**v1.2.0 - GPU Acceleration:**
+- Model optimization (ONNX conversion)
 - Code cleanup and reorganization
 
 **v1.3.0 - Alert Management:**
@@ -967,113 +1023,108 @@
 - Analytics API implementation (5 endpoints)
 - Time-series data processing
 - CSV export functionality
+- Database query optimization
 
 **v1.5.0 - Watchlist System:**
 - Watchlist detection logic
-- Threat level system
-- Alert popup system (frontend)
-- Guard verification workflow
+- Threat level system implementation
+- Guard verification workflow backend
 - Timezone fix (UTC to PKT)
-- Enhanced health check endpoint
-- Complete systemd service integration
-- All deployment scripts (install, uninstall, monitor)
 - User management API enhancements
 - Global exception handler
 
 **v1.6.0 - Camera Control:**
-- Complete PTZ control implementation (ISAPI protocol)
 - PTZ API endpoints
-- Live stream PTZ controls (frontend)
 - Dynamic settings manager
-- System control panel (frontend + backend)
-- System test endpoints (camera, GPU, settings)
-- Resource management module
-
-**v1.7.0 - Documentation:**
-- README updates
-- CURRENT_STATUS updates
-- Git configuration
+- System test endpoints (GPU inference)
 
 **v1.8.0 - FAISS GPU:**
-- CMake upgrade (3.22 → 4.1.3)
-- Complete FAISS compilation from source
-- FAISS cache implementation
+- FAISS cache implementation (Python class)
 - FAISS integration in recognition pipeline
-- GStreamer optimization research and implementation
-- Stream performance profiling
-- Dynamic quality selector (backend + frontend)
-- IoU-based face tracking implementation
+- IoU-based face tracking algorithm
 - Recognition pipeline optimization
-- Performance benchmarking
-- All documentation updates
-
-**Phase 3 - Testing:**
-- Hardware testing (Jetson, GPU, thermals)
-- Camera testing (RTSP, PTZ, stability)
-- Streaming performance testing (all quality modes)
-- Database scalability testing
-- Production testing (systemd, health check)
-- End-to-end system testing
-
-**Phase 4 - Documentation:**
-- Developer guide
-- Deployment documentation
-
-**Total: ~280 tasks (70%)**
-
----
-
-### Simulation Role - ALGORITHM & TESTING SUPPORT - 15% of work
-
-**Phase 1 - Literature Review:**
-- Face detection algorithm survey
-- Face recognition algorithm survey
-- Similarity search algorithm research
-
-**Phase 2 - Implementation:**
-- Algorithm selection and justification
-- Model benchmarking support
-- Threshold tuning and optimization
-- Testing assistance
+- Dynamic quality selector (backend logic)
 
 **Phase 3 - Testing:**
 - Face detection accuracy testing
 - Face recognition accuracy testing
 - Algorithm validation
-- Performance benchmarking assistance
+- Database scalability testing
+- API testing
+- Performance benchmarking
 
 **Phase 4 - Documentation:**
 - Algorithm theory sections
 - Model specification documentation
+- API documentation
 
-**Total: ~60 tasks (15%)**
+**Total: ~120 tasks (30%)**
 
 ---
 
-### Documentation Role - REPORTS & PRESENTATIONS - 15% of work
+### Documentation Role - 25% of work - FRONTEND & DOCUMENTATION
 
 **Phase 1 - Literature Review:**
 - Literature source compilation
 - Citation management
+- Journal/conference paper review
 
 **Phase 2 - Implementation:**
-- Inline code documentation
-- API documentation updates
+
+**v1.1.0 - Core System:**
+- Web interface development (all HTML structure)
+- Dashboard design and implementation
+- Admin panel UI
+- Live stream viewer page
+- CSS styling (responsive design)
+- JavaScript for API interactions
+
+**v1.3.0 - Alert Management:**
+- Alert management page UI
+- Alert card components
+- Filter UI implementation
+
+**v1.4.0 - Reports & Analytics:**
+- Reports dashboard UI
+- Chart.js integration
+- Time-series chart implementation
+
+**v1.5.0 - Watchlist System:**
+- Alert popup modal (full-screen)
+- Color legend box
+- Guard action buttons UI
+
+**v1.6.0 - Camera Control:**
+- Live stream PTZ controls (UI)
+- System control panel (frontend)
+- Settings UI
+
+**v1.7.0 - Documentation:**
+- Complete accuracy report (ACCURACY_REPORT.md)
+- Screenshot guide (SCREENSHOTS_NEEDED.md)
+- README updates
+- CURRENT_STATUS updates
+
+**v1.8.0 - FAISS GPU:**
+- Quality selector dropdown UI
+- localStorage implementation
+- Documentation updates (README, CHANGELOG)
 
 **Phase 3 - Testing:**
+- Web interface testing (all browsers)
+- Responsive design testing
 - Test documentation
 
 **Phase 4 - Documentation:**
-- Complete accuracy report (ACCURACY_REPORT.md)
-- Screenshot guide (SCREENSHOTS_NEEDED.md)
 - Technical report writing
 - User manual creation
 - API documentation (OpenAPI/Swagger)
 - Presentation materials (slides, demo video)
 - Final report (following guidebook outline)
 - GitHub project board setup
+- Literature review formatting
 
-**Total: ~60 tasks (15%)**
+**Total: ~100 tasks (25%)**
 
 ---
 
