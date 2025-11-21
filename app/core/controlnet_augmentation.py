@@ -118,7 +118,8 @@ class ControlNetFaceAugmentor:
             )
             self.depth_estimator = MidasDetector.from_pretrained(
                 "lllyasviel/Annotators",
-                cache_dir=self.cache_dir
+                cache_dir=self.cache_dir,
+                local_files_only=True  # Work offline with cached models
             )
             logger.info("✓ Depth estimator loaded")
 
@@ -133,7 +134,8 @@ class ControlNetFaceAugmentor:
                 "h94/IP-Adapter",
                 subfolder="models/image_encoder",
                 cache_dir=self.cache_dir,
-                torch_dtype=torch.float16 if self.use_fp16 else torch.float32
+                torch_dtype=torch.float16 if self.use_fp16 else torch.float32,
+                local_files_only=True  # Work offline with cached models
             )
             image_encoder = image_encoder.to(self.device)
             logger.info("✓ CLIP Vision Model loaded")
@@ -148,7 +150,8 @@ class ControlNetFaceAugmentor:
             self.controlnet = ControlNetModel.from_pretrained(
                 self.controlnet_model,
                 cache_dir=self.cache_dir,
-                torch_dtype=torch.float16 if self.use_fp16 else torch.float32
+                torch_dtype=torch.float16 if self.use_fp16 else torch.float32,
+                local_files_only=True  # Work offline with cached models
             )
             self.controlnet = self.controlnet.to(self.device)
             logger.info("✓ ControlNet loaded")
@@ -167,7 +170,8 @@ class ControlNetFaceAugmentor:
                 cache_dir=self.cache_dir,
                 torch_dtype=torch.float16 if self.use_fp16 else torch.float32,
                 safety_checker=None,
-                requires_safety_checker=False
+                requires_safety_checker=False,
+                local_files_only=True  # Work offline with cached models
             )
 
             # Use DDIM scheduler for faster generation

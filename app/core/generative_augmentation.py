@@ -103,7 +103,8 @@ class StableDiffusionAugmentor:
                 cache_dir=self.cache_dir,
                 torch_dtype=torch.float16 if self.use_fp16 else torch.float32,
                 safety_checker=None,
-                requires_safety_checker=False
+                requires_safety_checker=False,
+                local_files_only=True  # Work offline with cached models
             )
 
             # Use DPM-Solver++ for faster generation (20 steps vs 50)

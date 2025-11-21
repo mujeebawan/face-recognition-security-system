@@ -70,7 +70,7 @@ class PTZController:
                 data=xml_payload,
                 auth=HTTPDigestAuth(self.username, self.password),
                 headers={'Content-Type': 'application/xml'},
-                timeout=5
+                timeout=0.5  # Reduced from 5s to 0.5s for better responsiveness
             )
 
             if response.status_code == 200:
@@ -234,7 +234,7 @@ class PTZController:
                 data=xml_payload,
                 auth=HTTPDigestAuth(self.username, self.password),
                 headers={'Content-Type': 'application/xml'},
-                timeout=5
+                timeout=0.5  # Reduced from 5s to 0.5s for better responsiveness
             )
 
             if response.status_code == 200:

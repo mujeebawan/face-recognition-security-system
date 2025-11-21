@@ -120,7 +120,7 @@ class SystemConfig(BaseModel):
     face_recognition_threshold: float = Field(ge=0.0, le=1.0)
     face_detection_confidence: float = Field(ge=0.0, le=1.0)
     enable_gpu: bool
-    frame_skip: int = Field(ge=1, le=10)
+    frame_skip: int = Field(ge=0, le=10)  # 0 = process all frames
     recognition_frequency: int = Field(ge=1, le=60)
 
 
@@ -128,7 +128,7 @@ class SystemConfigUpdateRequest(BaseModel):
     """Request to update system configuration"""
     face_recognition_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
     face_detection_confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
-    frame_skip: Optional[int] = Field(None, ge=1, le=10)
+    frame_skip: Optional[int] = Field(None, ge=0, le=10)  # 0 = process all frames
     recognition_frequency: Optional[int] = Field(None, ge=1, le=60)
 
 

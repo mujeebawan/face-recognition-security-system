@@ -77,24 +77,35 @@ done
 
 # Check if server is responding
 if [ "$SERVER_READY" = true ]; then
-    # Get local IP address
-    LOCAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7}' | head -1)
+    # Get all IP addresses
+    WIFI_IP=$(ip -4 addr show wlP1p1s0 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
+    ETH_IP=$(ip -4 addr show eno1 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
 
     echo "✅ Server is running successfully!"
     echo ""
     echo "📍 Access the system:"
-    if [ ! -z "$LOCAL_IP" ]; then
-        echo "   • Admin Panel:    http://${LOCAL_IP}:8000/admin"
-        echo "   • Live Stream:    http://${LOCAL_IP}:8000/live"
-        echo "   • Dashboard:      http://${LOCAL_IP}:8000/dashboard"
-        echo "   • API Docs:       http://${LOCAL_IP}:8000/docs"
-    else
-        echo "   • Admin Panel:    http://localhost:8000/admin"
-        echo "   • Live Stream:    http://localhost:8000/live"
-        echo "   • Dashboard:      http://localhost:8000/dashboard"
-        echo "   • API Docs:       http://localhost:8000/docs"
-    fi
     echo ""
+    echo "🖥️  From this Jetson (local access):"
+    echo "   • Dashboard:      http://localhost:8000/dashboard"
+    echo "   • Live Stream:    http://localhost:8000/live"
+    echo "   • Admin Panel:    http://localhost:8000/admin"
+    echo "   • API Docs:       http://localhost:8000/docs"
+    echo ""
+    echo "🌐 From other devices on network:"
+    if [ ! -z "$WIFI_IP" ]; then
+        echo "   WiFi Network (192.168.0.x):"
+        echo "   • Dashboard:      http://${WIFI_IP}:8000/dashboard"
+        echo "   • Live Stream:    http://${WIFI_IP}:8000/live"
+        echo "   • Admin Panel:    http://${WIFI_IP}:8000/admin"
+        echo ""
+    fi
+    if [ ! -z "$ETH_IP" ]; then
+        echo "   Ethernet Network (192.168.1.x - Camera Network):"
+        echo "   • Dashboard:      http://${ETH_IP}:8000/dashboard"
+        echo "   • Live Stream:    http://${ETH_IP}:8000/live"
+        echo "   • Admin Panel:    http://${ETH_IP}:8000/admin"
+        echo ""
+    fi
     echo "📋 To stop server: ./stop_server.sh"
     echo "📄 View logs: tail -f logs/server.log"
     echo "📄 Server PID: $SERVER_PID (saved to logs/server.pid)"

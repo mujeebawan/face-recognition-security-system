@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     # Performance Settings
     enable_gpu: bool = True
     use_tensorrt: bool = False
-    frame_skip: int = 2
+    frame_skip: int = 0  # 0 = process all frames, 1 = skip 1 frame, etc.
     max_workers: int = 4
 
     # Augmentation Settings

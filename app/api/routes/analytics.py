@@ -21,7 +21,6 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 @router.get("/summary")
 async def get_summary_stats(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """

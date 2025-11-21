@@ -370,6 +370,7 @@
                 </div>
             </div>
             <div class="stream-container">
+                <!-- Optimized /api/stream/live: Detects every 3rd frame, JPEG quality 75 for smoothness -->
                 <img id="videoStream" src="/api/stream/live" alt="Live stream">
             </div>
             <div class="nav-links">
@@ -972,15 +973,39 @@
             }).join('');
         }
 
-        // Update statistics
-        function updateStats() {
-            const unknownCount = alerts.filter(a => a.event_type === 'unknown_person').length;
-            const knownCount = alerts.filter(a => a.event_type === 'known_person').length;
+        // Update statistics from analytics API
+        async function updateStats() {
+            try {
+                // Fetch real statistics from analytics API (24h data)
+                const token = localStorage.getItem('auth_token');
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
 
-            document.getElementById('totalAlerts').textContent = alerts.length;
-            document.getElementById('unknownAlerts').textContent = unknownCount;
-            document.getElementById('knownAlerts').textContent = knownCount;
-            document.getElementById('alertBadge').textContent = alerts.length;
+                const response = await fetch('/api/analytics/summary?days=1', { headers });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Use real statistics from API
+                    document.getElementById('totalAlerts').textContent = data.alerts.recent || 0;
+                    document.getElementById('unknownAlerts').textContent = data.alerts.unknown_persons || 0;
+                    document.getElementById('knownAlerts').textContent = data.alerts.known_persons || 0;
+                    document.getElementById('alertBadge').textContent = alerts.length; // Keep badge showing recent displayed alerts
+                    console.log('✅ Statistics updated from API:', data.alerts);
+                }
+            } catch (error) {
+                console.error('Failed to fetch analytics:', error);
+                // Fallback to counting local alerts
+                const unknownCount = alerts.filter(a => a.event_type === 'unknown_person').length;
+                const knownCount = alerts.filter(a => a.event_type === 'known_person').length;
+                document.getElementById('totalAlerts').textContent = alerts.length;
+                document.getElementById('unknownAlerts').textContent = unknownCount;
+                document.getElementById('knownAlerts').textContent = knownCount;
+                document.getElementById('alertBadge').textContent = alerts.length;
+            }
         }
 
         // Load existing alerts from API

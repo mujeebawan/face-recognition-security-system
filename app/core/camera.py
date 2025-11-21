@@ -64,7 +64,7 @@ class CameraHandler:
         self.is_connected = False
 
         # GStreamer objects
-        self.use_gstreamer = True  # Try GStreamer first, fallback to OpenCV if needed
+        self.use_gstreamer = True  # Use GStreamer for GPU hardware-accelerated decoding on Jetson
         self.pipeline = None
         self.appsink = None
         self.latest_frame = None
@@ -84,20 +84,21 @@ class CameraHandler:
             camera_ip = get_setting('camera_ip', settings.camera_ip)
             logger.info(f"Connecting to camera at {camera_ip} using GStreamer with hardware acceleration...")
 
-            # GStreamer pipeline with NVIDIA hardware decoder
-            # rtspsrc: RTSP source
-            # rtph264depay/rtph265depay: RTP depayloader
-            # nvv4l2decoder: NVIDIA hardware H.264/H.265 decoder
-            # nvvidconv: NVIDIA video converter
-            # videoconvert: Convert to format OpenCV can use
-            # appsink: Output sink for frame capture
+            # GStreamer pipeline with NVIDIA hardware decoder (optimized for smooth, low-latency streaming)
+            # Key settings for smooth streaming:
+            # - rtspsrc: latency=0, buffer-mode=0, protocols=tcp (no buffering, reliable TCP)
+            # - rtph264depay: wait-for-keyframe=false (start immediately)
+            # - nvv4l2decoder: drop-frame-interval=0, enable-max-performance=1 (don't drop, max speed)
+            # - appsink: sync=false, max-buffers=1, drop=true (always latest frame, no clock sync)
             pipeline_str = (
-                f'rtspsrc location="{self.stream_url}" latency=0 buffer-mode=0 ! '
-                'rtph264depay ! h264parse ! '
-                'nvv4l2decoder enable-max-performance=1 ! '
+                f'rtspsrc location="{self.stream_url}" '
+                'latency=0 buffer-mode=0 protocols=tcp timeout=5000000 tcp-timeout=5000000 ! '
+                'rtph264depay wait-for-keyframe=false ! '
+                'h264parse ! '
+                'nvv4l2decoder drop-frame-interval=0 enable-max-performance=1 ! '
                 'nvvidconv ! video/x-raw,format=BGRx ! '
                 'videoconvert ! video/x-raw,format=BGR ! '
-                'appsink name=sink emit-signals=true max-buffers=1 drop=true'
+                'appsink name=sink emit-signals=true sync=false max-buffers=1 drop=true'
             )
 
             logger.info(f"GStreamer pipeline: {pipeline_str}")
@@ -289,9 +290,9 @@ class CameraHandler:
         """Read frame from OpenCV VideoCapture"""
         try:
             # Flush old buffered frames to get the latest frame (reduces delay)
+            # Reduced from 3 to 1 for smoother streaming (matches test_camera_stream.py behavior)
             if flush_buffer:
-                for _ in range(3):
-                    self.capture.grab()
+                self.capture.grab()  # Grab just 1 frame to get latest without too much latency
 
             ret, frame = self.capture.read()
             if ret and frame is not None:

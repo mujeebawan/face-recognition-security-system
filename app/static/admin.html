@@ -1178,37 +1178,45 @@
                     return;
                 }
 
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // Stop progress tracking with success
-                    stopProgressTracking(true);
-
-                    // Enhanced success message with timing
-                    if (useSD && data.generation_time) {
-                        successMessage += ` (AI generation: ${data.generation_time}s, avg: ${data.avg_time_per_image}s per image)`;
-                    }
-                    showSuccess(successMessage);
-
-                    // Display generated images if augmentation was used
-                    if (useSD && data.person_id) {
-                        await showGeneratedImages(data.person_id, cnic, data.augmentation_method || 'liveportrait');
-                    }
-
-                    // Complete form reset
-                    form.reset();
-                    photoInput.value = ''; // Force clear file input
-                    fileName.textContent = 'No file selected';
-                    imagePreview.src = '';
-                    imagePreview.style.display = 'none';
-                    sdOptions.style.display = 'none';
-
-                    // Reload persons list
-                    await loadWantedPersons();
+                // Check if this is SSE response (single image enrollment)
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('text/event-stream')) {
+                    // Handle SSE streaming for real-time progress
+                    await handleSSEEnrollment(response, successMessage, name, cnic, useSD);
                 } else {
-                    // Stop progress tracking with failure
-                    stopProgressTracking(false);
-                    showError(data.detail || data.message || 'Failed to enroll person');
+                    // Handle regular JSON response (multiple images)
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        // Stop progress tracking with success
+                        stopProgressTracking(true);
+
+                        // Enhanced success message with timing
+                        if (useSD && data.generation_time) {
+                            successMessage += ` (AI generation: ${data.generation_time}s, avg: ${data.avg_time_per_image}s per image)`;
+                        }
+                        showSuccess(successMessage);
+
+                        // Display generated images if augmentation was used
+                        if (useSD && data.person_id) {
+                            await showGeneratedImages(data.person_id, cnic, data.augmentation_method || 'liveportrait');
+                        }
+
+                        // Complete form reset
+                        form.reset();
+                        photoInput.value = ''; // Force clear file input
+                        fileName.textContent = 'No file selected';
+                        imagePreview.src = '';
+                        imagePreview.style.display = 'none';
+                        sdOptions.style.display = 'none';
+
+                        // Reload persons list
+                        await loadWantedPersons();
+                    } else {
+                        // Stop progress tracking with failure
+                        stopProgressTracking(false);
+                        showError(data.detail || data.message || 'Failed to enroll person');
+                    }
                 }
 
             } catch (error) {
@@ -1235,6 +1243,131 @@
             errorAlert.style.display = 'block';
             // Scroll left panel to top to see alert
             document.querySelector('.left-panel').scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Handle Server-Sent Events enrollment with real-time progress
+        async function handleSSEEnrollment(response, successMessage, name, cnic, useSD) {
+            const progressBarContainer = document.getElementById('progressBarContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressPercent = document.getElementById('progressPercent');
+            const progressStatus = document.getElementById('progressStatus');
+            const progressDetail = document.getElementById('progressDetail');
+            const progressBarText = document.getElementById('progressBarText');
+
+            // Show progress bar
+            progressBarContainer.style.display = 'block';
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let personId = null;
+            let totalEmbeddings = 0;
+            let augmentationMethods = [];
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    // Decode and add to buffer
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // Process complete SSE messages
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const jsonStr = line.substring(6);
+                            try {
+                                const data = JSON.parse(jsonStr);
+
+                                // Update progress bar
+                                if (data.progress !== undefined) {
+                                    const progress = Math.min(data.progress, 100);
+                                    progressBar.style.width = progress + '%';
+                                    progressPercent.textContent = progress + '%';
+                                    if (progress > 20) {
+                                        progressBarText.textContent = progress + '%';
+                                    }
+                                }
+
+                                // Update status text
+                                if (data.status) {
+                                    progressStatus.textContent = data.status;
+                                }
+
+                                // Update detail text
+                                if (data.detail) {
+                                    progressDetail.textContent = data.detail;
+                                } else if (data.stage) {
+                                    progressDetail.textContent = `Stage: ${data.stage}`;
+                                }
+
+                                // Handle completion
+                                if (data.stage === 'complete') {
+                                    personId = data.person_id;
+                                    totalEmbeddings = data.total_embeddings;
+                                    augmentationMethods = data.augmentation_methods || [];
+
+                                    // Complete to 100%
+                                    progressBar.style.width = '100%';
+                                    progressPercent.textContent = '100%';
+                                    progressBarText.textContent = '100%';
+                                    progressStatus.textContent = 'Complete!';
+                                    progressDetail.textContent = '✓ Enrollment successful!';
+                                    progressBar.style.background = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+
+                                    // Show success message
+                                    let finalMessage = successMessage;
+                                    if (augmentationMethods.length > 0) {
+                                        finalMessage += ` (${totalEmbeddings} embeddings using ${augmentationMethods.join(', ')})`;
+                                    }
+                                    showSuccess(finalMessage);
+
+                                    // Display generated images if augmentation was used
+                                    if (useSD && personId) {
+                                        await showGeneratedImages(personId, cnic, augmentationMethods[0]?.toLowerCase() || 'liveportrait');
+                                    }
+
+                                    // Complete form reset
+                                    form.reset();
+                                    photoInput.value = '';
+                                    fileName.textContent = 'No file selected';
+                                    imagePreview.src = '';
+                                    imagePreview.style.display = 'none';
+                                    sdOptions.style.display = 'none';
+
+                                    // Reload persons list
+                                    await loadWantedPersons();
+
+                                    // Hide progress bar after 2 seconds
+                                    setTimeout(() => {
+                                        progressBarContainer.style.display = 'none';
+                                        progressBar.style.width = '0%';
+                                        progressBar.style.background = 'linear-gradient(90deg, #124877 0%, #10b981 100%)';
+                                    }, 2000);
+                                }
+
+                                // Handle errors
+                                if (data.stage === 'error' || data.error) {
+                                    showError(data.error || data.status || 'Enrollment failed');
+                                    progressBarContainer.style.display = 'none';
+                                    progressBar.style.width = '0%';
+                                    break;
+                                }
+
+                            } catch (e) {
+                                console.error('Error parsing SSE data:', e, jsonStr);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('SSE streaming error:', error);
+                showError('Streaming error: ' + error.message);
+                progressBarContainer.style.display = 'none';
+            }
         }
 
         // Progress tracking for enrollment process

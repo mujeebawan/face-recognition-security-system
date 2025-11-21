@@ -50,7 +50,7 @@ class SettingsManager:
             "alert_on_known": True,
             "alert_save_snapshot": True,
             "camera_rtsp_url": "rtsp://admin:password@192.168.1.64:554/Streaming/Channels/101",
-            "frame_skip": 5,
+            "frame_skip": 0,  # 0 = process all frames for main stream
             "enable_gpu": True
         }
 
