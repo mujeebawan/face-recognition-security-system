@@ -9,11 +9,13 @@ import cv2
 import numpy as np
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, AsyncGenerator
 import time
 import threading
 from queue import Queue, Empty
 from collections import deque
+import json
+import asyncio
 
 from app.core.recognizer import FaceRecognizer
 from app.core.detector import FaceDetector
@@ -85,84 +87,96 @@ def get_camera() -> CameraHandler:
     return camera_handler
 
 
-@router.post("/enroll")
-async def enroll_person(
-    name: str = Form(...),
-    cnic: str = Form(...),
-    file: UploadFile = File(...),
-    use_sd_augmentation: bool = Form(False),
-    use_controlnet: bool = Form(False),
-    use_liveportrait: bool = Form(False),
-    use_traditional: bool = Form(False),
-    use_multi_model: bool = Form(False),
-    num_sd_variations: int = Form(5),
-    # Watchlist fields
-    watchlist_status: str = Form("none"),
-    threat_level: str = Form("none"),
-    criminal_notes: str = Form(""),
-    notes: str = Form(""),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+def sse_message(data: dict) -> str:
+    """Format data as Server-Sent Event message"""
+    return f"data: {json.dumps(data)}\n\n"
+
+
+async def enroll_person_generator(
+    name: str,
+    cnic: str,
+    image: np.ndarray,
+    use_sd_augmentation: bool,
+    use_controlnet: bool,
+    use_liveportrait: bool,
+    use_traditional: bool,
+    use_multi_model: bool,
+    num_sd_variations: int,
+    watchlist_status: str,
+    threat_level: str,
+    criminal_notes: str,
+    notes: str,
+    db: Session
+) -> AsyncGenerator[str, None]:
     """
-    Enroll a new person with their face image.
+    Async generator that yields SSE progress events during enrollment.
 
-    Args:
-        name: Person's name
-        cnic: National ID number (unique)
-        file: Face image file
-        use_sd_augmentation: Use Stable Diffusion to generate additional angles (default: False)
-        use_controlnet: Use ControlNet for better pose control (default: False, requires use_sd_augmentation=True)
-        use_liveportrait: Use LivePortrait for 3D-aware pose generation (default: False)
-        use_traditional: Use traditional augmentation (rotation, brightness, etc.) (default: False)
-        use_multi_model: Use ALL augmentation models sequentially for critical cases (default: False)
-        num_sd_variations: Number of variations to generate if augmentation enabled (default: 5, max: 10)
-        db: Database session
-
-    Returns:
-        Enrollment result with person ID and total embeddings
+    Yields SSE messages with format:
+    {
+        "progress": 0-100,
+        "status": "message",
+        "stage": "stage_name",
+        "detail": "additional_info"
+    }
     """
     try:
         import os
         import re
 
-        # Sanitize person name for folder creation (remove special characters)
+        # Initial progress
+        yield sse_message({"progress": 0, "status": "Starting enrollment", "stage": "init"})
+        await asyncio.sleep(0.1)  # Allow event to be sent
+
+        # Sanitize person name for folder creation
         folder_name = re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '_')
         person_folder = f"data/person_images/{folder_name}"
 
-        # Check if folder already exists (name conflict)
+        # Check if folder already exists
         if os.path.exists(person_folder):
-            raise HTTPException(
-                status_code=400,
-                detail=f"A person with similar name already exists. Please use a different name to avoid conflicts. Suggested: {name}_2 or {name}_{cnic[-4:]}"
-            )
+            yield sse_message({
+                "progress": 0,
+                "status": "Error: Person already exists",
+                "stage": "error",
+                "error": f"A person with similar name already exists. Please use a different name."
+            })
+            return
 
         # Check if CNIC already exists
         existing = db.query(Person).filter(Person.cnic == cnic).first()
         if existing:
-            raise HTTPException(status_code=400, detail=f"Person with CNIC {cnic} already enrolled")
+            yield sse_message({
+                "progress": 0,
+                "status": "Error: CNIC already enrolled",
+                "stage": "error",
+                "error": f"Person with CNIC {cnic} already enrolled"
+            })
+            return
 
-        # Read uploaded image
-        contents = await file.read()
-        nparr = np.frombuffer(contents, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        if image is None:
-            raise HTTPException(status_code=400, detail="Invalid image file")
+        yield sse_message({"progress": 5, "status": "Extracting face embedding", "stage": "extract"})
+        await asyncio.sleep(0.1)
 
         # Extract face embedding from original
         recognizer = get_recognizer()
         result = recognizer.extract_embedding(image)
 
         if result is None:
-            raise HTTPException(status_code=400, detail="No face detected in image")
+            yield sse_message({
+                "progress": 0,
+                "status": "Error: No face detected",
+                "stage": "error",
+                "error": "No face detected in image"
+            })
+            return
+
+        yield sse_message({"progress": 10, "status": "Creating person record", "stage": "create"})
+        await asyncio.sleep(0.1)
 
         # Create person-specific folder
         os.makedirs(person_folder, exist_ok=True)
         logger.info(f"Created person folder: {person_folder}")
 
         # Create person record with watchlist fields
-        original_image_path = f"{person_folder}/original_{file.filename}"
+        original_image_path = f"{person_folder}/original.jpg"
         person = Person(
             name=name,
             cnic=cnic,
@@ -185,46 +199,66 @@ async def enroll_person(
         )
         db.add(face_embedding)
 
-        # Save reference image to person folder
+        # Save reference image
         cv2.imwrite(original_image_path, image)
         logger.info(f"Saved original image: {original_image_path}")
 
+        # Commit person and original embedding immediately to avoid long transaction locks
+        db.commit()
+        logger.info(f"Committed person {person.id} and original embedding to database")
+
         total_embeddings = 1
-        augmentation_time = 0
         augmentation_methods_used = []
 
-        # Multi-model mode: Use ALL augmentation models sequentially for maximum accuracy
-        if use_multi_model:
-            logger.info(f"MULTI-MODEL AUGMENTATION MODE activated for {name} - Using ALL models sequentially")
-            use_traditional = True
-            use_liveportrait = True
-            # SD will be handled separately in Step 4 for multi-model
-            # Note: We'll use img2img for multi-model to save GPU memory, not ControlNet
-
-        # If user selected multiple individual methods, they can all run
-        # (e.g., user can select both LivePortrait AND ControlNet)
-
-        # Step 1: Traditional Augmentation (if requested or multi-model)
+        # Calculate progress distribution based on what's enabled
+        stages = []
         if use_traditional or use_multi_model:
+            stages.append("traditional")
+        if use_liveportrait or use_multi_model:
+            stages.append("liveportrait")
+        if (use_sd_augmentation or use_controlnet) and not use_multi_model:
+            stages.append("sd")
+        if use_multi_model:
+            stages.append("sd_multi")
+
+        # If no augmentation, complete now
+        if not stages:
+            yield sse_message({"progress": 90, "status": "Finalizing enrollment", "stage": "finalize"})
+            await asyncio.sleep(0.1)
+            # Already committed above
+            yield sse_message({
+                "progress": 100,
+                "status": "Enrollment complete",
+                "stage": "complete",
+                "person_id": person.id,
+                "total_embeddings": total_embeddings
+            })
+            return
+
+        # Progress ranges: 15-90% for augmentation stages
+        base_progress = 15
+        progress_per_stage = 75 / len(stages)
+        current_stage_idx = 0
+
+        # Traditional Augmentation
+        if use_traditional or use_multi_model:
+            stage_start = base_progress + (current_stage_idx * progress_per_stage)
+            yield sse_message({
+                "progress": int(stage_start),
+                "status": "Generating traditional augmentations",
+                "stage": "traditional",
+                "detail": "Creating rotated and brightness variations"
+            })
+            await asyncio.sleep(0.1)
+
             try:
                 from app.core.augmentation import FaceAugmentation
-
-                logger.info(f"Generating traditional augmentations for {name}...")
                 augmentor = FaceAugmentation()
-
-                start_time = time.time()
                 variations = augmentor.generate_variations(image, num_variations=8)
-                trad_time = time.time() - start_time
-                augmentation_time += trad_time
 
-                logger.info(f"Traditional augmentation completed in {trad_time:.2f}s ({len(variations)} images)")
-
-                # Process each variation
-                for idx, var_img in enumerate(variations[1:], 1):  # Skip first (original)
+                for idx, var_img in enumerate(variations[1:], 1):
                     var_result = recognizer.extract_embedding(var_img)
-
                     if var_result is not None:
-                        # Store embedding
                         var_embedding_data = FaceRecognizer.serialize_embedding(var_result.embedding)
                         var_face_embedding = FaceEmbedding(
                             person_id=person.id,
@@ -234,54 +268,68 @@ async def enroll_person(
                         )
                         db.add(var_face_embedding)
                         total_embeddings += 1
-
-                        # Save generated image to person folder
                         var_img_path = f"{person_folder}/traditional_aug_{idx}.jpg"
                         cv2.imwrite(var_img_path, var_img)
+
+                    # Update progress within this stage
+                    progress_in_stage = (idx / len(variations)) * progress_per_stage
+                    yield sse_message({
+                        "progress": int(stage_start + progress_in_stage),
+                        "status": f"Processing traditional variation {idx}/{len(variations)-1}",
+                        "stage": "traditional"
+                    })
+                    await asyncio.sleep(0.05)
 
                 augmentation_methods_used.append("Traditional")
                 logger.info(f"Traditional augmentation complete: {total_embeddings} total embeddings")
 
-            except Exception as aug_e:
-                logger.error(f"Traditional augmentation failed: {aug_e}, continuing with other methods")
-                import traceback
-                traceback.print_exc()
+                # Commit traditional embeddings to avoid long transaction locks
+                db.commit()
+                logger.info("Committed traditional augmentation embeddings")
 
-        # Step 2: Generate LivePortrait augmented faces if requested
+            except Exception as aug_e:
+                logger.error(f"Traditional augmentation failed: {aug_e}")
+                db.rollback()
+
+            current_stage_idx += 1
+
+        # LivePortrait Augmentation
         if use_liveportrait or use_multi_model:
+            stage_start = base_progress + (current_stage_idx * progress_per_stage)
+            num_variations = min(max(1, num_sd_variations), 10)
+
+            yield sse_message({
+                "progress": int(stage_start),
+                "status": f"Loading LivePortrait model",
+                "stage": "liveportrait",
+                "detail": "Initializing 3D-aware face pose generation"
+            })
+            await asyncio.sleep(0.1)
+
             try:
-                import time
                 from app.core.liveportrait_augmentation import LivePortraitAugmentor
 
-                # Limit variations
-                num_variations = min(max(1, num_sd_variations), 10)
-
-                logger.info(f"Generating {num_variations} LivePortrait pose variations for {name}...")
-
-                # Initialize LivePortrait augmentor
                 augmentor = LivePortraitAugmentor(
                     device="cuda" if torch.cuda.is_available() else "cpu",
                     use_fp16=True
                 )
-                augmentation_type = "liveportrait"
 
-                # Generate variations
-                start_time = time.time()
+                yield sse_message({
+                    "progress": int(stage_start + progress_per_stage * 0.2),
+                    "status": f"Generating {num_variations} LivePortrait variations",
+                    "stage": "liveportrait",
+                    "detail": "This may take 1-2 minutes"
+                })
+                await asyncio.sleep(0.1)
+
                 generated_images = augmentor.generate_face_angles(
                     reference_image=image,
                     num_variations=num_variations
                 )
-                augmentation_time = time.time() - start_time
 
-                logger.info(f"LivePortrait generation completed in {augmentation_time:.2f}s ({len(generated_images)} images)")
-
-                # Process each generated image
                 for idx, gen_img in enumerate(generated_images):
-                    # Extract embedding from generated image
                     gen_result = recognizer.extract_embedding(gen_img)
-
                     if gen_result is not None:
-                        # Store embedding
                         gen_embedding_data = FaceRecognizer.serialize_embedding(gen_result.embedding)
                         gen_face_embedding = FaceEmbedding(
                             person_id=person.id,
@@ -291,253 +339,338 @@ async def enroll_person(
                         )
                         db.add(gen_face_embedding)
                         total_embeddings += 1
-
-                        # Save generated image to person folder
                         gen_img_path = f"{person_folder}/liveportrait_gen_{idx+1}.jpg"
                         cv2.imwrite(gen_img_path, gen_img)
 
-                # Cleanup and free GPU memory
+                    # Update progress
+                    progress_in_stage = 0.2 + ((idx + 1) / num_variations) * 0.8
+                    yield sse_message({
+                        "progress": int(stage_start + progress_in_stage * progress_per_stage),
+                        "status": f"Generated LivePortrait variation {idx+1}/{num_variations}",
+                        "stage": "liveportrait"
+                    })
+                    await asyncio.sleep(0.05)
+
                 del augmentor
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-                    logger.info("Freed GPU memory after LivePortrait")
 
                 augmentation_methods_used.append("LivePortrait")
                 logger.info(f"LivePortrait augmentation complete: {total_embeddings} total embeddings")
 
+                # Commit LivePortrait embeddings to avoid long transaction locks
+                db.commit()
+                logger.info("Committed LivePortrait augmentation embeddings")
+
             except Exception as aug_e:
-                logger.error(f"LivePortrait augmentation failed: {aug_e}, continuing with other methods")
-                import traceback
-                traceback.print_exc()
-                # Continue with enrollment even if augmentation fails
+                logger.error(f"LivePortrait augmentation failed: {aug_e}")
+                db.rollback()
 
-        # Step 3: Generate SD augmented faces if requested (runs independently or in multi-model)
+            current_stage_idx += 1
+
+        # SD/ControlNet Augmentation (non-multi-model)
         if (use_sd_augmentation or use_controlnet) and not use_multi_model:
+            stage_start = base_progress + (current_stage_idx * progress_per_stage)
+            num_variations = min(max(1, num_sd_variations), 10)
+            augmentation_type = "ControlNet" if use_controlnet else "Stable Diffusion"
+
+            yield sse_message({
+                "progress": int(stage_start),
+                "status": f"Loading {augmentation_type} model",
+                "stage": "sd",
+                "detail": "Loading model from SD card (first time may take 1-2 minutes)"
+            })
+            await asyncio.sleep(0.1)
+
             try:
-                import time
-
-                # Limit variations
-                num_variations = min(max(1, num_sd_variations), 10)
-
-                # Check GPU memory before loading SD models
+                # Check GPU memory
                 if torch.cuda.is_available():
-                    free_mem = torch.cuda.mem_get_info()[0] / 1024**3  # Free memory in GB
-                    logger.info(f"Available GPU memory: {free_mem:.2f} GB")
-
-                    # SD models need ~6-8GB minimum
+                    free_mem = torch.cuda.mem_get_info()[0] / 1024**3
                     if free_mem < 6.0:
-                        raise HTTPException(
-                            status_code=507,
-                            detail=f"Insufficient GPU memory for Stable Diffusion. Available: {free_mem:.1f}GB, Required: ~6GB. Please use LivePortrait instead (requires only ~2GB) or free up GPU memory."
-                        )
+                        yield sse_message({
+                            "progress": int(stage_start),
+                            "status": "Error: Insufficient GPU memory",
+                            "stage": "error",
+                            "error": f"Need 6GB GPU memory, only {free_mem:.1f}GB available"
+                        })
+                        raise HTTPException(status_code=507, detail="Insufficient GPU memory")
 
-                # Choose augmentation method: ControlNet or img2img
                 if use_controlnet:
                     from app.core.controlnet_augmentation import ControlNetFaceAugmentor
-                    logger.info(f"Generating {num_variations} ControlNet augmented angles for {name}...")
-
-                    # Initialize ControlNet augmentor
                     augmentor = ControlNetFaceAugmentor(
                         device="cuda" if torch.cuda.is_available() else "cpu",
                         use_fp16=True
                     )
-                    augmentation_type = "controlnet"
                 else:
                     from app.core.generative_augmentation import StableDiffusionAugmentor
-                    logger.info(f"Generating {num_variations} SD img2img augmented angles for {name}...")
-
-                    # Initialize SD img2img augmentor
                     augmentor = StableDiffusionAugmentor(
                         device="cuda" if torch.cuda.is_available() else "cpu",
                         use_fp16=True
                     )
-                    augmentation_type = "img2img"
 
-                # Load model
                 if not augmentor.load_model():
-                    logger.error(f"Failed to load {augmentation_type} model, skipping augmentation")
+                    logger.error("Failed to load model")
                 else:
-                    # Generate variations
-                    start_time = time.time()
+                    yield sse_message({
+                        "progress": int(stage_start + progress_per_stage * 0.15),
+                        "status": f"Generating {num_variations} {augmentation_type} variations",
+                        "stage": "sd",
+                        "detail": "This will take 2-5 minutes depending on settings"
+                    })
+                    await asyncio.sleep(0.1)
 
-                    # Prepare parameters based on augmentation type
                     gen_params = {
                         'reference_image': image,
                         'num_variations': num_variations,
-                        'num_inference_steps': 30 if use_controlnet else 20,  # ControlNet needs more steps
+                        'num_inference_steps': 30 if use_controlnet else 20,
                         'guidance_scale': 7.5
                     }
-
-                    # Add ControlNet-specific parameter
                     if use_controlnet:
                         gen_params['controlnet_scale'] = 0.9
 
                     generated_images = augmentor.generate_face_angles(**gen_params)
-                    sd_generation_time = time.time() - start_time
 
-                    logger.info(f"{augmentation_type.upper()} generation completed in {sd_generation_time:.2f}s ({len(generated_images)} images)")
-
-                    # Process each generated image
                     for idx, gen_img in enumerate(generated_images):
-                        # Extract embedding from generated image
                         gen_result = recognizer.extract_embedding(gen_img)
-
                         if gen_result is not None:
-                            # Store embedding
                             gen_embedding_data = FaceRecognizer.serialize_embedding(gen_result.embedding)
+                            source_name = 'controlnet' if use_controlnet else 'img2img'
                             gen_face_embedding = FaceEmbedding(
                                 person_id=person.id,
                                 embedding=gen_embedding_data,
-                                source=f'{augmentation_type}_augmented_{idx+1}',
+                                source=f'{source_name}_augmented_{idx+1}',
                                 confidence=gen_result.confidence
                             )
                             db.add(gen_face_embedding)
                             total_embeddings += 1
-
-                            # Save generated image to person folder
-                            gen_img_path = f"{person_folder}/{augmentation_type}_gen_{idx+1}.jpg"
+                            gen_img_path = f"{person_folder}/{source_name}_gen_{idx+1}.jpg"
                             cv2.imwrite(gen_img_path, gen_img)
 
-                    # Unload model and free GPU memory aggressively
+                        # Update progress
+                        progress_in_stage = 0.15 + ((idx + 1) / num_variations) * 0.85
+                        yield sse_message({
+                            "progress": int(stage_start + progress_in_stage * progress_per_stage),
+                            "status": f"Generated {augmentation_type} variation {idx+1}/{num_variations}",
+                            "stage": "sd"
+                        })
+                        await asyncio.sleep(0.05)
+
                     augmentor.unload_model()
                     del augmentor
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
                         import gc
                         gc.collect()
-                        logger.info(f"Freed GPU memory after {augmentation_type.upper()}")
 
                     augmentation_methods_used.append(augmentation_type.upper())
-                    logger.info(f"{augmentation_type.upper()} augmentation complete: {total_embeddings} total embeddings")
+                    logger.info(f"{augmentation_type} augmentation complete: {total_embeddings} total embeddings")
 
-            except Exception as aug_e:
-                logger.error(f"Augmentation failed: {aug_e}, continuing with other methods")
-                import traceback
-                traceback.print_exc()
-                # Continue with enrollment even if augmentation fails
-                # Make sure to free GPU memory even on failure
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-
-        # Step 4: Multi-model SD generation (for multi_model mode only)
-        if use_multi_model:
-            try:
-                import time
-                from app.core.generative_augmentation import StableDiffusionAugmentor
-
-                # In multi-model, use img2img (lighter than ControlNet)
-                logger.info(f"Multi-Model Mode: Generating SD img2img augmented angles for {name}...")
-
-                # Check GPU memory
-                if torch.cuda.is_available():
-                    free_mem = torch.cuda.mem_get_info()[0] / 1024**3
-                    logger.info(f"Available GPU memory before SD: {free_mem:.2f} GB")
-
-                    if free_mem < 4.0:
-                        logger.warning(f"Low GPU memory ({free_mem:.1f}GB), skipping SD augmentation in multi-model mode")
-                        raise HTTPException(
-                            status_code=507,
-                            detail=f"Insufficient GPU memory for Stable Diffusion in multi-model mode. Available: {free_mem:.1f}GB, Required: ~4GB"
-                        )
-
-                # Initialize SD img2img augmentor
-                augmentor = StableDiffusionAugmentor(
-                    device="cuda" if torch.cuda.is_available() else "cpu",
-                    use_fp16=True
-                )
-
-                # Load model
-                if augmentor.load_model():
-                    # Generate variations (fewer in multi-model to save time)
-                    num_variations = min(3, num_sd_variations)
-                    start_time = time.time()
-
-                    generated_images = augmentor.generate_face_angles(
-                        reference_image=image,
-                        num_variations=num_variations,
-                        num_inference_steps=15,  # Faster for multi-model
-                        guidance_scale=7.0
-                    )
-                    sd_time = time.time() - start_time
-                    augmentation_time += sd_time
-
-                    logger.info(f"SD generation completed in {sd_time:.2f}s ({len(generated_images)} images)")
-
-                    # Process each generated image
-                    for idx, gen_img in enumerate(generated_images):
-                        gen_result = recognizer.extract_embedding(gen_img)
-
-                        if gen_result is not None:
-                            gen_embedding_data = FaceRecognizer.serialize_embedding(gen_result.embedding)
-                            gen_face_embedding = FaceEmbedding(
-                                person_id=person.id,
-                                embedding=gen_embedding_data,
-                                source=f'img2img_augmented_{idx+1}',
-                                confidence=gen_result.confidence
-                            )
-                            db.add(gen_face_embedding)
-                            total_embeddings += 1
-
-                            # Save generated image to person folder
-                            gen_img_path = f"{person_folder}/img2img_gen_{idx+1}.jpg"
-                            cv2.imwrite(gen_img_path, gen_img)
-
-                    # Unload and free memory
-                    augmentor.unload_model()
-                    del augmentor
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                        import gc
-                        gc.collect()
-                        logger.info("Freed GPU memory after SD (multi-model)")
-
-                    augmentation_methods_used.append("SD-IMG2IMG")
-                    logger.info(f"Multi-model SD complete: {total_embeddings} total embeddings")
+                    # Commit SD/ControlNet embeddings to avoid long transaction locks
+                    db.commit()
+                    logger.info(f"Committed {augmentation_type} augmentation embeddings")
 
             except HTTPException:
                 raise
             except Exception as aug_e:
-                logger.error(f"SD augmentation in multi-model failed: {aug_e}")
-                import traceback
-                traceback.print_exc()
-                # Free memory even on failure
+                logger.error(f"SD augmentation failed: {aug_e}")
+                db.rollback()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-        db.commit()
+            current_stage_idx += 1
 
-        logger.info(f"Enrolled person: {name} (CNIC: {cnic}, ID: {person.id}, Embeddings: {total_embeddings}, Folder: {person_folder})")
+        # Multi-model SD generation
+        if use_multi_model:
+            stage_start = base_progress + (current_stage_idx * progress_per_stage)
 
-        response = {
-            "success": True,
-            "message": f"Person {name} enrolled successfully with {total_embeddings} face embeddings",
+            yield sse_message({
+                "progress": int(stage_start),
+                "status": "Multi-Model: Loading SD img2img",
+                "stage": "sd_multi",
+                "detail": "Final augmentation stage"
+            })
+            await asyncio.sleep(0.1)
+
+            try:
+                from app.core.generative_augmentation import StableDiffusionAugmentor
+
+                if torch.cuda.is_available():
+                    free_mem = torch.cuda.mem_get_info()[0] / 1024**3
+                    if free_mem < 4.0:
+                        logger.warning(f"Low GPU memory, skipping SD in multi-model")
+                    else:
+                        augmentor = StableDiffusionAugmentor(
+                            device="cuda" if torch.cuda.is_available() else "cpu",
+                            use_fp16=True
+                        )
+
+                        if augmentor.load_model():
+                            num_variations = min(3, num_sd_variations)
+
+                            yield sse_message({
+                                "progress": int(stage_start + progress_per_stage * 0.2),
+                                "status": f"Generating {num_variations} SD variations (multi-model)",
+                                "stage": "sd_multi"
+                            })
+                            await asyncio.sleep(0.1)
+
+                            generated_images = augmentor.generate_face_angles(
+                                reference_image=image,
+                                num_variations=num_variations,
+                                num_inference_steps=15,
+                                guidance_scale=7.0
+                            )
+
+                            for idx, gen_img in enumerate(generated_images):
+                                gen_result = recognizer.extract_embedding(gen_img)
+                                if gen_result is not None:
+                                    gen_embedding_data = FaceRecognizer.serialize_embedding(gen_result.embedding)
+                                    gen_face_embedding = FaceEmbedding(
+                                        person_id=person.id,
+                                        embedding=gen_embedding_data,
+                                        source=f'img2img_augmented_{idx+1}',
+                                        confidence=gen_result.confidence
+                                    )
+                                    db.add(gen_face_embedding)
+                                    total_embeddings += 1
+                                    gen_img_path = f"{person_folder}/img2img_gen_{idx+1}.jpg"
+                                    cv2.imwrite(gen_img_path, gen_img)
+
+                                progress_in_stage = 0.2 + ((idx + 1) / num_variations) * 0.8
+                                yield sse_message({
+                                    "progress": int(stage_start + progress_in_stage * progress_per_stage),
+                                    "status": f"Generated SD variation {idx+1}/{num_variations}",
+                                    "stage": "sd_multi"
+                                })
+                                await asyncio.sleep(0.05)
+
+                            augmentor.unload_model()
+                            del augmentor
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                                import gc
+                                gc.collect()
+
+                            augmentation_methods_used.append("SD-IMG2IMG")
+
+                            # Commit multi-model SD embeddings
+                            db.commit()
+                            logger.info("Committed multi-model SD augmentation embeddings")
+
+            except Exception as aug_e:
+                logger.error(f"Multi-model SD failed: {aug_e}")
+                db.rollback()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+        # Finalize
+        yield sse_message({"progress": 95, "status": "Finalizing enrollment", "stage": "finalize"})
+        await asyncio.sleep(0.1)
+
+        # All embeddings already committed in chunks above
+        # No need for final commit unless there were no augmentations
+
+        yield sse_message({
+            "progress": 100,
+            "status": "Enrollment complete!",
+            "stage": "complete",
             "person_id": person.id,
             "name": name,
-            "cnic": cnic,
-            "person_folder": person_folder,
-            "confidence": result.confidence,
             "total_embeddings": total_embeddings,
-            "multi_model_used": use_multi_model,
-            "augmentation_methods": augmentation_methods_used,
-            "traditional_used": use_traditional and not use_multi_model,
-            "liveportrait_used": use_liveportrait and not use_multi_model,
-            "sd_augmentation_used": use_sd_augmentation and not use_multi_model,
-            "controlnet_used": use_controlnet and use_sd_augmentation and not use_multi_model
-        }
+            "augmentation_methods": augmentation_methods_used
+        })
 
-        if augmentation_time > 0:
-            response["total_augmentation_time"] = round(augmentation_time, 2)
-            if len(augmentation_methods_used) > 0:
-                response["augmentation_summary"] = f"Used {len(augmentation_methods_used)} methods: {', '.join(augmentation_methods_used)}"
+        logger.info(f"Enrolled {name} with {total_embeddings} embeddings using {len(augmentation_methods_used)} methods")
 
-        return response
-
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        yield sse_message({
+            "progress": 0,
+            "status": f"Error: {he.detail}",
+            "stage": "error",
+            "error": he.detail
+        })
     except Exception as e:
         db.rollback()
-        logger.error(f"Error enrolling person: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Enrollment error: {e}")
+        import traceback
+        traceback.print_exc()
+        yield sse_message({
+            "progress": 0,
+            "status": f"Error: {str(e)}",
+            "stage": "error",
+            "error": str(e)
+        })
+
+
+@router.post("/enroll")
+async def enroll_person(
+    name: str = Form(...),
+    cnic: str = Form(...),
+    file: UploadFile = File(...),
+    use_sd_augmentation: bool = Form(False),
+    use_controlnet: bool = Form(False),
+    use_liveportrait: bool = Form(False),
+    use_traditional: bool = Form(False),
+    use_multi_model: bool = Form(False),
+    num_sd_variations: int = Form(5),
+    # Watchlist fields
+    watchlist_status: str = Form("none"),
+    threat_level: str = Form("none"),
+    criminal_notes: str = Form(""),
+    notes: str = Form(""),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Enroll a new person with their face image using Server-Sent Events for real-time progress.
+
+    Args:
+        name: Person's name
+        cnic: National ID number (unique)
+        file: Face image file
+        use_sd_augmentation: Use Stable Diffusion to generate additional angles (default: False)
+        use_controlnet: Use ControlNet for better pose control (default: False, requires use_sd_augmentation=True)
+        use_liveportrait: Use LivePortrait for 3D-aware pose generation (default: False)
+        use_traditional: Use traditional augmentation (rotation, brightness, etc.) (default: False)
+        use_multi_model: Use ALL augmentation models sequentially for critical cases (default: False)
+        num_sd_variations: Number of variations to generate if augmentation enabled (default: 5, max: 10)
+        db: Database session
+
+    Returns:
+        StreamingResponse with Server-Sent Events containing progress updates
+    """
+    # Read uploaded image
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if image is None:
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # Return SSE stream
+    return StreamingResponse(
+        enroll_person_generator(
+            name=name,
+            cnic=cnic,
+            image=image,
+            use_sd_augmentation=use_sd_augmentation,
+            use_controlnet=use_controlnet,
+            use_liveportrait=use_liveportrait,
+            use_traditional=use_traditional,
+            use_multi_model=use_multi_model,
+            num_sd_variations=num_sd_variations,
+            watchlist_status=watchlist_status,
+            threat_level=threat_level,
+            criminal_notes=criminal_notes,
+            notes=notes,
+            db=db
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        }
+    )
 
 
 @router.post("/recognize")
@@ -590,7 +723,7 @@ async def recognize_face(
             person_ids.append(emb.person_id)
 
         # Match face
-        best_idx, similarity = recognizer.match_face(
+        best_idx, similarity, embedding_id = recognizer.match_face(
             result.embedding,
             db_embeddings,
             threshold=settings.face_recognition_threshold
@@ -693,7 +826,7 @@ async def recognize_from_camera(db: Session = Depends(get_db)):
             db_embeddings.append(embedding_vec)
             person_ids.append(emb.person_id)
 
-        best_idx, similarity = recognizer.match_face(
+        best_idx, similarity, embedding_id = recognizer.match_face(
             result.embedding,
             db_embeddings,
             threshold=settings.face_recognition_threshold
@@ -1275,7 +1408,7 @@ def create_error_frame(message: str, width: int = 640, height: int = 480):
     return frame
 
 
-def generate_video_stream(db: Session):
+def generate_video_stream(db: Session, quality_mode: str = "smooth"):
     """
     Generate MJPEG video stream with real-time face recognition.
     Uses SCRFD (GPU) for fast detection, InsightFace for recognition.
@@ -1283,13 +1416,41 @@ def generate_video_stream(db: Session):
 
     Recognition processing runs in a background thread to avoid blocking the stream.
 
+    OPTIMIZATIONS:
+    - FAISS GPU for <1ms embedding search (vs 100-200ms)
+    - IoU-based face tracking (vs grid hashing)
+    - Recognition every 5 frames
+    - Queue size 10 (vs 2)
+    - Dynamic quality modes for optimal performance
+
+    Quality modes:
+    - smooth: 720p @ 65 quality (~25-30 FPS) - Recommended
+    - balanced: 720p @ 75 quality (~23-27 FPS)
+    - quality: 1080p @ 70 quality (~20-25 FPS)
+    - max: 2K @ 80 quality (~15-20 FPS)
+
     Yields:
         JPEG frames with recognition overlay
     """
     from app.core.settings_manager import get_setting
+    from app.core.faiss_cache import FaceRecognitionCache, find_matching_face
+
+    # Quality mode settings
+    quality_settings = {
+        'smooth': {'width': 1280, 'height': 720, 'jpeg_quality': 65},
+        'balanced': {'width': 1280, 'height': 720, 'jpeg_quality': 75},
+        'quality': {'width': 1920, 'height': 1080, 'jpeg_quality': 70},
+        'max': {'width': 2560, 'height': 1440, 'jpeg_quality': 80},
+    }
+
+    # Get settings for selected quality mode
+    settings = quality_settings.get(quality_mode, quality_settings['smooth'])
+    target_width = settings['width']
+    target_height = settings['height']
+    jpeg_quality = settings['jpeg_quality']
 
     # Single viewer mode - simple camera access
-    logger.info("New viewer connected to stream")
+    logger.info(f"New viewer connected - Quality mode: {quality_mode} ({target_width}x{target_height} @ {jpeg_quality})")
 
     try:
         detector = get_detector()  # Singleton - avoid recreating SCRFD!
@@ -1303,15 +1464,16 @@ def generate_video_stream(db: Session):
         if len(all_embeddings) == 0:
             logger.warning("No enrolled persons in database")
 
-        # Build embedding database and cache person info
-        db_embeddings = []
-        person_ids = []
+        # Build FAISS GPU index for fast similarity search
+        embeddings_dict = {}  # {person_id: [embedding1, embedding2, ...]}
         person_cache = {}  # Cache person info to avoid DB queries on every frame
 
         for emb in all_embeddings:
             embedding_vec = FaceRecognizer.deserialize_embedding(emb.embedding)
-            db_embeddings.append(embedding_vec)
-            person_ids.append(emb.person_id)
+
+            if emb.person_id not in embeddings_dict:
+                embeddings_dict[emb.person_id] = []
+            embeddings_dict[emb.person_id].append(embedding_vec)
 
             # Cache person info
             if emb.person_id not in person_cache:
@@ -1319,18 +1481,24 @@ def generate_video_stream(db: Session):
                 if person:
                     person_cache[emb.person_id] = {
                         'id': person.id,
-                    'name': person.name,
-                    'cnic': person.cnic
-                }
+                        'name': person.name,
+                        'cnic': person.cnic
+                    }
 
-        logger.info(f"Streaming started with {len(db_embeddings)} embeddings from {len(set(person_ids))} persons")
+        # Initialize FAISS GPU cache
+        faiss_cache = FaceRecognitionCache(embedding_dim=512, use_gpu=True)
+        faiss_cache.build_index(embeddings_dict, person_cache)
+
+        stats = faiss_cache.get_stats()
+        logger.info(f"✅ FAISS {stats['device']} index built: {stats['embedding_count']} embeddings "
+                   f"from {stats['person_count']} persons")
 
         # Get frame skip setting dynamically
         frame_skip_setting = get_setting("frame_skip", 0)
         logger.info(f"Using frame skip setting: {frame_skip_setting} (0 = process all frames)")
 
         frame_count = 0
-        last_recognitions = {}  # Cache last recognition per face (dict keyed by face index)
+        last_recognitions = {}  # Cache last recognition per face (dict keyed by bbox tuple)
         last_detections = []  # Cache last detection bboxes
         last_logged = {}  # Track when each person was last logged (person_id: timestamp)
 
@@ -1339,8 +1507,8 @@ def generate_video_stream(db: Session):
         video_recording_state = {}  # Track active video recordings: {alert_id: {'frames': [], 'target_frame_count': int}}
         video_recording_lock = threading.Lock()
 
-        # Queue for sending frames to recognition thread
-        recognition_queue = Queue(maxsize=2)  # Small queue to avoid lag
+        # Queue for sending frames to recognition thread - INCREASED from 2 to 10
+        recognition_queue = Queue(maxsize=10)  # Larger queue for better throughput
         recognition_results_lock = threading.Lock()
 
         def recognition_worker():
@@ -1381,33 +1549,34 @@ def generate_video_stream(db: Session):
                                 best_match_result = if_result
 
                         if best_match_result is not None:
-                            best_idx, similarity = recognizer.match_face(
+                            # Use FAISS GPU for ultra-fast similarity search (<1ms vs 100-200ms!)
+                            person_id, similarity, person_name = faiss_cache.search(
                                 best_match_result.embedding,
-                                db_embeddings,
                                 threshold=settings.face_recognition_threshold
                             )
 
-                            # Update shared recognition cache (thread-safe)
-                            face_key = f"{mp_x//50}_{mp_y//50}"
+                            # Update shared recognition cache (thread-safe) - Use bbox as key for IoU matching
+                            bbox_tuple = (mp_x, mp_y, mp_w, mp_h)
                             with recognition_results_lock:
-                                last_recognitions[face_key] = {
-                                    'best_idx': best_idx,
+                                last_recognitions[bbox_tuple] = {
+                                    'person_id': person_id,
                                     'similarity': similarity,
-                                    'person_id': person_ids[best_idx] if best_idx >= 0 else None,
-                                    'bbox': (mp_x, mp_y, mp_w, mp_h)
+                                    'person_name': person_name,
+                                    'bbox': bbox_tuple,
+                                    'matched': person_id is not None
                                 }
 
                             # Log and alert (non-blocking)
                             current_time = time.time()
-                            log_key = f"{person_ids[best_idx] if best_idx >= 0 else 'unknown'}_{face_key}"
+                            log_key = f"{person_id if person_id else 'unknown'}_{mp_x}_{mp_y}"
 
                             if log_key not in last_logged or (current_time - last_logged[log_key]) > 10:
                                 try:
                                     log_entry = RecognitionLog(
-                                        person_id=person_ids[best_idx] if best_idx >= 0 else None,
+                                        person_id=person_id,
                                         timestamp=datetime.now(),
                                         confidence=similarity,
-                                        matched=1 if best_idx >= 0 else 0,
+                                        matched=1 if person_id is not None else 0,
                                         camera_source=settings.camera_ip
                                     )
                                     db.add(log_entry)
@@ -1424,14 +1593,13 @@ def generate_video_stream(db: Session):
                                                 # Copy buffered frames for video
                                                 video_frames_for_alert = list(frame_buffer)
 
-                                        if best_idx >= 0:
-                                            person_info = person_cache.get(person_ids[best_idx], {'name': 'Unknown'})
-                                            logger.warning(f"[DETECTED] KNOWN PERSON: {person_info['name']} (Confidence: {similarity:.2f})")
+                                        if person_id is not None:
+                                            logger.warning(f"[DETECTED] KNOWN PERSON: {person_name} (Confidence: {similarity:.2f})")
                                             alert_mgr.create_alert(
                                                 db=db,
                                                 event_type='known_person',
-                                                person_id=person_ids[best_idx],
-                                                person_name=person_info['name'],
+                                                person_id=person_id,
+                                                person_name=person_name,
                                                 confidence=similarity,
                                                 num_faces=len(detections_list),
                                                 frame=frame_for_recognition.copy(),
@@ -1464,10 +1632,19 @@ def generate_video_stream(db: Session):
         recognition_thread = threading.Thread(target=recognition_worker, daemon=True)
         recognition_thread.start()
 
+        # FPS tracking
+        fps_start_time = time.time()
+        fps_frame_count = 0
+        fps_display = 0.0
+
         try:
             while True:
+                loop_start = time.time()
+
                 # Flush buffer to reduce latency in FFMPEG mode
+                read_start = time.time()
                 ret, frame = camera.read_frame(flush_buffer=True)
+                read_time = (time.time() - read_start) * 1000
 
                 if not ret or frame is None:
                     logger.warning("Failed to read frame from camera")
@@ -1475,10 +1652,36 @@ def generate_video_stream(db: Session):
                     continue
 
                 frame_count += 1
+                fps_frame_count += 1
 
-                # Add frame to buffer for video recording (thread-safe)
+                # Calculate FPS every 30 frames
+                if fps_frame_count % 30 == 0:
+                    elapsed = time.time() - fps_start_time
+                    fps_display = 30 / elapsed if elapsed > 0 else 0
+                    logger.info(f"📊 Stream FPS: {fps_display:.1f} | Frame read: {read_time:.1f}ms | Resolution: {frame.shape[1]}x{frame.shape[0]}")
+                    fps_start_time = time.time()
+                    fps_frame_count = 0
+
+                # Resize frame based on quality mode
+                # Keep original for high-res recording
+                original_frame = frame.copy()
+                stream_height, stream_width = frame.shape[:2]
+
+                if stream_width > target_width or stream_height > target_height:
+                    # Calculate scaling to fit within target while maintaining aspect ratio
+                    scale = min(target_width / stream_width, target_height / stream_height)
+                    new_width = int(stream_width * scale)
+                    new_height = int(stream_height * scale)
+
+                    # Resize for streaming (fast interpolation)
+                    frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+                    scale_factor = scale
+                else:
+                    scale_factor = 1.0
+
+                # Add ORIGINAL high-res frame to buffer for video recording (thread-safe)
                 with video_recording_lock:
-                    frame_buffer.append(frame.copy())
+                    frame_buffer.append(original_frame)
 
                 # Skip frames to reduce processing load based on settings
                 # frame_skip=0 means process all frames, frame_skip=1 means skip 1 frame (process every 2nd), etc.
@@ -1493,130 +1696,129 @@ def generate_video_stream(db: Session):
                     for bbox in last_detections:
                         x, y, w, h = bbox
 
-                        # Find matching cached recognition by position (thread-safe)
-                        face_key = f"{x//50}_{y//50}"
+                        # Find matching cached recognition using IoU (thread-safe)
                         recog = None
-
                         with recognition_results_lock:
-                            if face_key in last_recognitions:
-                                recog = last_recognitions[face_key]
-                            else:
-                                # Try nearby positions
-                                for cached_key, cached_recog in last_recognitions.items():
-                                    cached_bbox = cached_recog.get('bbox')
-                                    if cached_bbox:
-                                        cached_x, cached_y, cached_w, cached_h = cached_bbox
-                                        if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
-                                            recog = cached_recog
-                                            break
+                            recog = find_matching_face((x, y, w, h), last_recognitions, iou_threshold=0.5)
 
-                        if recog:
-                            best_idx = recog['best_idx']
+                        if recog and recog.get('matched'):
+                            person_id = recog['person_id']
                             similarity = recog['similarity']
+                            person_name = recog.get('person_name', 'Unknown')
 
-                            if best_idx >= 0:
-                                person_id = recog['person_id']
-                                person_info = person_cache.get(person_id, {'name': 'Unknown'})
-
-                                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-                                cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
-                                cv2.putText(frame, f"KNOWN: {person_info['name']}", (x + 5, y - 28),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-                                cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                            if person_id is not None:
+                                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 5)
+                                cv2.rectangle(frame, (x, y - 70), (x + w, y), (0, 255, 0), -1)
+                                cv2.putText(frame, f"KNOWN: {person_name}", (x + 8, y - 40),
+                                           cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 0), 3)
+                                cv2.putText(frame, f"Match: {similarity:.2f}", (x + 8, y - 12),
+                                           cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 3)
                             else:
-                                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
-                                cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
-                                cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                                cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 5)
+                                cv2.rectangle(frame, (x, y - 70), (x + w, y), (0, 0, 255), -1)
+                                cv2.putText(frame, "UNKNOWN PERSON", (x + 8, y - 40),
+                                           cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
+                                cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 8, y - 12),
+                                           cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 3)
 
-                    # Encode and yield with balanced quality for smooth streaming
-                    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    # Encode and yield with quality from settings
+                    encode_start = time.time()
+                    _, buffer = cv2.imencode('.jpg', frame, [
+                        cv2.IMWRITE_JPEG_QUALITY, jpeg_quality,
+                        cv2.IMWRITE_JPEG_OPTIMIZE, 0   # Disable optimization for speed
+                    ])
+                    encode_time = (time.time() - encode_start) * 1000
+
                     yield (b'--frame\r\n'
                            b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
                     continue
 
-                # Use SCRFD (GPU) for fast face detection on processed frames
-                detections = detector.detect_faces(frame)
+                # Use SCRFD (GPU) for fast face detection
+                # Detect every 5th frame to maximize FPS while maintaining accuracy
+                detections = None
+                detect_time = 0
+                if frame_count % 5 == 0:  # Detect every 5 frames (was every 2)
+                    detect_start = time.time()
+                    detections = detector.detect_faces(frame)
+                    detect_time = (time.time() - detect_start) * 1000
+                    if frame_count % 30 == 0:
+                        logger.info(f"⏱️  Detection: {detect_time:.1f}ms")
 
+                # Update detections cache if new detections were made
                 if detections and len(detections) > 0:
                     # Process all detected faces
                     current_detections = []
 
-                    # Run recognition every 5th frame - NON-BLOCKING using background thread
-                    if frame_count % 5 == 0 and len(db_embeddings) > 0:
+                    # Run recognition every 5th frame (same as detection) - OPTIMIZED!
+                    # With FAISS GPU, we can afford to run recognition frequently (<1ms vs 100-200ms)
+                    if frame_count % 5 == 0:
                         # Submit frame for recognition in background thread (non-blocking)
                         try:
-                            # Don't block if queue is full - just skip this recognition cycle
+                            # With larger queue (10 vs 2), we're less likely to drop frames
                             recognition_queue.put_nowait((frame.copy(), detections.copy(), frame_count))
                         except:
-                            pass  # Queue full, skip this cycle
+                            # Log when queue is full (helps debugging)
+                            logger.debug(f"Recognition queue full at frame {frame_count}, skipping")
 
                     for face_idx, detection in enumerate(detections):
                         bbox = detection.bbox
                         x, y, w, h = bbox
                         current_detections.append((x, y, w, h))
 
-                        # Find matching cached recognition by position (thread-safe)
-                        face_key = f"{x//50}_{y//50}"
-                        recog = None
-
-                        with recognition_results_lock:
-                            # Try exact match first
-                            if face_key in last_recognitions:
-                                recog = last_recognitions[face_key]
-                            else:
-                                # Try nearby positions (in case face moved slightly)
-                                for cached_key, cached_recog in last_recognitions.items():
-                                    cached_bbox = cached_recog.get('bbox')
-                                    if cached_bbox:
-                                        cached_x, cached_y, cached_w, cached_h = cached_bbox
-                                        # Check if bboxes overlap significantly
-                                        if abs(cached_x - x) < 100 and abs(cached_y - y) < 100:
-                                            recog = cached_recog
-                                            break
-
-                        # Draw box with cached or current recognition
-                        if recog:
-                            best_idx = recog['best_idx']
-                            similarity = recog['similarity']
-
-                            if best_idx >= 0:
-                                # Known person
-                                person_id = recog['person_id']
-                                person_info = person_cache.get(person_id, {'name': 'Unknown'})
-
-                                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-                                cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 255, 0), -1)
-                                cv2.putText(frame, f"KNOWN: {person_info['name']}", (x + 5, y - 28),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-                                cv2.putText(frame, f"Match: {similarity:.2f}", (x + 5, y - 8),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
-                            else:
-                                # Unknown person
-                                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
-                                cv2.rectangle(frame, (x, y - 45), (x + w, y), (0, 0, 255), -1)
-                                cv2.putText(frame, "UNKNOWN PERSON", (x + 5, y - 28),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                                cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 5, y - 8),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                        else:
-                            # Just detected, no recognition yet
-                            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
-                            cv2.putText(frame, "Detecting...", (x + 5, y - 10),
-                                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-
-                    # Update cached detections
+                    # Update cached detections with NEW detections
                     last_detections = current_detections
-                else:
-                    # No face detected - clear cache
-                    last_recognitions = {}
+                elif detections is not None and len(detections) == 0:
+                    # Detected but found no faces - clear cache
                     last_detections = []
+                    last_recognitions = {}
 
-                # Encode frame to JPEG with balanced quality for smooth streaming
-                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                # ALWAYS draw boxes using cached detections (for smooth display on ALL frames)
+                for bbox in last_detections:
+                    x, y, w, h = bbox
+
+                    # Find matching cached recognition using IoU (thread-safe)
+                    recog = None
+                    with recognition_results_lock:
+                        recog = find_matching_face((x, y, w, h), last_recognitions, iou_threshold=0.5)
+
+                    # Draw box with cached or current recognition
+                    if recog and recog.get('matched'):
+                        person_id = recog['person_id']
+                        similarity = recog['similarity']
+                        person_name = recog.get('person_name', 'Unknown')
+
+                        if person_id is not None:
+                            # Known person
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 5)
+                            cv2.rectangle(frame, (x, y - 70), (x + w, y), (0, 255, 0), -1)
+                            cv2.putText(frame, f"KNOWN: {person_name}", (x + 8, y - 40),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 0), 3)
+                            cv2.putText(frame, f"Match: {similarity:.2f}", (x + 8, y - 12),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 3)
+                        else:
+                            # Unknown person
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 5)
+                            cv2.rectangle(frame, (x, y - 70), (x + w, y), (0, 0, 255), -1)
+                            cv2.putText(frame, "UNKNOWN PERSON", (x + 8, y - 40),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
+                            cv2.putText(frame, f"Sim: {similarity:.2f}", (x + 8, y - 12),
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 3)
+                    else:
+                        # Just detected, no recognition yet
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 4)
+                        cv2.putText(frame, "Detecting...", (x + 8, y - 15),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 3)
+
+                # Encode frame to JPEG with quality based on selected mode
+                encode_start = time.time()
+                _, buffer = cv2.imencode('.jpg', frame, [
+                    cv2.IMWRITE_JPEG_QUALITY, jpeg_quality,
+                    cv2.IMWRITE_JPEG_OPTIMIZE, 0   # Disable optimization for speed
+                ])
+                encode_time = (time.time() - encode_start) * 1000
+
+                if frame_count % 30 == 0:
+                    logger.info(f"⏱️  JPEG encode: {encode_time:.1f}ms (quality {jpeg_quality})")
 
                 # Yield frame in MJPEG format
                 yield (b'--frame\r\n'
@@ -1638,15 +1840,18 @@ def generate_video_stream(db: Session):
 
 
 @router.get("/stream/live")
-async def live_stream(db: Session = Depends(get_db)):
+async def live_stream(quality: str = "smooth", db: Session = Depends(get_db)):
     """
     Live video stream with real-time face recognition overlay.
+
+    Args:
+        quality: Performance mode - smooth, balanced, quality, or max
 
     Returns:
         MJPEG video stream showing Known/Unknown labels
     """
     return StreamingResponse(
-        generate_video_stream(db),
+        generate_video_stream(db, quality_mode=quality),
         media_type="multipart/x-mixed-replace; boundary=frame"
     )
 

@@ -313,12 +313,23 @@
                 <div class="section-title">⚙️ Stream Settings</div>
 
                 <div class="control-item">
-                    <label>📹 Stream Quality</label>
+                    <label>📹 Stream Source</label>
                     <select id="streamSelect">
                         <option value="main">Main Stream (High Quality)</option>
                         <option value="sub">Sub Stream (Lower Quality)</option>
                     </select>
                     <div id="streamNotice" class="notice"></div>
+                </div>
+
+                <div class="control-item">
+                    <label>🎬 Performance Mode</label>
+                    <select id="qualityMode">
+                        <option value="smooth">Smooth (720p @ 65 quality) - Recommended</option>
+                        <option value="balanced">Balanced (720p @ 75 quality)</option>
+                        <option value="quality">High Quality (1080p @ 70 quality)</option>
+                        <option value="max">Maximum (2K @ 80 quality)</option>
+                    </select>
+                    <div id="qualityNotice" class="notice info">Best for smooth streaming</div>
                 </div>
 
                 <div class="control-item">
@@ -400,8 +411,12 @@
         const loadingText = document.getElementById('loadingText');
 
         // Start stream
+        // Quality mode (stored in localStorage)
+        let qualityMode = localStorage.getItem('qualityMode') || 'smooth';
+
         function startStream() {
-            const streamUrl = '/api/stream/live';
+            // Build stream URL with quality parameter
+            const streamUrl = `/api/stream/live?quality=${qualityMode}`;
 
             streamImg.onerror = function() {
                 loadingText.textContent = 'Stream error. Click reload to retry.';
@@ -421,7 +436,7 @@
             streamImg.style.display = 'none';
             loadingText.style.display = 'block';
             loadingText.textContent = 'Loading stream';
-            const streamUrl = '/api/stream/live?t=' + new Date().getTime();
+            const streamUrl = `/api/stream/live?quality=${qualityMode}&t=` + new Date().getTime();
             streamImg.src = streamUrl;
 
             // Show stream immediately (MJPEG doesn't trigger onload)
@@ -446,10 +461,29 @@
                     document.getElementById('frameSkip').value = currentFrameSkip;
                     document.getElementById('frameSkipValue').textContent = currentFrameSkip;
                     document.getElementById('streamSelect').value = currentStreamType;
+                    document.getElementById('qualityMode').value = qualityMode;
                     updateFrameSkipLabel(currentFrameSkip);
+                    updateQualityLabel(qualityMode);
                 }
             } catch (error) {
                 console.error('Failed to load settings:', error);
+            }
+        }
+
+        function updateQualityLabel(mode) {
+            const notice = document.getElementById('qualityNotice');
+            if (mode === 'smooth') {
+                notice.textContent = '✅ Best for smooth streaming (~25-30 FPS)';
+                notice.className = 'notice success';
+            } else if (mode === 'balanced') {
+                notice.textContent = '⚖️ Good quality with smooth playback (~23-27 FPS)';
+                notice.className = 'notice info';
+            } else if (mode === 'quality') {
+                notice.textContent = '🎬 High quality, may reduce smoothness (~20-25 FPS)';
+                notice.className = 'notice warning';
+            } else if (mode === 'max') {
+                notice.textContent = '⚠️ Maximum quality, may have stuttering (~15-20 FPS)';
+                notice.className = 'notice warning';
             }
         }
 
@@ -513,6 +547,24 @@
 
         document.getElementById('streamSelect').addEventListener('change', async function() {
             await updateStreamSetting(this.value);
+        });
+
+        // Quality mode change handler
+        document.getElementById('qualityMode').addEventListener('change', function() {
+            qualityMode = this.value;
+            localStorage.setItem('qualityMode', qualityMode);
+            updateQualityLabel(qualityMode);
+
+            // Reload stream with new quality
+            const notice = document.getElementById('qualityNotice');
+            const originalText = notice.textContent;
+            notice.textContent = '⏳ Applying new quality mode...';
+            notice.className = 'notice warning';
+
+            setTimeout(() => {
+                reloadStream();
+                updateQualityLabel(qualityMode);
+            }, 800);
         });
 
         async function updateStreamSetting(streamType) {
@@ -582,10 +634,12 @@
             isZooming = true;
             const speed = parseInt(document.getElementById('zoomSpeed').value);
             showZoomStatus('⏫ Zooming IN...', '#10b981');
+            // Initial call awaited for immediate feedback
             await ptzApiCall(`/api/ptz/zoom/in?speed=${speed}`, 'POST');
-            zoomInterval = setInterval(async () => {
-                await ptzApiCall(`/api/ptz/zoom/in?speed=${speed}`, 'POST');
-            }, 200);
+            // Continuous calls without await (fire and forget for responsiveness)
+            zoomInterval = setInterval(() => {
+                ptzApiCall(`/api/ptz/zoom/in?speed=${speed}`, 'POST').catch(e => console.warn('Zoom in call failed:', e));
+            }, 300);  // Increased from 200ms to 300ms
         }
 
         async function zoomOut() {
@@ -593,10 +647,12 @@
             isZooming = true;
             const speed = parseInt(document.getElementById('zoomSpeed').value);
             showZoomStatus('⏬ Zooming OUT...', '#f59e0b');
+            // Initial call awaited for immediate feedback
             await ptzApiCall(`/api/ptz/zoom/out?speed=${speed}`, 'POST');
-            zoomInterval = setInterval(async () => {
-                await ptzApiCall(`/api/ptz/zoom/out?speed=${speed}`, 'POST');
-            }, 200);
+            // Continuous calls without await (fire and forget for responsiveness)
+            zoomInterval = setInterval(() => {
+                ptzApiCall(`/api/ptz/zoom/out?speed=${speed}`, 'POST').catch(e => console.warn('Zoom out call failed:', e));
+            }, 300);  // Increased from 200ms to 300ms
         }
 
         async function stopZoom() {

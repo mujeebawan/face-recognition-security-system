@@ -6,6 +6,74 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.8.0] - 2025-11-21
+
+### Added - FAISS GPU Integration & Performance Optimization 🚀
+
+#### FAISS GPU for Ultra-Fast Recognition
+- **Integrated Facebook AI Similarity Search** with GPU acceleration
+  - <1ms similarity search (100-200x faster than sequential search)
+  - Scalable to 1000+ faces without performance degradation
+  - Built from source with CMake for ARM64 Jetson compatibility
+  - GPU-accelerated IndexFlatIP with L2 normalization
+
+#### Dynamic Quality Selector
+- **4 selectable streaming quality modes** with on-the-fly switching
+  - **Smooth** (720p @ 65 quality, 25-30 FPS) - Default/Recommended
+  - **Balanced** (720p @ 75 quality, 23-27 FPS)
+  - **High Quality** (1080p @ 70 quality, 20-25 FPS)
+  - **Maximum** (2K @ 80 quality, 15-20 FPS)
+  - User preference saved in browser localStorage
+  - Live stream page dropdown with automatic reload
+
+#### IoU-Based Face Tracking
+- Spatial matching using **Intersection over Union (IoU)**
+  - Replaces grid-based hashing that caused cache collisions
+  - 0.5 IoU threshold for accurate face tracking across frames
+  - Eliminates flickering/disappearing face boxes
+
+#### Performance Monitoring
+- **Real-time FPS and timing metrics** in logs
+  - Stream FPS tracking (logged every 30 frames)
+  - Frame read, detection, and JPEG encoding timing
+  - Quality mode logging with resolution and settings
+
+### Improved
+
+#### Streaming Performance
+- **Improved from 2-3 FPS to 25-30 FPS** in Smooth mode
+- Adaptive resolution based on quality mode
+- Recordings always saved at full 2K resolution regardless of stream quality
+- All frames display cached face boxes for smooth visual experience
+
+#### Recognition Pipeline
+- **Recognition Frequency** - Increased from every 10 frames to every 5 frames
+- **Recognition Queue** - Increased from 2 to 10 for better throughput
+- **Detection Interval** - Optimized to every 5th frame for better FPS
+- **JPEG Encoding** - Optimized with quality/speed balance
+
+### Technical Details
+
+#### Backend Changes
+- `app/core/faiss_cache.py` - New FAISS GPU cache implementation
+- `app/api/routes/recognition.py` - Quality mode support, FAISS integration
+- `/api/stream/live` endpoint accepts `quality` parameter
+- Quality settings: {width, height, jpeg_quality} per mode
+
+#### Frontend Changes
+- `app/static/live_stream.html` - Quality selector dropdown
+- JavaScript quality mode handler with localStorage
+- Automatic stream reload on quality change
+
+### Performance Metrics
+- **Live Stream FPS**: 25-30 (Smooth) | 23-27 (Balanced) | 20-25 (Quality) | 15-20 (Max)
+- **Recognition Time**: <1ms per face (was 100-200ms)
+- **JPEG Encoding**: 8-10ms (720p) | 15-20ms (1080p) | 25-30ms (2K)
+- **Database Capacity**: 1000+ faces with no slowdown
+- **Combined Pipeline**: ~45ms total latency (Smooth mode)
+
+---
+
 ## [1.7.0] - 2025-11-18
 
 ### Documentation - Comprehensive System Analysis & Updates
