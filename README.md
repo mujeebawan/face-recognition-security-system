@@ -262,4 +262,4 @@ Unauthorized use, reproduction, or distribution prohibited.
 
 ---
 
-**Built on NVIDIA Jetson AGX Orin**
+**Built on NVIDIA Jetson AGX Orin 64GB**
